@@ -10,7 +10,7 @@
 
 import re
 from rman_utils.node_desc_param import osl_metadatum
-from rman_utils.node_desc import NodeDesc
+from rman_utils.node_desc import NodeDesc, DescNodeType
 
 from .conditional_visibility import build_condvis_expr
 from .rfb_node_desc_param import (
@@ -99,6 +99,12 @@ class RfbNodeDesc(NodeDesc):
             if not self.classification:
                 self.classification = 'rendernode/RenderMan/pattern/'
             self.help = osl_metadatum(meta, 'help')
+            # Since XPU display filters are OSL shaders, check to see if there's a 
+            # classification metadata set that can be used to change the node_type
+            if DescNodeType.kDisplayFilter in str(self.classification):
+                self.node_type = DescNodeType.kDisplayFilter
+            elif DescNodeType.kSampleFilter in str(self.classification):
+                self.node_type = DescNodeType.kSampleFilter            
 
     def _backward_compatibility(self):
         # in RIS, displacement should translate to displace

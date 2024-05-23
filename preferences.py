@@ -719,14 +719,14 @@ class RendermanPreferences(AddonPreferences):
             if len(self.rman_xpu_gpu_devices) < 1:
                 layout.label(text="No compatible GPU devices found.", icon='INFO')
             else:
-                '''
                 ## TODO: For when XPU can support multiple gpu devices...
                 for device in self.rman_xpu_gpu_devices:
                     layout.prop(device, 'use', text='%s (%d.%d)' % (device.name, device.version_major, device.version_minor))
+                
                 '''
-
                 # Else, we only can select one GPU
                 layout.prop(self, 'rman_xpu_gpu_selection')
+                '''
 
                 
 
