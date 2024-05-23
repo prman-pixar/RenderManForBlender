@@ -190,24 +190,22 @@ class RendermanPreferences(AddonPreferences):
             for i in range(count):
                 desc = rman.pxrcore.GpgpuDescriptor()
                 rman.pxrcore.GetGpgpuDescriptor(rman.pxrcore.k_cuda, i, desc)
-                gpu_device_names.append(desc.name)
+                device_name = '(%d) %s' % (i, desc.name)
+                gpu_device_names.append(device_name)
 
                 found = False
                 for device in self.rman_xpu_gpu_devices:
-                    if device.name == desc.name:
+                    if device.name == device_name and device.version_major == desc.major and device.version_minor:
                         found = True
                         break
 
                 if not found:
                     device = self.rman_xpu_gpu_devices.add()
-                    device.name = desc.name
+                    device.name = device_name
                     device.version_major = desc.major
                     device.version_minor = desc.minor
                     device.id = i
-                    if len(self.rman_xpu_gpu_devices) == 1:
-                        # always use the first one, if this is our first time adding
-                        # gpus
-                        device.use = True
+                    device.use = True
 
             # now, try and remove devices that no longer exist
             name_list = [device.name for device in self.rman_xpu_gpu_devices]
@@ -239,7 +237,7 @@ class RendermanPreferences(AddonPreferences):
         items = []
         items.append(('-1', 'None', ''))
         for device in self.rman_xpu_gpu_devices:
-            items.append(('%d' % device.id, '%s (%d.%d)' % (device.name, device.version_major, device.version_minor), ''))
+            items.append(('%d' % device.id, '%s' % (device.name), ''))
                   
         return items
 
