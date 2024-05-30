@@ -515,8 +515,16 @@ def get_output_param_str(rman_sg_node, node, mat_name, socket, to_socket=None, p
         
         if current_group_node is None:
             return None
+        
+        # same as above, find the index of the socket
+        # then use that index to get the incoming socket
+        # on the group node
+        idx = -1
+        for i, output in enumerate(node.outputs):
+            if output == socket:
+                idx = i        
 
-        in_sock = current_group_node.inputs[socket.name]
+        in_sock = current_group_node.inputs[idx]
         if len(in_sock.links):
             link = in_sock.links[0]
             rerouted_node = link.from_node

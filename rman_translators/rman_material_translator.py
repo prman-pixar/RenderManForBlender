@@ -125,7 +125,7 @@ class RmanMaterialTranslator(RmanTranslator):
                     solo_nodetree = out.solo_nodetree
                     solo_node = solo_nodetree.nodes.get(out.solo_node_name, None)
                     if solo_node:
-                        success = self.export_solo_shader(material, out, solo_node, rman_sg_material, handle)
+                        success = self.export_solo_shader(material, solo_nodetree, out, solo_node, rman_sg_material, handle)
                         if success:
                             return True
 
@@ -217,41 +217,21 @@ class RmanMaterialTranslator(RmanTranslator):
 
         return False
 
-    def export_solo_shader(self, mat, out, solo_node, rman_sg_material, mat_handle=''):
+    def export_solo_shader(self, mat, nt, out, solo_node, rman_sg_material, mat_handle=''):
         bxdfList = []
-        rman_sg_material.nodes_to_blnodeinfo.clear()  
-        is_solo_connected = False            
-        
-        # export all the nodes in the graph, except for the terminals
-        # this seems silly to do, but this should take care of weird edge cases where
-        # we have node groups within node groups, and we can't easily get the correct
-        # links from the solo node
+        rman_sg_material.nodes_to_blnodeinfo.clear()         
 
-        nodes_list = list()
-        seen_nodes = list()
-        shadergraph_utils.gather_all_nodes_for_material(mat, nodes_list)
+        nodes_list = shadergraph_utils.gather_nodes(solo_node, for_solo_node=True)
         rman_sg_material.nodes_to_blnodeinfo.clear()
-        rman_solo_sg_node = None
-        for sub_node in nodes_list:
-            if sub_node.bl_idname != 'ShaderNodeGroup':
-                rman_type = getattr(sub_node, 'renderman_node_type', None)
-                if not rman_type:
-                    continue
-                if rman_type in ['bxdf', 'displace', 'light']:
-                    continue
-                if out == sub_node:
-                    continue
-            if sub_node in seen_nodes:
-                continue
 
-            seen_nodes.append(sub_node)
-            
+        rman_solo_sg_node = None        
+        for sub_node in nodes_list:
             shader_sg_nodes = self.shader_node_sg(mat, sub_node, rman_sg_material, mat_name=mat_handle)
-            for s in shader_sg_nodes:
+            for s in shader_sg_nodes:                
                 if sub_node == solo_node:
                     rman_solo_sg_node = s
                 else:
-                    bxdfList.append(s)             
+                    bxdfList.append(s)                     
 
             for node, bl_node_info in rman_sg_material.nodes_to_blnodeinfo.items():
                 property_utils.property_group_to_rixparams(node, rman_sg_material, bl_node_info.sg_node, ob=mat, group_node=bl_node_info.group_node)
@@ -483,10 +463,10 @@ class RmanMaterialTranslator(RmanTranslator):
         elif not hasattr(node, 'renderman_node_type'):
             return self.translate_cycles_node(mat, rman_sg_material, node, mat_name, group_node=group_node)
 
-        instance = string_utils.sanitize_node_name(mat_name + '_' + node.name)
+        instance = shadergraph_utils.get_node_name(node, mat_name)
         if group_node:
             group_node_name = string_utils.get_unique_group_name(group_node)
-            instance = string_utils.sanitize_node_name(mat_name + '_' + group_node_name + '_' + node.name)
+            instance = shadergraph_utils.get_node_name(node, mat_name + '_' + group_node_name)
 
         if not hasattr(node, 'renderman_node_type'):
             return list()
