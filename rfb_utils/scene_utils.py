@@ -248,15 +248,16 @@ def set_render_variant_config(bl_scene, config, render_config):
 
         # For now, there is only one CPU
         xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-        device = xpu_cpu_devices[0]
+        if len(xpu_cpu_devices) > 0:
+            device = xpu_cpu_devices[0]
+            render_config.SetInteger('xpu:cpuconfig', int(device.use))
 
-        render_config.SetInteger('xpu:cpuconfig', int(device.use))
-
-        if not gpus and not device.use:
-            # Nothing was selected, we should at least use the cpu.
-            print("No devices were selected for XPU. Defaulting to CPU.")
-            render_config.SetInteger('xpu:cpuconfig', 1)
-
+            if not gpus and not device.use:
+                # Nothing was selected, we should at least use the cpu.
+                print("No devices were selected for XPU. Defaulting to CPU.")
+                render_config.SetInteger('xpu:cpuconfig', 1)
+        else:                
+            render_config.SetInteger('xpu:cpuconfig', 1) 
         '''
         ## OLD: single GPU device support code path
         xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
@@ -294,11 +295,13 @@ def set_render_variant_spool(bl_scene, args, is_tractor=False):
                     device_list.append('gpu%d' % device.id)
 
             xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-            device = xpu_cpu_devices[0]
-
-            if device.use or not device_list:
+            if len(xpu_cpu_devices) > 0:
+                device = xpu_cpu_devices[0]
+                if device.use or not device_list:
+                    device_list.append('cpu')
+            else:
                 device_list.append('cpu')
-            
+                            
             '''
             ## OLD: single GPU device support code path 
             xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
