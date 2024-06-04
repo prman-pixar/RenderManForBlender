@@ -20,6 +20,7 @@ from ..rfb_logger import rfb_log
 from ..rman_bl_nodes import __BL_NODES_MAP__, __RMAN_NODE_TYPES__
 from ..rman_constants import RMAN_STYLIZED_FILTERS, RFB_FLOAT3, CYCLES_NODE_MAP, RMAN_SUPPORTED_VERSION_STRING
 from ..rman_constants import RFB_ASSET_VERSION_KEY, RFB_ASSET_VERSION, BLENDER_VERSION_MAJOR, BLENDER_VERSION_MINOR
+from ..rman_constants import RMAN_INTERP_MAP, BLENDER_INTERP_MAP
 from ..rfb_utils.shadergraph_utils import RmanConvertNode
 
 import rman_utils.rman_assets.lib as ral
@@ -485,8 +486,7 @@ def set_asset_params(ob, node, nodeName, Asset):
                     pdict = {'type': 'color[%d]' % array_size, 'value': colors}
                     Asset.addParam(nodeName, node_type, "%s_Colors" % prop_name, pdict)
 
-                    rman_interp_map = { 'LINEAR': 'linear', 'CONSTANT': 'constant'}
-                    interp = rman_interp_map.get(color_ramp_node.color_ramp.interpolation,'catmull-rom')   
+                    interp = BLENDER_INTERP_MAP.get(color_ramp_node.color_ramp.interpolation,'catmull-rom')   
                     pdict = {'type': 'string', 'value': interp}
                     Asset.addParam(nodeName, node_type, "%s_Interpolation" % prop_name, pdict)                            
                 continue               
@@ -887,8 +887,7 @@ def setParams(Asset, node, paramsList):
             colors_vals = colors_param.value() 
             rman_interp = interpolation_param.value()
 
-            rman_interp_map = { 'bspline':'B_SPLINE' , 'linear': 'LINEAR', 'constant': 'CONSTANT'}
-            interp = rman_interp_map.get(rman_interp, 'LINEAR')    
+            interp = RMAN_INTERP_MAP.get(rman_interp, 'LINEAR')    
             n.color_ramp.interpolation = interp     
 
             # remove all of the points except for the first two

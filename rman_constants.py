@@ -110,6 +110,12 @@ __RESERVED_BLENDER_NAMES__ = {
     'name': 'rman_name'
 }
 
+# Map ramp interpolation types between RenderMan and Blender
+# Blender doesn't have an equvialent to catmull-rom, so use cardinal
+# as catmull-rom
+RMAN_INTERP_MAP = { 'bspline':'B_SPLINE' , 'linear': 'LINEAR', 'constant': 'CONSTANT', 'catmull-rom': 'CARDINAL'}
+BLENDER_INTERP_MAP = { 'B_SPLINE': 'bspline', 'LINEAR': 'linear', 'CONSTANT': 'constant', 'CARDINAL': 'catmull-rom'}
+
 CYCLES_NODE_MAP = {
     'ShaderNodeAttribute': 'node_attribute',
     'ShaderNodeBlackbody': 'node_blackbody',

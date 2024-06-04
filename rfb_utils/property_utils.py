@@ -2,7 +2,7 @@ from . import string_utils
 from . import prefs_utils
 from . import osl_utils
 from . import filepath_utils
-from ..rman_constants import __RMAN_EMPTY_STRING__, __RESERVED_BLENDER_NAMES__, RFB_FLOAT3
+from ..rman_constants import __RMAN_EMPTY_STRING__, __RESERVED_BLENDER_NAMES__, RFB_FLOAT3, BLENDER_INTERP_MAP
 from ..rfb_logger import rfb_log
 from bpy.props import *
 import bpy
@@ -766,8 +766,7 @@ def set_ramp_rixparams(node, prop_name, prop, param_type, params):
             params.SetFloatArray("%s_Knots" % prop_name, positions, len(positions))
             params.SetColorArray("%s_Colors" % prop_name, colors, len(positions))
 
-            rman_interp_map = { 'B_SPLINE': 'bspline', 'LINEAR': 'linear', 'CONSTANT': 'constant'}
-            interp = rman_interp_map.get(color_ramp_node.color_ramp.interpolation,'catmull-rom')
+            interp = BLENDER_INTERP_MAP.get(color_ramp_node.color_ramp.interpolation,'catmull-rom')
             params.SetString("%s_Interpolation" % prop_name, interp )  
         else:         
             # this might be from a linked file
