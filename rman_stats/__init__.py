@@ -17,6 +17,7 @@ __oneK2__ = 1024.0*1024.0
 __RFB_STATS_MANAGER__ = None
 
 __LIVE_METRICS__ = [
+    ["/system.processTime", "CPU%"],
     ["/system.processMemory", "Memory"],
     ["/rman/renderer@isRendering", None],
     ["/rman/renderer@progress", None],
@@ -47,12 +48,14 @@ __TIMER_STATS__ = [
 ]
 
 __BASIC_STATS__ = [
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays"
 ]
 
 __MODERATE_STATS__ = [
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays",
@@ -63,6 +66,7 @@ __MODERATE_STATS__ = [
 ]
 
 __MOST_STATS__ = [
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays",
@@ -77,6 +81,7 @@ __MOST_STATS__ = [
 ]
 
 __ALL_STATS__ = [
+    "CPU%",
     "Memory",
     "First Ray",
     "First Iteration",
@@ -213,6 +218,7 @@ class RfBStatsManager(object):
         config_dict["logLevel"] = int(prefs_utils.get_pref('rman_roz_logLevel', default='3'))
         config_dict["webSocketPort"] = self.web_socket_port
         config_dict["liveStatsEnabled"] = self.web_socket_enabled
+        config_dict["processQueryInterval"] = 100   # 10Hz updates
 
         config_str = json.dumps(config_dict)
         self.rman_stats_session_config.Update(config_str)
@@ -275,7 +281,7 @@ class RfBStatsManager(object):
             for name,label in __LIVE_METRICS__:
                 # Declare interest
                 if name:
-                    self.mgr.enableMetric(name) 
+                    self.mgr.enableMetric(name, 100) 
 
     def kill_boostap_thread(self):
         # if the bootstrap thread is still running, kill it
@@ -338,7 +344,7 @@ class RfBStatsManager(object):
         except KeyError:
             # could not find the metric name in the JSON
             # try re-registering it again
-            self.mgr.enableMetric(name)
+            self.mgr.enableMetric(name, 100)
             return None
 
     def update_payloads(self):
@@ -366,7 +372,16 @@ class RfBStatsManager(object):
                 if not dat:
                     continue
 
-                if name == "/system.processMemory":
+                if name == "/system.processTime":
+                    # Payload has 4 floats: user, sys, current%, avg%
+                    timePayload = dat["payload"]
+                    currentPerc = (float)(timePayload[2])
+                    avgPerc = (float)(timePayload[3])
+
+                    # Set consistent fixed point output in string
+                    self.render_live_stats[label] = '{:,.2f}% (Avg {:,.2f}%)'.format(currentPerc, avgPerc)
+
+                elif name == "/system.processMemory":
                     # Payload has 3 floats: max, resident, XXX
                     # Convert resident mem to MB : payload[1] / 1024*1024;
                     memPayload = dat["payload"]
