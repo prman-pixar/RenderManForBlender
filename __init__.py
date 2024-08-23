@@ -51,7 +51,8 @@ def load_node_arrange():
 def load_addon():
     global __RMAN_ADDON_LOADED__
 
-    if envconfig():
+    rman_env = envconfig()
+    if not rman_env.load_error:
         from . import rman_config
         from . import rman_presets
         from . import rman_operators
@@ -78,8 +79,7 @@ def load_addon():
         __RMAN_ADDON_LOADED__ = True
 
     else:
-        rfb_log().error(
-            "Error loading addon.  Correct RMANTREE setting in addon preferences.")
+        rfb_log().error(rman_env.load_error_message)
 
 def register():    
     from . import preferences

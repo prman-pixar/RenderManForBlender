@@ -740,22 +740,23 @@ class RendermanPreferences(AddonPreferences):
         col = row.column()
         col.prop(self, 'rmantree_method')
 
+        rman_env = envconfig_utils.envconfig()
         if self.rmantree_method == 'MANUAL':
             col.prop(self, "path_rmantree")
-            if envconfig_utils.envconfig() is None:
+            if rman_env.load_error: # is None:
                 row = layout.row()
                 row.alert = True
-                row.label(text='Error in RMANTREE. Reload addon to reset.', icon='ERROR')
+                row.label(text=rman_env.load_error_message, icon='ERROR')
                 return
         else:
             if self.rmantree_method == 'DETECT':  
                 col.prop(self, 'rmantree_choice')
-            if envconfig_utils.envconfig() is None:
+            if rman_env.load_error: # is None:
                 row = layout.row()
                 row.alert = True
-                row.label(text='Error in RMANTREE. Reload addon to reset.', icon='ERROR')
+                row.label(text=rman_env.load_error_message, icon='ERROR')
                 return                
-            col.label(text="RMANTREE: %s" % envconfig_utils.envconfig().rmantree)    
+            col.label(text="RMANTREE: %s" % rman_env.rmantree)    
 
         # Behavior Prefs
         row = layout.row()
@@ -774,7 +775,7 @@ class RendermanPreferences(AddonPreferences):
         col.prop(self, 'rman_enhance_zoom_factor')
 
         # XPU Prefs
-        if sys.platform != ("darwin") and envconfig_utils.envconfig().has_xpu_license:
+        if sys.platform != ("darwin") and rman_env.has_xpu_license:
             row = layout.row()
             row.label(text='XPU', icon_value=rman_r_icon.icon_id)
             row = layout.row()

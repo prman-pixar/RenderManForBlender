@@ -98,7 +98,8 @@ class PRManRender(bpy.types.RenderEngine):
         This is where we check for camera moves and draw pxiels from our
         Blender display driver.
         '''
-        if self.export_failed:
+        if self.export_failed and self.rman_render.rman_license_failed:
+            self.draw_viewport_message(context, 'License failure: %s.' % self.rman_render.rman_license_failed_message)
             return
         if self.ipr_already_running:
             self.draw_viewport_message(context, 'Multiple viewport rendering not supported.')
