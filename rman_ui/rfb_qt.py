@@ -1,11 +1,13 @@
+'''
 try: 
-    from PySide2 import QtCore, QtWidgets 
+    from rman_utils.vendor.Qt import QtCore, QtWidgets 
     import functools
 except ModuleNotFoundError:
     raise    
 except ImportError:
     raise
-
+'''
+    
 import bpy
 import sys
 
@@ -205,6 +207,8 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
     _timer = None
 
     def __init__(self):
+        from rman_utils.vendor.Qt import QtWidgets
+
         self._app = (QtWidgets.QApplication.instance()
                      or QtWidgets.QApplication(sys.argv))
         
@@ -249,24 +253,33 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
 
-class RmanQtWrapper(QtWidgets.QDialog):
+def get_rman_qt_wrapper():
+    try:
+        from rman_utils.vendor.Qt import QtWidgets, QtCore
+        class RmanQtWrapper(QtWidgets.QDialog):
 
-    def __init__(self):
-        super().__init__()        
-        if sys.platform == "darwin":
-            self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        else:
-            self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)         
+            def __init__(self):
+                super().__init__()        
+                if sys.platform == "darwin":
+                    self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                else:
+                    self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)         
 
-        bg_role = self.backgroundRole()
-        plt = self.palette()
-        bg_color = plt.color(bg_role)  
-        bg_color.setRgb(__rmanPltF__['bg'][0], __rmanPltF__['bg'][1], __rmanPltF__['bg'][2])
-        plt.setColor(bg_role, bg_color)                  
-        self.setPalette(plt)               
+                bg_role = self.backgroundRole()
+                plt = self.palette()
+                bg_color = plt.color(bg_role)  
+                bg_color.setRgb(__rmanPltF__['bg'][0], __rmanPltF__['bg'][1], __rmanPltF__['bg'][2])
+                plt.setColor(bg_role, bg_color)                  
+                self.setPalette(plt)               
 
-    def closeEvent(self, event):
-        event.accept()
+            def closeEvent(self, event):
+                event.accept()
+
+        return RmanQtWrapper
+    except ModuleNotFoundError:
+        return None    
+    except ImportError:
+        return
 
 def process_qt_events(app, window):
     """Run `processEvents()` on the Qt app."""
@@ -277,6 +290,9 @@ def process_qt_events(app, window):
     return 0.01  # Run again after 0.001 seconds
         
 def run_with_timer(window, cls):
+    from rman_utils.vendor.Qt import QtWidgets
+    import functools
+
     """Run the app with the new `bpy.app.timers` in Blender 2.80."""
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     if not window:

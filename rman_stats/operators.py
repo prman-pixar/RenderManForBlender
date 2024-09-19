@@ -5,6 +5,7 @@ from .. import rman_render
 
 __STATS_WINDOW__ = None 
 
+RmanStatsWrapperImpl = None
 if not bpy.app.background:
     try:
         from ..rman_ui import rfb_qt
@@ -20,40 +21,43 @@ if not bpy.app.background:
                 super(LiveStatsQtAppTimed, self).__init__()
 
             def execute(self, context):
+                global RmanStatsWrapperImpl
                 global __STATS_WINDOW__
-                __STATS_WINDOW__ = RmanStatsWrapper()
+                __STATS_WINDOW__ = RmanStatsWrapperImpl()
                 self._window = __STATS_WINDOW__
                 return super(LiveStatsQtAppTimed, self).execute(context)
             
-        class RmanStatsWrapper(rfb_qt.RmanQtWrapper):
-
-            def __init__(self):
-                super(RmanStatsWrapper, self).__init__()
-
-                # import here because we will crash Blender
-                # when we try to import it globally
-                import rman_utils.stats_config.ui as rui  
-
-                self.resize(512, 512)
-                self.setWindowTitle('RenderMan Live Stats')
-                
-                rr = rman_render.RmanRender.get_rman_render()
-                mgr = rr.stats_mgr.mgr
-                self.ui = rui.StatsManagerUI(self, manager=mgr, show_config=False)
-                self.setLayout(self.ui.topLayout)
-                self.show() # Show window   
-
-            def show(self):            
-                super(RmanStatsWrapper, self).show()
-
-            def closeEvent(self, event):
-                event.accept()
-
         class PRMAN_OT_Open_Stats(bpy.types.Operator):
             bl_idname = "renderman.rman_open_stats"
             bl_label = "Live Stats"
 
             def execute(self, context):
+                global RmanStatsWrapperImpl
+                RmanQtWrapper = rfb_qt.get_rman_qt_wrapper()    
+                class RmanStatsWrapper(RmanQtWrapper):
+
+                    def __init__(self):
+                        super(RmanStatsWrapper, self).__init__()
+
+                        # import here because we will crash Blender
+                        # when we try to import it globally
+                        import rman_utils.stats_config.ui as rui  
+
+                        self.resize(512, 512)
+                        self.setWindowTitle('RenderMan Live Stats')
+                        
+                        rr = rman_render.RmanRender.get_rman_render()
+                        mgr = rr.stats_mgr.mgr
+                        self.ui = rui.StatsManagerUI(self, manager=mgr, show_config=False)
+                        self.setLayout(self.ui.topLayout)
+                        self.show() # Show window   
+
+                    def show(self):            
+                        super(RmanStatsWrapper, self).show()
+
+                    def closeEvent(self, event):
+                        event.accept()                            
+                RmanStatsWrapperImpl = RmanStatsWrapper
 
                 global __STATS_WINDOW__
                 if __STATS_WINDOW__ and __STATS_WINDOW__.isVisible():

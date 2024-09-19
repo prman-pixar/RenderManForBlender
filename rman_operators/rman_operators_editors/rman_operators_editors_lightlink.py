@@ -19,11 +19,11 @@ import sys
 
 
 __LIGHT_LINKING_WINDOW__ = None 
-
+'''
 if not bpy.app.background:
     try:
         from ...rman_ui import rfb_qt as rfb_qt
-        from PySide2 import QtCore, QtWidgets, QtGui 
+        from rman_utils.vendor.Qt import QtCore, QtWidgets, QtGui 
     except:
         rfb_qt = None
 
@@ -225,13 +225,12 @@ if not bpy.app.background:
                 self.get_all_object_items(self.rootNode, items)               
 
                 if light_link_item is None:
-                    '''
-                    if not object_utils.is_light_filter(light_ob):
-                        light_link_item = scene.renderman.light_links.add()
-                        light_link_item.name = light_ob.name
-                        light_link_item.light_ob = light_ob
-                    '''
-            
+                    
+                    #if not object_utils.is_light_filter(light_ob):
+                    #    light_link_item = scene.renderman.light_links.add()
+                    #    light_link_item.name = light_ob.name
+                    #    light_link_item.light_ob = light_ob
+                                
                     for item in items:
                         idx = self.treeModel.indexFromItem(item)
                         selection_range = QtCore.QItemSelectionRange(idx)
@@ -383,7 +382,7 @@ if not bpy.app.background:
                     if do_remove:            
                         member = ll.members.remove(idx)                                   
                         scene_utils.set_lightlinking_properties(ob, light_ob, '')
-
+'''
 class RENDERMAN_UL_LightLink_Light_List(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -672,7 +671,7 @@ class PRMAN_PT_Renderman_Open_Light_Linking(bpy.types.Operator):
             rm.light_links_index -= 1
 
     def invoke(self, context, event):
-        
+        '''
         if using_qt() and show_wip_qt():
             global __LIGHT_LINKING_WINDOW__
             if sys.platform == "darwin":
@@ -681,6 +680,7 @@ class PRMAN_PT_Renderman_Open_Light_Linking(bpy.types.Operator):
                 bpy.ops.wm.light_linking_qt_app_timed()     
 
             return {'FINISHED'}    
+        '''
 
         wm = context.window_manager
         width = rfb_config['editor_preferences']['lightlink_editor']['width']
@@ -694,8 +694,8 @@ classes = [
     RENDERMAN_UL_LightLink_Object_List,
 ]
 
-if not bpy.app.background and rfb_qt:
-    classes.append(LightLinkingQtAppTimed)
+#if not bpy.app.background and rfb_qt:
+#    classes.append(LightLinkingQtAppTimed)
 
 def register():
     from ...rfb_utils import register_utils

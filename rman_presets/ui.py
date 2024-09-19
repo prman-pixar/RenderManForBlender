@@ -26,10 +26,12 @@
 from ..rfb_utils.prefs_utils import get_pref, get_addon_prefs, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
+
 try:
     from ..rman_ui import rfb_qt
 except:
     rfb_qt = None
+
 
 # for panel icon
 from .. import rfb_icons
@@ -51,9 +53,8 @@ from bpy.props import StringProperty, IntProperty
 import os
 
 __PRESET_BROWSER_WINDOW__ = None 
-
+PresetBrowserWrapperImpl = None
 if rfb_qt:
-    from PySide2 import QtWidgets 
     class PresetBrowserQtAppTimed(rfb_qt.RfbBaseQtAppTimed):
         bl_idname = "wm.rpb_qt_app_timed"
         bl_label = "RenderManPreset Browser"
@@ -62,29 +63,11 @@ if rfb_qt:
             super(PresetBrowserQtAppTimed, self).__init__()
 
         def execute(self, context):
+            global PresetBrowserWrapperImpl
             global __PRESET_BROWSER_WINDOW__
-            __PRESET_BROWSER_WINDOW__ = PresetBrowserWrapper()
+            __PRESET_BROWSER_WINDOW__ = PresetBrowserWrapperImpl()
             self._window = __PRESET_BROWSER_WINDOW__
             return super(PresetBrowserQtAppTimed, self).execute(context)
-
-    class PresetBrowserWrapper(rfb_qt.RmanQtWrapper):
-
-        def __init__(self):
-            super(PresetBrowserWrapper, self).__init__()
-            # import here because we will crash Blender
-            # when we try to import it globally
-            import rman_utils.rman_assets.ui as rui    
-
-            self.resize(1024, 1024)
-            self.setWindowTitle('RenderMan Preset Browser')
-
-            self.hostPrefs = bl_pb_core.get_host_prefs()
-            self.ui = rui.Ui(self.hostPrefs, parent=self)
-            self.setLayout(self.ui.topLayout)   
-
-        def closeEvent(self, event):
-            self.hostPrefs.saveAllPrefs()
-            event.accept()
 
     class PRMAN_OT_Renderman_PB_ImportDisplayFilters_Dlg(bpy.types.Operator):
 
@@ -94,6 +77,8 @@ if rfb_qt:
         bl_options = {'INTERNAL'}
 
         def execute(self, context):
+            from rman_utils.vendor.Qt import QtWidgets 
+
             button = QtWidgets.QMessageBox.question(None, "Restore displayFilters?", "Do you want to add this preset's displayFilters to your scene ?")
             hostPrefs = rab.get_host_prefs()
             if button == QtWidgets.QMessageBox.Yes:
@@ -507,7 +492,31 @@ class PRMAN_OT_Renderman_Presets_Editor(bpy.types.Operator):
      
 
     def invoke(self, context, event):
-        if using_qt():
+        if rfb_qt:
+            RmanQtWrapper = rfb_qt.get_rman_qt_wrapper()
+        else:
+            RmanQtWrapper = None
+        if using_qt() and RmanQtWrapper:
+            global PresetBrowserWrapperImpl
+            class PresetBrowserWrapper(RmanQtWrapper):
+
+                def __init__(self):
+                    super(PresetBrowserWrapper, self).__init__()
+                    # import here because we will crash Blender
+                    # when we try to import it globally
+                    import rman_utils.rman_assets.ui as rui    
+
+                    self.resize(1024, 1024)
+                    self.setWindowTitle('RenderMan Preset Browser')
+
+                    self.hostPrefs = bl_pb_core.get_host_prefs()
+                    self.ui = rui.Ui(self.hostPrefs, parent=self)
+                    self.setLayout(self.ui.topLayout)   
+
+                def closeEvent(self, event):
+                    self.hostPrefs.saveAllPrefs()
+                    event.accept()         
+            PresetBrowserWrapperImpl = PresetBrowserWrapper   
             global __PRESET_BROWSER_WINDOW__
             if __PRESET_BROWSER_WINDOW__ and __PRESET_BROWSER_WINDOW__.isVisible():
                 return {'FINISHED'}

@@ -9,7 +9,6 @@ from ...rman_constants import RMAN_AREA_LIGHT_TYPES, USE_GPU_MODULE, BLENDER_41
 from .barn_light_filter_draw_helper import BarnLightFilterDrawHelper
 from .frustrum_draw_helper import FrustumDrawHelper
 from mathutils import Vector, Matrix, Quaternion
-from bpy.app.handlers import persistent
 import mathutils
 import math
 import ice
@@ -1742,7 +1741,6 @@ def draw():
         rfb_log().debug("Call glDeleteTextures for: %s" % k)
         del _PRMAN_TEX_CACHE_[k]
 
-@persistent 
 def clear_gl_tex_cache(bl_scene=None):
     global _PRMAN_TEX_CACHE_
     if _PRMAN_TEX_CACHE_:
