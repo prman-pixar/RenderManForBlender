@@ -8,6 +8,38 @@ from .. import rfb_icons
 import bpy
 import re
 
+def draw_viewport_message(context, msg):
+    from ..rman_constants import USE_GPU_MODULE
+
+    if USE_GPU_MODULE:
+        import blf
+    else:
+        import blf
+
+    if USE_GPU_MODULE:
+        w = context.region.width 
+        pos_x = w / 2 - 100
+        pos_y = 20           
+        font_id = 0        
+        blf.position(font_id, pos_x, pos_y, 0)
+        blf.size(font_id, 20.0)
+        blf.color(font_id, 1, 0, 0, 1)
+        blf.draw(font_id, msg)
+    else:
+        w = context.region.width     
+
+        pos_x = w / 2 - 100
+        pos_y = 20
+        blf.enable(0, blf.SHADOW)
+        blf.shadow_offset(0, 1, -1)
+        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
+        blf.size(0, 32, 36)
+        blf.position(0, pos_x, pos_y, 0)
+        blf.color(0, 1.0, 0.0, 0.0, 1.0)
+        blf.draw(0, "%s" % (msg))
+        blf.disable(0, blf.SHADOW)   
+
+
 def draw_indented_label(layout, label, level):
     for i in range(level):
         layout.label(text='', icon='BLANK1')

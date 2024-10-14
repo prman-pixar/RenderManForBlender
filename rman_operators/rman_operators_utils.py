@@ -59,7 +59,18 @@ class PRMAN_OT_Renderman_Package(Operator):
     filter_glob: StringProperty(
         default="*.zip",
         options={'HIDDEN'},
-        )           
+        )     
+    
+    include_blendfile: BoolProperty(
+        default=True,
+        name="Include Blend File"
+    )
+
+    include_disgust: BoolProperty(
+        default=False,
+        name="Include Debug Log",
+        description="Include the debug log, if present, with your package. See Debug Logging option help in the Render properties tab for more information"
+    )     
 
     @classmethod
     def poll(cls, context):
@@ -81,7 +92,11 @@ class PRMAN_OT_Renderman_Package(Operator):
                 self.report({"ERROR"}, "The selected directory is not empty")
                 return {'FINISHED'}            
 
-        z = zipfile.ZipFile(self.filepath, mode='w')
+        try:
+            z = zipfile.ZipFile(self.filepath, mode='w', compression=zipfile.ZIP_DEFLATED)
+        except RuntimeError:
+            # use default
+            z = zipfile.ZipFile(self.filepath, mode='w')
 
         bl_scene_file = bpy.data.filepath
 
@@ -94,37 +109,38 @@ class PRMAN_OT_Renderman_Package(Operator):
 
         # deal with libraries
         # bpy.ops.file.pack_libraries() # comment out for now. May need it later on.
-        for lib in bpy.data.libraries:
-            real_path = filepath_utils.get_real_path(lib.filepath)
-            if not lib.filepath.startswith('//'):
-                self.report({'ERROR'}, "We currently only support library files that are relative to the main Blend scene.")
-                z.close()
-                try:
-                    os.remove(self.filepath)
-                except:
-                    rfb_log().debug("Cannot remove: %s" % self.filepath)
-                    pass
-                return {'FINISHED'}
-            subdir = os.path.dirname(lib.filepath).replace('//', '', 1)
-            dst_path = os.path.join(self.directory, subdir)
-            shutil.copytree(os.path.dirname(real_path), dst_path)
+        if self.properties.include_blendfile:
+            for lib in bpy.data.libraries:
+                real_path = filepath_utils.get_real_path(lib.filepath)
+                if not lib.filepath.startswith('//'):
+                    self.report({'ERROR'}, "We currently only support library files that are relative to the main Blend scene.")
+                    z.close()
+                    try:
+                        os.remove(self.filepath)
+                    except:
+                        rfb_log().debug("Cannot remove: %s" % self.filepath)
+                        pass
+                    return {'FINISHED'}
+                subdir = os.path.dirname(lib.filepath).replace('//', '', 1)
+                dst_path = os.path.join(self.directory, subdir)
+                shutil.copytree(os.path.dirname(real_path), dst_path)
 
-        # get all directories and files that were copied from the libraries
-        for root, dirnames, files in os.walk(self.directory):
-            for d in dirnames:
-                dst_path = os.path.join(root, d)
-                if dst_path == self.directory:
-                    continue
-                if dst_path not in remove_dirs:
-                    remove_dirs.append(dst_path)        
-            for f in files:
-                fpath = os.path.relpath(os.path.join(root, f), self.directory)
-                diskpath = os.path.join(root, f)
-                if diskpath == self.filepath:
-                    continue                
-                if diskpath not in remove_files:
-                    z.write(diskpath, arcname=fpath)
-                    remove_files.append(diskpath)                      
+            # get all directories and files that were copied from the libraries
+            for root, dirnames, files in os.walk(self.directory):
+                for d in dirnames:
+                    dst_path = os.path.join(root, d)
+                    if dst_path == self.directory:
+                        continue
+                    if dst_path not in remove_dirs:
+                        remove_dirs.append(dst_path)        
+                for f in files:
+                    fpath = os.path.relpath(os.path.join(root, f), self.directory)
+                    diskpath = os.path.join(root, f)
+                    if diskpath == self.filepath:
+                        continue                
+                    if diskpath not in remove_files:
+                        z.write(diskpath, arcname=fpath)
+                        remove_files.append(diskpath)                      
 
         # textures
         texture_dir = os.path.join(self.directory, 'textures')
@@ -166,7 +182,6 @@ class PRMAN_OT_Renderman_Package(Operator):
                 osl_path = string_utils.expand_string(getattr(node, 'shadercode'))
                 osl_path = filepath_utils.get_real_path(osl_path)
                 FileName = os.path.basename(osl_path)
-                FileNameNoEXT = os.path.splitext(FileName)[0] 
 
                 diskpath = os.path.join(shaders_dir, FileName)
                 shutil.copyfile(osl_path, diskpath)
@@ -253,13 +268,29 @@ class PRMAN_OT_Renderman_Package(Operator):
                 setattr(rm, 'bkm_filepath', os.path.join('<blend_dir>', 'assets', bfile))
                 z.write(diskpath, arcname=os.path.join('assets', bfile))
                 remove_files.append(diskpath)                                
-                                          
+
+        # include disgust trace
+        if self.properties.include_disgust:
+            disgust_trace = string_utils.get_disgust_filename()
+            if os.path.exists(disgust_trace):
+                disgust_trace_filename = os.path.basename(disgust_trace)
+                pack_filepath = os.path.join(self.directory, disgust_trace_filename) 
+                filepath_utils.localize_disugst_trace(disgust_trace, pack_filepath, remove_dirs, remove_files, z)
+                z.write(pack_filepath, arcname=disgust_trace_filename)
+                remove_files.append(pack_filepath)                        
                             
         # Add  relative_remap=False  to avoid //..\ - agentyRANCH
-        bpy.ops.wm.save_as_mainfile(filepath=bl_filepath, copy=True, compress=False, relative_remap=False)
-        remove_files.append(bl_filepath)
+        if self.properties.include_blendfile:
+            # turn off debug logging
+            before = context.scene.renderman.rfb_disgust
+            context.scene.renderman.rfb_disgust = False
 
-        z.write(bl_filepath, arcname=bl_filename)
+            bpy.ops.wm.save_as_mainfile(filepath=bl_filepath, copy=True, compress=False, relative_remap=False)
+            remove_files.append(bl_filepath)
+
+            z.write(bl_filepath, arcname=bl_filename)
+            context.scene.renderman.rfb_disgust = before
+
         z.close()
 
         # Try to remove the temporary files and directories - agentyRANCH
@@ -283,6 +314,9 @@ class PRMAN_OT_Renderman_Package(Operator):
         bl_scene_file = bpy.data.filepath
         bl_filename = os.path.splitext(os.path.basename(bl_scene_file))[0]
         self.properties.filename = '%s.zip' % bl_filename
+        disgust_trace = string_utils.get_disgust_filename()
+        if os.path.exists(disgust_trace):        
+            self.properties.include_disgust = True
         context.window_manager.fileselect_add(self)
         return{'RUNNING_MODAL'} 
     

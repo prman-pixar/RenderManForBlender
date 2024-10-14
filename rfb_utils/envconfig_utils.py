@@ -83,6 +83,7 @@ class RmanEnvConfig(object):
         self._set_localqueue_path()
         self._set_license_app_path()
         self._set_ocio()
+        self._set_rms_script_path()
         self._get_license_info()
 
     def getenv(self, k, default=None):
@@ -92,7 +93,8 @@ class RmanEnvConfig(object):
         os.environ[k] = val
 
     def unsetenv(self, k):
-        os.environ.pop(k)
+        if k in os.environ:
+            os.environ.pop(k)
 
     def copyenv(self):
         return os.environ.copy()
@@ -122,6 +124,14 @@ class RmanEnvConfig(object):
         d = os.path.join(self.rmantree, 'lib', 'plugins', 'd_%s%s' % (dspy, ext))
         return d
 
+    def set_disgust_env(self, filepath=""):
+        if filepath != "":
+            self.setenv('RILEY_CAPTURE_FORMAT', 'python')
+            self.setenv('RILEY_CAPTURE', filepath)
+
+    def unset_disgust_env(self):
+        self.unsetenv('RILEY_CAPTURE_FORMAT')
+        self.unsetenv('RILEY_CAPTURE')
 
     def read_envvars_file(self):
         bl_config_path = bpy.utils.user_resource('CONFIG')
@@ -277,6 +287,17 @@ class RmanEnvConfig(object):
         path = self.getenv('OCIO', '')
         if path == '':
             self.setenv('OCIO', self.get_blender_ocio_config())
+
+    def _set_rms_script_path(self):
+        # we set RMS_SCRIPT_PATHS so that we can load our custom envkeys
+
+        rms_path = os.path.join(rman_constants.RFB_ADDON_PATH, 'envkeys')
+        if self.getenv('RMS_SCRIPT_PATHS'):
+            if platform.system() == 'Windows':
+                rms_path = rms_path + ";" + self.getenv('RMS_SCRIPT_PATHS')
+            else:
+                rms_path = rms_path + ":" + self.getenv('RMS_SCRIPT_PATHS')
+        self.setenv('RMS_SCRIPT_PATHS', rms_path)
 
     def _get_license_info(self):
         from rman_utils import license as rman_license_info

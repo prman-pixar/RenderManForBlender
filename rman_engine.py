@@ -8,8 +8,9 @@ from .rman_constants import USE_GPU_MODULE
 
 if USE_GPU_MODULE:
     bgl = None
-    blf = None
+    import blf
     import gpu
+    from gpu_extras.batch import batch_for_shader
 else:
     import bgl
     import blf
@@ -206,33 +207,22 @@ class PRManRender(bpy.types.RenderEngine):
             if not for_background:
                 self._increment_version_tokens(external_render=False)
 
-    def draw_viewport_message(self, context, msg):
-        if USE_GPU_MODULE:
-            return
-        w = context.region.width     
+    def _draw_pixels(self, context, depsgraph):     
 
-        pos_x = w / 2 - 100
-        pos_y = 20
-        blf.enable(0, blf.SHADOW)
-        blf.shadow_offset(0, 1, -1)
-        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
-        blf.size(0, 32, 36)
-        blf.position(0, pos_x, pos_y, 0)
-        blf.color(0, 1.0, 0.0, 0.0, 1.0)
-        blf.draw(0, "%s" % (msg))
-        blf.disable(0, blf.SHADOW)   
-
-    def _draw_pixels(self, context, depsgraph):         
+        from .rfb_utils.draw_utils import draw_viewport_message    
 
         if self.rman_render.rman_license_failed:
-            self.draw_viewport_message(context, self.rman_render.rman_license_failed_message)
+            draw_viewport_message(context, self.rman_render.rman_license_failed_message)
 
         if not self.rman_render.rman_is_viewport_rendering:
             return       
 
         scene = depsgraph.scene
         w = context.region.width
-        h = context.region.height                       
+        h = context.region.height 
+
+        if scene.renderman.rfb_disgust:
+            draw_viewport_message(context, 'Debug Logging On')                          
 
         # Bind shader that converts from scene linear to display space,
         if USE_GPU_MODULE:

@@ -212,7 +212,18 @@
             "ipr_editable": false,
             "update_function_name": "update_do_persistent_data",
             "update_function": "def update_do_persistent_data(self, context):\n    scene = context.scene\n    scene.render.use_persistent_data = self.do_persistent_data"            
-        },             
+        },  
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "",
+            "name": "rfb_disgust",
+            "label": "Debug Logging",
+            "type": "int",
+            "default": 0,
+            "widget": "checkbox",
+            "bl_prop_options": "",
+            "help": "If on, a debug python file will be generated when rendering, in the same directory as the current blend file. Only one file will be generated, so subsequent renders will overwrite the previous session's file. Note, this can generate large files, so only have this on if you believe there's a bug."
+        },                    
         {
             "panel": "RENDER_PT_renderman_sampling",
             "page": "IPR Sampling",

@@ -191,6 +191,13 @@ def get_unique_group_name(group_node):
             break    
     return group_node_name
 
+def get_disgust_filename():
+    bl_scene_file = bpy.data.filepath
+    bl_filename = None
+    if bl_scene_file != '':
+        bl_filename = os.path.splitext(bl_scene_file)[0] + '.debug.py'    
+    return bl_filename
+
 @persistent
 def update_blender_tokens_cb(bl_scene):
     from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config

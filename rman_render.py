@@ -680,6 +680,13 @@ class RmanRender(object):
     def create_scene(self, config, render_config):
         self.sg_scene = self.sgmngr.CreateScene(config, render_config, self.stats_mgr.rman_stats_session)
         return self.stats_mgr.attach()
+    
+    def configure_disgust(self):
+        disgust_trace = string_utils.get_disgust_filename()
+        if self.bl_scene.renderman.rfb_disgust and disgust_trace:
+            envconfig().set_disgust_env(disgust_trace)
+        else:
+            envconfig().unset_disgust_env()
 
     def start_render(self, depsgraph, for_background=False):
     
@@ -778,6 +785,7 @@ class RmanRender(object):
             render_cmd = "prman -live"
         render_cmd = self._append_render_cmd(render_cmd)
         if boot_strapping:
+            self.configure_disgust()
             self.sg_scene.Render(render_cmd)
         if self.rman_render_into == 'blender':  
             dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
@@ -941,9 +949,8 @@ class RmanRender(object):
                 self.del_bl_engine()
                 return False                         
 
-        if rm.queuing_system != 'none':
-            spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
-            spooler.batch_render()
+        spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
+        spooler.batch_render()
         self.rman_running = False
         self.del_bl_engine()
         self._do_prman_render_end()
@@ -998,7 +1005,8 @@ class RmanRender(object):
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start)) 
             render_cmd = "prman -blocking"
-            render_cmd = self._append_render_cmd(render_cmd)        
+            render_cmd = self._append_render_cmd(render_cmd)  
+            self.configure_disgust()      
             self.sg_scene.Render(render_cmd)
             self.start_stats_thread()
         except Exception as e:      
@@ -1194,6 +1202,7 @@ class RmanRender(object):
             render_cmd = "prman -live"   
             render_cmd = self._append_render_cmd(render_cmd)
             self.rman_scene_sync.reset() # reset the rman_scene_sync instance
+            self.configure_disgust()
             self.sg_scene.Render(render_cmd)
             self.start_stats_thread()
 
