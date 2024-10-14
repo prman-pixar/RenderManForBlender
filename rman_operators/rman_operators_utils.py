@@ -272,7 +272,7 @@ class PRMAN_OT_Renderman_Package(Operator):
         # include disgust trace
         if self.properties.include_disgust:
             disgust_trace = string_utils.get_disgust_filename()
-            if os.path.exists(disgust_trace):
+            if disgust_trace and os.path.exists(disgust_trace):
                 disgust_trace_filename = os.path.basename(disgust_trace)
                 pack_filepath = os.path.join(self.directory, disgust_trace_filename) 
                 filepath_utils.localize_disugst_trace(disgust_trace, pack_filepath, remove_dirs, remove_files, z)
@@ -315,7 +315,7 @@ class PRMAN_OT_Renderman_Package(Operator):
         bl_filename = os.path.splitext(os.path.basename(bl_scene_file))[0]
         self.properties.filename = '%s.zip' % bl_filename
         disgust_trace = string_utils.get_disgust_filename()
-        if os.path.exists(disgust_trace):        
+        if disgust_trace and os.path.exists(disgust_trace):        
             self.properties.include_disgust = True
         context.window_manager.fileselect_add(self)
         return{'RUNNING_MODAL'} 
