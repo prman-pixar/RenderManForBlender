@@ -1465,7 +1465,17 @@
             "widget": "fileinput",
             "default": "",
             "help": "File name for raw statistics JSON report. Setting this file name will trigger the creation of a default JSON Report listener to write out all diagnostic data from the stats system to a JSON file. When left blank, fall back to JSON report listener in the configuration file if specified otherwise JSON report is disabled."               
-        },                
+        },
+        {
+            "panel": "RENDER_PT_renderman_workspace",
+            "page": "",
+            "name": "statistics_jsonMetricsRegexp",
+            "riopt": "statistics:jsonMetricsRegexp",
+            "label": "Stats JSON Metrics Regexp",
+            "type": "string",
+            "default": ".*",
+            "help": "A regular expression specifying which stats metrics the default JSON report listener should gather. Defaults to all metrics. If left blank, no metrics will be gathered."
+        },
         {
             "panel": "RENDER_PT_renderman_workspace",
             "page": "",
