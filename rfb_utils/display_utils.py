@@ -769,8 +769,7 @@ def get_dspy_dict(rman_scene, expandTokens=True, include_holdouts=True):
     if rman_scene.is_interactive:
         display_driver = rman_scene.ipr_render_into
         if rm.blender_ipr_denoiser == __RFB_DENOISER_AI__:
-            if not rman_scene.is_xpu:
-                display_driver = 'quicklyNoiseless' 
+            display_driver = 'quicklyNoiseless' 
         elif rm.blender_ipr_denoiser == __RFB_DENOISER_OPTIX__:
             do_optix_denoise = True
 
