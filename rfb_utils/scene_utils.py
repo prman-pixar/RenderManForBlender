@@ -32,6 +32,11 @@ DUPLI_SOURCE_PREFIX = "dup_src_"
 
 RMAN_VOL_TYPES = ['RI_VOLUME', 'OPENVDB', 'FLUID']
 
+class RmanRenderState(object):
+    k_stopped = -1
+    k_exporting = 0
+    k_rendering = 1
+    k_denoising = 2
 class BlAttribute:
     '''
     A class to represent Blender's bpy.types.Attribute
@@ -699,6 +704,23 @@ def use_renderman_textures(context, force_colorspace=True, blocking=True):
                                 texture_utils.update_txfile_colorspace(txfile, colorspace, blocking=blocking)
                         setattr(node, prop_name, txfile.get_output_texture())
                         continue                  
+
+def get_render_borders(render, height, width):
+    start_x = 0
+    end_x = width
+    start_y = 0
+    end_y = height 
+    if render and render.use_border:
+        if render.border_min_y > 0.0:
+            start_y = round(height * render.border_min_y)-1
+        if render.border_max_y > 0.0:                        
+            end_y = round(height * render.border_max_y)-1 
+        if render.border_min_x > 0.0:
+            start_x = round(width * render.border_min_x)-1
+        if render.border_max_x < 1.0:
+                end_x = round(width * render.border_max_x)-2       
+
+    return (start_x, end_x, start_y, end_y)
 
 def is_renderable(scene, ob):
     return (is_visible_layer(scene, ob) and not ob.hide_render) or \

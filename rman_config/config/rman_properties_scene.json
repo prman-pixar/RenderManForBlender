@@ -58,7 +58,7 @@
             "help": "Controls where preview renders will go to."
         },          
         {
-            "panel": "RENDER_PT_renderman_render",
+            "panel": "",
             "page": "Display",
             "name": "blender_optix_denoiser",
             "label": "Use Optix Denoiser",
@@ -81,6 +81,67 @@
                 "conditionalVis2Value": "macOS"     
             }             
         },         
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser",
+            "label": "Denoiser",
+            "type": "int",
+            "default": 0,
+            "help": "Select which denoiser to use to denoise Blender render displays. Optix requires an Nvidia GPU.",
+            "widget": "mapper",
+            "bl_prop_options": "",
+            "options": "None:0|RenderMan Denoiser:1|Optix:2",
+            "conditionalVisOps": {
+                "conditionalVisOp": "equalTo",
+                "conditionalVisPath": "render_into",
+                "conditionalVisValue": "blender"
+            }    
+        },
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser_use_color_pass",
+            "label": "Use Color Pass",
+            "type": "int",
+            "widget": "checkbox",
+            "default": 0,
+            "help": "If unchecked, the beauty is denoised by adding the denoised diffuse and denoised specular passes together. This provides a slightly better result. However, this might cause issues when you have Display and Sample filters. If this is the case for you, check this box",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "render_into",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "blender",
+                "conditionalVisOp": "and",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "blender_denoiser",
+                "conditionalVis2Value": "1"     
+            }    
+        },        
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser_asymmetry",
+            "label": "Asymmetry",
+            "type": "float",
+            "bl_prop_options": "",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 2.0,
+            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "render_into",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "blender",
+                "conditionalVisOp": "and",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "blender_denoiser",
+                "conditionalVis2Value": "1"     
+            }    
+        },                            
         {
             "panel": "",
             "page": "Display",
@@ -125,7 +186,7 @@
             "help": "Select which denoiser to use to denoise IPR renders. Optix requires an Nvidia GPU. The RenderMan Denoiser option is not supported in XPU. Note, the Optix denoiser is built-in into 'it', so selecting Optix here will not do anything when rendering to 'it'.",
             "widget": "mapper",
             "bl_prop_options": "",
-            "options": "None:0|RenderMan Denoiser:1|Optix:2"
+            "options": "None:0|RenderMan Denoiser:1|Optix:2"         
         },   
         {
             "panel": "",
@@ -1554,7 +1615,7 @@
             "default": 1,
             "widget": "checkbox",
             "bl_prop_options": "",
-            "help": "Only applies to Blender Batch. When enabled, all of the RenderMan Display settings are ignored, and one final image from the Blender compositor is written out. When using RIB, the Blender compositor cannot be used.",
+            "help": "Only applies to Blender Batch and if you're using RenderMan Displays. When enabled, all of the RenderMan Display settings are ignored, and one final image from the Blender compositor is written out. When using RIB, the Blender compositor cannot be used.",
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "spool_style",
@@ -1570,7 +1631,7 @@
             "default": 0,
             "widget": "checkbox",
             "bl_prop_options": "",
-            "help": "Only applies to Blender Batch. If on, and Use Blender Compositor is also turned on, all AOVs will be written out as OpenEXR files.",
+            "help": "Only applies to Blender Batch and if you're using RenderMan Displays. If on, and Use Blender Compositor is also turned on, all AOVs will be written out as OpenEXR files.",
             "conditionalVisOps": {
                 "conditionalVis1Path": "spool_style",
                 "conditionalVis2Op": "equalTo",
@@ -1624,7 +1685,7 @@
             "help": ""
         },
         {
-            "panel": "RENDER_PT_renderman_spooling_export_options",
+            "panel": "",
             "page": "",
             "name": "custom_cmd",
             "label": "Custom Render Commands",
@@ -1642,8 +1703,19 @@
             "bl_prop_options": "",
             "default": 1,
             "widget": "checkbox",
-            "help": "Turn this off if you don't want the denoiser to automatically launch. This might be useful if you need the variance files to be generated, but want to denoise the files later. The Denoise option still needs to be on in the RenderMan Displays for the variance file to be generated."
-        },        
+            "help": "Turn this off if you don't want the denoiser to automatically launch. This might be useful if you need the variance files to be generated, but want to denoise the files later. The Denoise option still needs to be on in the RenderMan Displays for the variance file to be generated.",    
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }                    
+        },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
             "page": "Denoising",
@@ -1654,7 +1726,18 @@
             "default": 0.0,
             "min": 0.0,
             "max": 2.0,
-            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising."             
+            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1666,7 +1749,18 @@
             "default": [1,1],
             "options": "1x1:[1,1]|2x2:[2,2]|3x3:[3,3]|4x4:[4,4]|5x5:[5,5]",
             "widget": "mapper",            
-            "help": "Denoise the images in tiles. This can be useful if you are denoising fairly large images and want to reduce memory usage."
+            "help": "Denoise the images in tiles. This can be useful if you are denoising fairly large images and want to reduce memory usage.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },               
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1677,7 +1771,18 @@
             "widget": "dirinput",
             "default": "",
             "bl_prop_options": "",
-            "help": "The output directory for the denoised images. If not set, we put the images into a subfolder 'denoised' relative to the input images."             
+            "help": "The output directory for the denoised images. If not set, we put the images into a subfolder 'denoised' relative to the input images.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },        
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1689,7 +1794,18 @@
             "widget": "mapper",
             "bl_prop_options": "",
             "options": "Single Frame:singleframe|Cross Frame:crossframe",
-            "help": "Use single frame or cross frame. Cross frame requires at least 7 frames."
+            "help": "Use single frame or cross frame. Cross frame requires at least 7 frames.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },              
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1700,7 +1816,18 @@
             "bl_prop_options": "",
             "default": 1,
             "widget": "checkbox",
-            "help": "Whether to compute optical flow."
+            "help": "Whether to compute optical flow.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1711,7 +1838,18 @@
             "default": 0,
             "bl_prop_options": "",
             "widget": "checkbox",
-            "help": "Enable versbose output."
+            "help": "Enable versbose output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1721,7 +1859,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as diffuse outputs. Note, we assume channels named 'subsurface' and 'subsurfaceLobe' are part of the diffuse output."
+            "help": "Consider the following comma-separate list of channels as diffuse outputs. Note, we assume channels named 'subsurface' and 'subsurfaceLobe' are part of the diffuse output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },        
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1731,7 +1880,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as specular outputs. Note, we assume channels named 'transmissiveSingleScatterLobe' and 'transmissiveGlassLobe' are part of the specular output."
+            "help": "Consider the following comma-separate list of channels as specular outputs. Note, we assume channels named 'transmissiveSingleScatterLobe' and 'transmissiveGlassLobe' are part of the specular output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1741,17 +1901,39 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as albedo outputs."
+            "help": "Consider the following comma-separate list of channels as albedo outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },  
         {
-            "panel": "RENDER_PT_renderman_spooling_export_options",
+            "panel": "",
             "page": "Denoising",
             "name": "ai_denoiser_remap_irradiance",
             "label": "Remap Irradiance",
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as irradiance outputs."
+            "help": "Consider the following comma-separate list of channels as irradiance outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }   
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1761,7 +1943,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as alpha outputs."
+            "help": "Consider the following comma-separate list of channels as alpha outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }   
         }
     ]
 }

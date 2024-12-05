@@ -35,9 +35,9 @@ __INTERACTIVE_DENOISE_CHANNELS = [
     OutputChannel("float", "a"),
     DENOISER_ALBEDO,
     OutputChannel("color", "albedo_mse", "color lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C<.S'passthru'>*((U2L)|O)", "mse"),
+    OutputChannel("color", "mse", "color Ci", "mse"),
     OutputChannel("color", "diffuse", "color lpe:C(D[DS]*[LO])|O"),
     OutputChannel("color", "diffuse_mse", "color lpe:C(D[DS]*[LO])|O", "mse"),
-    OutputChannel("color", "mse", "color Ci", "mse"),
     DENOISER_NORMAL,
     OutputChannel("color", "normal_mse", "normal Nn", "mse"),
     OutputChannel("color", "specular", "color lpe:CS[DS]*[LO]"),
@@ -330,8 +330,11 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
         'params': dspy_params,
         'dspyDriverParams': param_list}
         
-    if display_driver == 'blender' and rman_scene.is_viewport_render:
-        display_driver = 'null' 
+    if display_driver == 'blender':
+        if rman_scene.is_viewport_render:
+            display_driver = 'null' 
+        elif rm.blender_denoiser == __RFB_DENOISER_AI__:
+            _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
 
     elif display_driver == "quicklyNoiseless":
         _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
@@ -501,7 +504,7 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
         elif display_driver == 'blender': 
             if rman_scene.is_viewport_render:
                 if aov.name != 'beauty':
-                    display_driver = 'null'   
+                    display_driver = 'null'  
             if display_driver == 'blender' and do_optix_denoise:
                 aov_denoise = True
                 param_list = rman_scene.rman.Types.ParamList()
@@ -591,6 +594,8 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
         
         if display_driver == "quicklyNoiseless":
             _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
+        elif display_driver == "blender" and not rman_scene.is_interactive and rm.blender_denoiser == __RFB_DENOISER_AI__:
+            _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene) 
 
         if aov.name == 'beauty' and rman_scene.is_interactive:
           
@@ -777,8 +782,10 @@ def get_dspy_dict(rman_scene, expandTokens=True, include_holdouts=True):
         # if preview render
         # we ignore the display driver setting in the AOV and render to whatever
         # render_into is set to
-        display_driver = rm.render_into
-        do_optix_denoise = rm.blender_optix_denoiser
+        display_driver = rman_scene.rman_render.rman_render_into
+        if display_driver == "blender":
+            if rm.blender_denoiser == __RFB_DENOISER_OPTIX__:
+                do_optix_denoise = True
             
     if rm_rl:     
         _set_rman_dspy_dict(rm_rl, dspys_dict, display_driver, rman_scene, expandTokens, do_optix_denoise=do_optix_denoise)        

@@ -16,6 +16,7 @@ import subprocess
 import ctypes
 import numpy
 import traceback
+from collections import OrderedDict
 
 # for viewport buckets
 import gpu
@@ -27,6 +28,7 @@ from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
+from .rfb_utils.scene_utils import RmanRenderState
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils.timer_utils import time_this
@@ -39,6 +41,8 @@ from .rman_stats import RfBStatsManager
 
 # handlers
 from .rman_handlers.rman_it_handlers import add_ipr_to_it_handlers, remove_ipr_to_it_handlers
+
+from .rman_denoiser import RmanDenoiser
 
 __RMAN_RENDER__ = None
 __RMAN_IT_PORT__ = -1
@@ -203,7 +207,7 @@ def draw_threading_func(db):
             time.sleep(1.0)
 
 def call_stats_export_payloads(db):
-    while db.rman_is_exporting:
+    while db.rman_render_state == RmanRenderState.k_exporting:
         db.stats_mgr.update_payloads()
         time.sleep(0.1)  
 
@@ -216,8 +220,9 @@ def call_stats_update_payloads(db):
             # and we've reached ~100%
             if float(db.stats_mgr._progress) > 98.0:
                 db.rman_is_live_rendering = False
-                break        
-        db.stats_mgr.update_payloads()
+                break   
+        if db.rman_render_state == RmanRenderState.k_rendering:     
+            db.stats_mgr.update_payloads()
         time.sleep(0.1)
 
 def progress_cb(e, d, db):
@@ -352,7 +357,7 @@ class BlRenderResultHelper:
             chan_info = self.dspy_dict['channels'][dspy_chan]
             chan_type = chan_info['channelType']['value']                        
 
-            if num_channels == 4:
+            if num_channels >= 4:
                 self.rman_render.bl_engine.add_pass(dspy_nm, 4, 'RGBA')
             elif num_channels == 3:
                 if chan_type == 'color':
@@ -367,18 +372,7 @@ class BlRenderResultHelper:
         self.size_x = self.width
         self.size_y = self.height
         if self.render.use_border: 
-            start_x = 0
-            end_x = self.width
-            start_y = 0
-            end_y = self.height            
-            if self.render.border_min_y > 0.0:
-                start_y = round(self.height * self.render.border_min_y)-1
-            if self.render.border_max_y > 0.0:                        
-                end_y = round(self.height * self.render.border_max_y)-1 
-            if self.render.border_min_x > 0.0:
-                start_x = round(self.width * self.render.border_min_x)-1
-            if self.render.border_max_x < 1.0:
-                end_x = round(self.width * self.render.border_max_x)-2
+            start_x, end_x, start_y, end_y = scene_utils.get_render_borders(self.render, self.height, self.width)
             self.size_x = end_x - start_x
             self.size_y = end_y - start_y
 
@@ -398,9 +392,8 @@ class BlRenderResultHelper:
     def update_passes(self): 
         for i, rp in self.bl_image_rps.items():
             buffer = self.rman_render._get_buffer(self.width, self.height, image_num=i, 
-                                        num_channels=rp.channels, 
-                                        as_flat=False, 
-                                        back_fill=False,
+                                        num_channels=rp.channels,
+                                        as_flat=False,
                                         render=self.render)
             if buffer is None:
                 continue
@@ -408,6 +401,20 @@ class BlRenderResultHelper:
 
         if self.rman_render.bl_engine:
             self.rman_render.bl_engine.update_result(self.bl_result)
+
+    def denoise_passes(self):
+        passes = self.rman_render._get_denoise_passes(self.width, self.height, self.dspy_dict)
+        if not passes:
+            return
+        denoised_passes = self.rman_render.rman_denoiser.denoise(passes, self.render)
+        for i, dspy_nm in enumerate(denoised_passes.keys()):
+            rp = self.bl_image_rps[i]
+            denoised_image = denoised_passes[dspy_nm]
+            if denoised_image is None:
+                continue
+            rp.rect = denoised_image
+            if self.rman_render.bl_engine:
+                self.rman_render.bl_engine.update_result(self.bl_result)
 
     def finish_passes(self):           
         if self.bl_result:
@@ -424,8 +431,6 @@ class BlRenderResultHelper:
                     filepath = self.dspy_dict['displays'][dspy_nm]['filePath']
 
                     if i == 0:
-                        continue 
-
                         # write out the beauty with a 'raw' substring
                         toks = os.path.splitext(filepath)
                         filepath = '%s_beauty_raw.exr' % (toks[0])
@@ -466,7 +471,7 @@ class RmanRender(object):
         self.rman_scene_sync = RmanSceneSync(rman_render=self, rman_scene=self.rman_scene)
         self.bl_engine = None
         self.rman_running = False
-        self.rman_is_exporting = False
+        self.rman_render_state = RmanRenderState.k_stopped
         self.rman_interactive_running = False
         self.rman_swatch_render_running = False
         self.rman_is_live_rendering = False
@@ -488,6 +493,7 @@ class RmanRender(object):
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False
+        self.rman_denoiser = RmanDenoiser(self.stats_mgr)
 
         self._start_prman_begin()
 
@@ -743,6 +749,7 @@ class RmanRender(object):
         rendervariant = scene_utils.get_render_variant(self.bl_scene)
         scene_utils.set_render_variant_config(self.bl_scene, config, render_config)
         self.rman_is_xpu = (rendervariant == 'xpu')
+        self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
 
         boot_strapping = False
         bl_rr_helper = None
@@ -757,7 +764,7 @@ class RmanRender(object):
 
         # Export the scene
         try:
-            self.rman_is_exporting = True
+            self.rman_render_state = RmanRenderState.k_exporting
             self.start_export_stats_thread()
             if boot_strapping:
                 # This is our first time exporting
@@ -766,7 +773,7 @@ class RmanRender(object):
                 # Scene still exists, which means we're in persistent data mode
                 # Try to get the scene diffs.                    
                 self.rman_scene_sync.batch_update_scene(bpy.context, depsgraph)
-            self.rman_is_exporting = False
+            self.rman_render_state = RmanRenderState.k_rendering
             self.stats_mgr.reset_progress()
 
             self._dump_rib_(self.bl_scene.frame_current)
@@ -786,6 +793,13 @@ class RmanRender(object):
         render_cmd = self._append_render_cmd(render_cmd)
         if boot_strapping:
             self.configure_disgust()
+            
+            render = self.rman_scene.bl_scene.render            
+            image_scale = render.resolution_percentage * 0.01
+            width = int(render.resolution_x * image_scale)
+            height = int(render.resolution_y * image_scale)   
+
+            self.rman_denoiser.bootstrap(width, height, rm.ai_denoiser_asymmetry, rm.blender_denoiser_use_color_pass)
             self.sg_scene.Render(render_cmd)
         if self.rman_render_into == 'blender':  
             dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
@@ -801,7 +815,11 @@ class RmanRender(object):
             time.sleep(0.01)      
             if bl_rr_helper:
                 bl_rr_helper.update_passes()
+        if bl_rr_helper and self.use_qn and not self.bl_engine.test_break():
+            self.rman_render_state = RmanRenderState.k_denoising
+            bl_rr_helper.denoise_passes()
         if bl_rr_helper:
+            self.rman_render_state = RmanRenderState.k_rendering
             bl_rr_helper.finish_passes()            
         elif for_background and not use_compositor:
             # if we're background mode and not using the compositor,
@@ -858,9 +876,9 @@ class RmanRender(object):
                         self.bl_engine.frame_set(frame, subframe=0.0)
                         rfb_log().debug("Frame: %d" % frame)
                         if frame == bl_scene.frame_start:
-                            self.rman_is_exporting = True
+                            self.rman_render_state = RmanRenderState.k_exporting
                             self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                            self.rman_is_exporting = False
+                            self.rman_render_state = RmanRenderState.k_rendering
                         else:
                             self.rman_scene_sync.batch_update_scene(bpy.context, depsgraph)
                             
@@ -888,9 +906,9 @@ class RmanRender(object):
                     try:
                         self.bl_engine.frame_set(frame, subframe=0.0)
                         rfb_log().debug("Frame: %d" % frame)
-                        self.rman_is_exporting = True
+                        self.rman_render_state = RmanRenderState.k_exporting
                         self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                        self.rman_is_exporting = False
+                        self.rman_render_state = RmanRenderState.k_rendering
                             
                         rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                                 asFilePath=True)
@@ -928,9 +946,9 @@ class RmanRender(object):
                         
                 bl_view_layer = depsgraph.view_layer_eval      
                 rfb_log().info("Parsing scene...")      
-                self.rman_is_exporting = True       
+                self.rman_render_state = RmanRenderState.k_exporting       
                 self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                self.rman_is_exporting = False
+                self.rman_render_state = RmanRenderState.k_rendering
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
 
@@ -997,10 +1015,10 @@ class RmanRender(object):
             return False        
         try:
             bl_layer = depsgraph.view_layer_eval_eval
-            self.rman_is_exporting = True
+            self.rman_render_state = RmanRenderState.k_exporting
             self.start_export_stats_thread()
             self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
-            self.rman_is_exporting = False
+            self.rman_render_state = RmanRenderState.k_rendering
 
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start)) 
@@ -1051,9 +1069,9 @@ class RmanRender(object):
                 self.create_scene(config, render_config)
                 try:
                     self.bl_engine.frame_set(frame, subframe=0.0)
-                    self.rman_is_exporting = True
+                    self.rman_render_state = RmanRenderState.k_exporting
                     self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                    self.rman_is_exporting = False
+                    self.rman_render_state = RmanRenderState.k_rendering
                     rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                             asFilePath=True)                                                                            
                     self.sg_scene.Render("rib %s %s" % (rib_output, rib_options))
@@ -1080,9 +1098,9 @@ class RmanRender(object):
                         
                 bl_view_layer = depsgraph.view_layer_eval         
                 rfb_log().info("Parsing scene...")
-                self.rman_is_exporting = True             
+                self.rman_render_state = RmanRenderState.k_exporting             
                 self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                self.rman_is_exporting = False
+                self.rman_render_state = RmanRenderState.k_rendering
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
 
@@ -1191,10 +1209,10 @@ class RmanRender(object):
         try:
             self.rman_scene_sync.sg_scene = self.sg_scene
             rfb_log().info("Parsing scene...")        
-            self.rman_is_exporting = True
+            self.rman_render_state = RmanRenderState.k_exporting
             self.start_export_stats_thread()        
             self.rman_scene.export_for_interactive_render(context, depsgraph, self.sg_scene)
-            self.rman_is_exporting = False
+            self.rman_render_state = RmanRenderState.k_rendering
 
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start))      
@@ -1248,9 +1266,9 @@ class RmanRender(object):
         render_config = rman.Types.RtParamList()
 
         self.create_scene(config, render_config)
-        self.rman_is_exporting = True
+        self.rman_render_state = RmanRenderState.k_exporting
         self.rman_scene.export_for_swatch_render(depsgraph, self.sg_scene)
-        self.rman_is_exporting = False
+        self.rman_render_state = RmanRenderState.k_rendering
 
         self.rman_running = True
         self.rman_swatch_render_running = True
@@ -1301,9 +1319,9 @@ class RmanRender(object):
 
                 self.create_scene(config, render_config)
                 try:
-                    self.rman_is_exporting = True
+                    self.rman_render_state = RmanRenderState.k_exporting
                     self.rman_scene.export_for_rib_selection(context, self.sg_scene)
-                    self.rman_is_exporting = False
+                    self.rman_render_state = RmanRenderState.k_rendering
                     rib_output = string_utils.expand_string(rib_path, 
                                                         asFilePath=True) 
                     cmd = 'rib ' + rib_output + ' -archive'                                                        
@@ -1324,9 +1342,9 @@ class RmanRender(object):
 
             self.create_scene(config, render_config)
             try:
-                self.rman_is_exporting = True
+                self.rman_render_state = RmanRenderState.k_exporting
                 self.rman_scene.export_for_rib_selection(context, self.sg_scene)
-                self.rman_is_exporting = False
+                self.rman_render_state = RmanRenderState.k_rendering
                 rib_output = string_utils.expand_string(rib_path, 
                                                     asFilePath=True) 
                 cmd = 'rib ' + rib_output + ' -archive'
@@ -1365,7 +1383,7 @@ class RmanRender(object):
         self.rman_interactive_running = False  
         self.rman_swatch_render_running = False
         self.rman_is_viewport_rendering = False       
-        self.rman_is_exporting = False     
+        self.rman_render_state = RmanRenderState.k_stopped     
 
         # Remove callbacks
         ec = rman.EventCallbacks.Get()
@@ -1460,7 +1478,7 @@ class RmanRender(object):
             res_mult = self.rman_scene.viewport_render_res_mult
             width = int(self.viewport_res_x * res_mult)
             height = int(self.viewport_res_y * res_mult)
-            buffer = self._get_buffer(width, height)
+            buffer = self._get_buffer(width, height, num_channels=4)
             if buffer is None:
                 rfb_log().debug("Buffer is None")
                 return
@@ -1541,36 +1559,137 @@ class RmanRender(object):
         dspy_plugin = self.get_blender_dspy_plugin()
         num_channels = dspy_plugin.GetNumberOfChannels(ctypes.c_size_t(image_num))
         return num_channels
-
-    def _get_buffer(self, width, height, image_num=0, num_channels=-1, raw_buffer=False, back_fill=True, as_flat=True, render=None):
+    
+    def _get_buffer_from_dspy_plugin(self, width, height, image_num, num_channels):
         dspy_plugin = self.get_blender_dspy_plugin()
-        if num_channels == -1:
-            num_channels = self.get_numchannels(image_num)
-            if num_channels > 4 or num_channels < 0:
-                rfb_log().debug("Could not get buffer. Incorrect number of channels: %d" % num_channels)
-                return None
 
         # code reference: https://asiffer.github.io/posts/numpy/
         RMAN_NUMPY_POINTER = numpy.ctypeslib.ndpointer(dtype=numpy.float32, 
                                       ndim=1,
                                       flags="C")
         f = dspy_plugin.GetFloatFramebuffer
-        f.argtypes = [ctypes.c_size_t, ctypes.c_size_t, RMAN_NUMPY_POINTER]
-
+        f.argtypes = [ctypes.c_size_t, ctypes.c_size_t, RMAN_NUMPY_POINTER]        
         try:
             array_size = width * height * num_channels
             buffer = numpy.zeros(array_size, dtype=numpy.float32)
-            f(ctypes.c_size_t(image_num), buffer.size, buffer)
+            f(ctypes.c_size_t(image_num), buffer.size, buffer)  
+            return buffer  
+        except Exception as e:
+            rfb_log().debug("Could not get buffer: %s" % str(e))
+            traceback.print_exc()
+            return None        
+        
+    def _get_denoise_passes(self, width, height, dspy_dict):
+        all_passes = OrderedDict()        
+
+        for i, dspy_nm in enumerate(dspy_dict['displays'].keys()):
+            num_channels = self.get_numchannels(i)
+            buffer = self._get_buffer_from_dspy_plugin(width, height, i, num_channels)
+            if buffer is None:
+                continue
+            passes = dict()
+            buffer.shape = (height, width, num_channels)
+            if i == 0:
+                # variance file
+                # note, we're assuming the order of the channels never changes
+                passes["input"] = numpy.take(buffer, [0,1,2], axis=2)
+                passes["input_variance"] = numpy.take(buffer, [10,11,12], axis=2)
+                passes["alpha"] = numpy.take(buffer, [3,3,3], axis=2)
+                passes["alpha_variance"] = numpy.take(buffer, [10,11,12], axis=2)
+                passes["albedo"] = numpy.take(buffer, [4,5,6], axis=2)
+                passes["albedo_variance"] = numpy.take(buffer, [7,8,9], axis=2)
+                passes["diffuse"] = numpy.take(buffer, [13,14,15], axis=2)
+                passes["diffuse_variance"] = numpy.take(buffer, [16,17,18], axis=2)
+                passes["normal"] = numpy.take(buffer, [19,20,21], axis=2)
+                passes["normal_variance"] = numpy.take(buffer, [22,23,24], axis=2)
+                passes["specular"] = numpy.take(buffer, [25,26,27], axis=2)
+                passes["specular_variance"] = numpy.take(buffer, [28,29,30], axis=2) 
+                passes["sample_count"] = numpy.take(buffer, [31,31,31], axis=2)                  
+
+                passes['input_variance'] = numpy.max(passes['input_variance'], axis=-1, keepdims=True)
+                passes['alpha_variance'] = numpy.max(passes['alpha_variance'], axis=-1, keepdims=True)
+                passes['albedo_variance'] = numpy.max(passes['albedo_variance'], axis=-1, keepdims=True)
+                passes['normal_variance'] = numpy.max(passes['normal_variance'], axis=-1, keepdims=True)
+                passes['diffuse_variance'] = numpy.max(passes['diffuse_variance'], axis=-1, keepdims=True)
+                passes['specular_variance'] = numpy.max(passes['specular_variance'], axis=-1, keepdims=True)
+                passes['sample_count'] = passes['sample_count'][:,:,0:1]
+                passes['sample_count'] = numpy.ascontiguousarray(passes['sample_count'])
+
+                all_passes["variance"] = passes   
+            else:             
+                # all other AOVs
+                dspy = dspy_dict['displays'][dspy_nm]
+                dspy_chan = dspy['params']['displayChannels'][0]
+                chan_info = dspy_dict['channels'][dspy_chan]
+                chan_type = chan_info['channelType']['value']     
+
+                if num_channels == 3:
+                    passes["input"] = numpy.take(buffer, [0,1,2], axis=2)
+                    passes["pass_type"] = chan_type
+                elif num_channels == 1:
+                    passes["input"] = numpy.take(buffer, [0,0,0], axis=2)
+                    passes["pass_type"] = chan_type
+                else:
+                    passes["input"] = None
+                    passes["pass_type"] = None
+                passes["num_channels"] = num_channels
+                all_passes[dspy_nm] = passes
+
+        return all_passes
+
+    def _get_buffer(self, width, height, image_num=0, num_channels=-1, raw_buffer=False, as_flat=True, render=None):
+        """Return a numpy array of the selected image's pixel buffer from the display driver
+
+        Args:
+        width (int) - width of the current render
+        height (int) - height of the current render
+        image_num (int) - index of the image we're interested in
+        num_channels (int) - the number of the channels from the pixel buffer the caller wants; this might
+        differ from what the actual number of channels are from the display driver
+        raw_buffer (bool) - just return the raw pixel buffer regardless of the number of channels
+        as_flat (bool) - whether the buffer should be returned as 1D array or 2D array 
+        render (bpy.types.RenderSettings) - current scene's render settings; needed to figure out
+        if we need to resize the buffer because of render borders
+
+        Returns:
+        (numpy.ndarray) - pixel buffer
+        """
+
+        dspy_num_channels = self.get_numchannels(image_num)
+        if dspy_num_channels < 0:
+            rfb_log().debug("Could not get buffer. Incorrect number of channels: %d" % dspy_num_channels)
+            return None
+        if num_channels == -1:
+            num_channels = dspy_num_channels   
+        try:
+            buffer = self._get_buffer_from_dspy_plugin(width, height, image_num, dspy_num_channels)
 
             if raw_buffer:
                 if not as_flat:
-                    buffer.shape = (height, width, num_channels)
+                    buffer.shape = (height, width, dspy_num_channels)
                 return buffer
 
             if as_flat:
-                if (num_channels == 4) or not back_fill:
+                if (dspy_num_channels == 4):
                     return buffer
+                elif dspy_num_channels > 4:
+                    buffer.shape = (height * width, dspy_num_channels)
+                    buffer = numpy.take(buffer, range(num_channels), axis=1)
+                    buffer.shape = (-1)
+                    return buffer             
                 else:
+                    buffer.shape = (height * width, dspy_num_channels)
+                    if num_channels > dspy_num_channels:
+                        pixels = numpy.ones(width*height*(num_channels-dspy_num_channels), dtype=numpy.float32)
+                        pixels = numpy.concatenate((buffer, pixels), axis=1)
+                    elif dspy_num_channels > num_channels:
+                        pixels = numpy.take(buffer, range(num_channels), axis=1)
+                    else:
+                        pixels = buffer
+                    pixels.shape = (-1)
+                    return pixels
+
+                    '''
                     p_pos = 0
                     pixels = numpy.ones(width*height*4, dtype=numpy.float32)
                     for y in range(0, height):
@@ -1588,54 +1707,23 @@ class RmanRender(object):
                                 pixels[p_pos+2] = buffer[j]
                             p_pos += 4                                
                     return pixels
+                    '''
             else:
                 if render and render.use_border:
-                    start_x = 0
-                    end_x = width
-                    start_y = 0
-                    end_y = height
+                    start_x, end_x, start_y, end_y = scene_utils.get_render_borders(render, height, width)
 
-                
-                    if render.border_min_y > 0.0:
-                        start_y = round(height * render.border_min_y)-1
-                    if render.border_max_y > 0.0:                        
-                        end_y = round(height * render.border_max_y)-1 
-                    if render.border_min_x > 0.0:
-                        start_x = round(width * render.border_min_x)-1
-                    if render.border_max_x < 1.0:
-                        end_x = round(width * render.border_max_x)-2
-
-                    # return the buffer as a list of lists
-                    if back_fill:
-                        pixels = numpy.ones( ((end_x-start_x)*(end_y-start_y), 4), dtype=numpy.float32 )
-                    else:
-                        pixels = numpy.zeros( ((end_x-start_x)*(end_y-start_y), num_channels) )
-                    p_pos = 0
-                    for y in range(start_y, end_y):
-                        i = (width * y * num_channels)
-
-                        for x in range(start_x, end_x):
-                            j = i + (num_channels * x)
-                            if (num_channels==4) or not back_fill:
-                                # just slice
-                                pixels[p_pos] = buffer[j:j+num_channels]
-                            else:
-                                pixels[p_pos][0] = buffer[j]                             
-                                if num_channels == 3:
-                                    pixels[p_pos][1] = buffer[j+1]
-                                    pixels[p_pos][2] = buffer[j+2]
-                                elif num_channels == 2:
-                                    pixels[p_pos][1] = buffer[j+1]
-                                elif num_channels == 1:
-                                    pixels[p_pos][1] = buffer[j]
-                                    pixels[p_pos][2] = buffer[j]
-
-                            p_pos += 1
-
+                    buffer.shape = (height, width, dspy_num_channels)
+                    pixels = buffer[start_y:end_y,start_x:end_x,:]  
+                    pixels = pixels.reshape((end_y-start_y)*(end_x-start_x), dspy_num_channels)
+                    if dspy_num_channels != num_channels:
+                        pixels = pixels[:,:num_channels]
                     return pixels
+
                 else:
-                    buffer.shape = (-1, num_channels)
-                    return buffer
+                    buffer.shape = (-1, dspy_num_channels)
+                    if dspy_num_channels != num_channels:
+                        buffer = numpy.take(buffer, range(num_channels), axis=1)
+                    return buffer                  
         except Exception as e:
             rfb_log().debug("Could not get buffer: %s" % str(e))
             return None                                     
@@ -1661,7 +1749,9 @@ class RmanRender(object):
             filepath = os.path.join(bpy.app.tempdir, nm)
             img.Save(filepath, ice.constants.FMT_EXRFLOAT)
             bpy.ops.image.open('EXEC_DEFAULT', filepath=filepath)
-            bpy.data.images[-1].pack()
+            for img in bpy.data.images:
+                if img.filepath == filepath:
+                    img.pack()
             os.remove(filepath)
         else:
             buffer = self._get_buffer(width, height)

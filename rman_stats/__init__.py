@@ -12,6 +12,7 @@ from collections import OrderedDict
 import rman_utils.stats_config.core as stcore
 from ..rfb_utils import prefs_utils
 from ..rfb_logger import rfb_log
+from ..rfb_utils.scene_utils import RmanRenderState
 
 __oneK2__ = 1024.0*1024.0
 __RFB_STATS_MANAGER__ = None
@@ -449,10 +450,28 @@ class RfBStatsManager(object):
         self.export_stat_progress = progress
 
     def draw_stats(self):
-        if self.rman_render.rman_is_exporting:
+        if self.rman_render.rman_render_state == RmanRenderState.k_exporting:
             self.draw_export_stats()
         else:
             self.draw_render_stats()        
+
+    def draw_message(self, msg):
+        if self.rman_render.rman_interactive_running:
+            pass
+        else:
+            message = ''
+            if self.is_connected():                  
+                message = msg                            
+            else:
+                message = '(no stats connection) '          
+
+            try:
+                self.rman_render.bl_engine.update_stats(message, "%d%%" % self._progress)  
+                progress = float(self._progress) / 100.0  
+                self.rman_render.bl_engine.update_progress(progress)
+            except ReferenceError as e:
+                rfb_log().error("Error calling update stats (%s). Aborting..." % str(e))
+                return           
 
     def draw_export_stats(self):
         if self.rman_render.bl_engine:

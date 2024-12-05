@@ -412,9 +412,9 @@ class RmanSpool(object):
         if rm.ai_denoiser_remap_albedo:
             command.argv.append('--albedo')
             command.argv.append(rm.ai_denoiser_remap_albedo)
-        if rm.ai_denoiser_remap_irradiance:
-            command.argv.append('--irradiance')
-            command.argv.append(rm.ai_denoiser_remap_irradiance)
+        #if rm.ai_denoiser_remap_irradiance:
+        #    command.argv.append('--irradiance')
+        #    command.argv.append(rm.ai_denoiser_remap_irradiance)
         if rm.ai_denoiser_remap_alpha:
             command.argv.append('--alpha')
             command.argv.append(rm.ai_denoiser_remap_alpha) 
