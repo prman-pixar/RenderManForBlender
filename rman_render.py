@@ -407,6 +407,8 @@ class BlRenderResultHelper:
         if not passes:
             return
         denoised_passes = self.rman_render.rman_denoiser.denoise(passes, self.render)
+        if denoised_passes is None:
+            return
         for i, dspy_nm in enumerate(denoised_passes.keys()):
             rp = self.bl_image_rps[i]
             denoised_image = denoised_passes[dspy_nm]
