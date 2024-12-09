@@ -93,7 +93,21 @@
         "PxrDisplace.oso",
         "PxrSeExpr.args",
         "PxrDebugShadingContext.args",
-        "PxrValidateBxdf.args"
+        "PxrValidateBxdf.args",
+        "PxrBackgroundDisplayFilter.args",
+        "PxrBackgroundSampleFilter.args",
+        "PxrCopyAOVDisplayFilter.args",
+        "PxrCopyAOVSampleFilter.args",
+        "PxrDisplaySanitizer.args",
+        "PxrEdgeDetect.args",
+        "PxrFilmicTonemapperDisplayFilter.args",
+        "PxrFilmicTonemapperSampleFilter.args",
+        "PxrGradeDisplayFilter.args",
+        "PxrGradeSampleFilter.args",
+        "PxrHalfBufferErrorFilter.args",
+        "PxrLightSaturation.args",
+        "PxrWhitePointDisplayFilter.args",
+        "PxrWhitePointSampleFilter.args"
     ],
     "user tokens": []  
 }

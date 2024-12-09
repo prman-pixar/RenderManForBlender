@@ -319,10 +319,10 @@ def apply_args_overrides(name, node_desc):
     for ndp_org in node_desc.params:
         ndp = rman_config.params.get(ndp_org.name, None)
         if ndp:        
-            ndp_type = getattr(ndp, 'type', '')
-            if ndp_type != '' and ndp_type != ndp_org.type:
+            #ndp_type = getattr(ndp, 'type', '')
+            #if ndp_type != '' and ndp_type != ndp_org.type:
                 # if the types don't match, don't allow the override
-                continue
+            #    continue
             for attr in __ALLOWABLE_ATTR_OVERRIDES__:
                 val = getattr(ndp, attr, None)
                 if val is not None:
