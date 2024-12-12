@@ -8,6 +8,7 @@ from ..rfb_logger import rfb_log
 from .prefs_utils import get_pref
 from . import string_utils
 from .. import rman_constants
+from .envconfig_utils import envconfig
 
 def view_file(file_path):
     
@@ -127,8 +128,8 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
             matches = re.findall(pat, line)
             if matches:
                 write_line = line # make a copy of the line
-                for match_str in matches:     
-                    match_str = match_str[1:-1] # remove quotes         
+                for m in matches:     
+                    match_str = m[1:-1] # remove quotes         
                     if 'rl.CreateDisplay' in write_line and '/' in match_str:
                         # for display lines, change the path to just the basename
 
@@ -146,6 +147,16 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
                         
                         write_line = write_line.replace(match_str, os.path.basename(match_str) )
                     elif os.path.exists(match_str):
+                        if envconfig().rmantree in match_str:
+                            # if RMANTREE is line, just substitue with:
+                            # os.path.join(os.environ['RMANTREE], ...
+                            path = match_str.replace(envconfig().rmantree, "")
+                            if path[0] == '/':
+                                path = path[1:]
+                            path = 'os.path.join(os.environ["RMANTREE"], "' + path + '")'
+                            write_line = write_line.replace(m, path)
+                            continue
+
                         # check if this asset already exists in our asset_dirs
                         asset_file = os.path.basename(match_str)
                         exists = False

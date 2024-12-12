@@ -1,5 +1,4 @@
 from .prefs_utils import get_pref
-from . import filepath_utils
 from ..rfb_logger import rfb_log
 from .. import rfb_logger
 from .. import rman_constants
