@@ -138,7 +138,7 @@ def render_post(bl_scene):
 def render_stop(bl_scene):
     from .. import rman_render
     rr = rman_render.RmanRender.get_rman_render()
-    if rr.is_regular_rendering():
+    if rr.rman_context.is_regular_rendering():
         rfb_log().debug("Render stop handler called. Try to stop the renderer.")
         rr.stop_render()
 

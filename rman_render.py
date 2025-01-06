@@ -28,7 +28,7 @@ from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
-from .rfb_utils.scene_utils import RmanRenderContext
+from .rfb_utils.render_utils import RmanRenderContext
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils.timer_utils import time_this
@@ -705,6 +705,7 @@ class RmanRender(object):
         do_persistent_data = rm.do_persistent_data
         use_compositor = scene_utils.should_use_bl_compositor(self.bl_scene)
         if for_background:
+            self.rman_context.set_mode_append(RmanRenderContext.k_for_background)
             self.rman_render_into = ''
             is_external = True
             if use_compositor:
@@ -737,6 +738,9 @@ class RmanRender(object):
             except:
                 pass
 
+        if is_external:
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_external)
+
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
         rendervariant = scene_utils.get_render_variant(self.bl_scene)
@@ -761,7 +765,7 @@ class RmanRender(object):
             self.start_export_stats_thread()
             if boot_strapping:
                 # This is our first time exporting
-                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
+                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer)
             else:   
                 # Scene still exists, which means we're in persistent data mode
                 # Try to get the scene diffs.                    
@@ -850,6 +854,7 @@ class RmanRender(object):
         if rib_format == "ascii":
             rib_options += " -indent"
 
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_external | RmanRenderContext.k_is_rib_mode)
         if rm.external_animation:
             original_frame = bl_scene.frame_current
             do_persistent_data = rm.do_persistent_data
@@ -870,7 +875,7 @@ class RmanRender(object):
                         rfb_log().debug("Frame: %d" % frame)
                         if frame == bl_scene.frame_start:
                             self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
-                            self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
+                            self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
                             self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                         else:
                             self.rman_scene_sync.batch_update_scene(bpy.context, depsgraph)
@@ -900,7 +905,7 @@ class RmanRender(object):
                         self.bl_engine.frame_set(frame, subframe=0.0)
                         rfb_log().debug("Frame: %d" % frame)
                         self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
-                        self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
+                        self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
                         self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                             
                         rib_output = string_utils.expand_string(rm.path_rib_output, 
@@ -940,7 +945,7 @@ class RmanRender(object):
                 bl_view_layer = depsgraph.view_layer_eval      
                 rfb_log().info("Parsing scene...")      
                 self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)       
-                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
+                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
                 self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
@@ -962,7 +967,7 @@ class RmanRender(object):
 
         spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
         spooler.batch_render()
-        self.rman_context.set_mode(RmanRenderContext.k_stopped)
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()
         return True          
@@ -971,7 +976,7 @@ class RmanRender(object):
         self.reset()
         if self._do_prman_render_begin():
             return False        
-        self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_bake_mode)
         self.bl_scene = depsgraph.scene_eval
         rm = self.bl_scene.renderman
         self.it_port = start_cmd_server()    
@@ -982,6 +987,7 @@ class RmanRender(object):
 
         if for_background:
             is_external = True
+            self.rman_context.set_mode_append(RmanRenderContext.k_for_background | RmanRenderContext.k_is_external)
             self.rman_callbacks.clear()
             ec = rman.EventCallbacks.Get()
             ec.RegisterCallback("Render", render_cb, self)
@@ -1007,10 +1013,10 @@ class RmanRender(object):
             self.del_bl_engine()
             return False        
         try:
-            bl_layer = depsgraph.view_layer_eval_eval
+            bl_layer = depsgraph.view_layer_eval
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
             self.start_export_stats_thread()
-            self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
+            self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer)
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
             self._dump_rib_(self.bl_scene.frame_current)
@@ -1039,7 +1045,7 @@ class RmanRender(object):
         bl_scene = depsgraph.scene_eval
         rm = bl_scene.renderman
 
-        self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_external | RmanRenderContext.k_is_bake_mode)
         self.rman_render_into = ''
         rib_options = ""
         if rm.rib_compression == "gzip":
@@ -1063,7 +1069,7 @@ class RmanRender(object):
                 try:
                     self.bl_engine.frame_set(frame, subframe=0.0)
                     self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
-                    self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
+                    self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer)
                     self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                     rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                             asFilePath=True)                                                                            
@@ -1092,7 +1098,7 @@ class RmanRender(object):
                 bl_view_layer = depsgraph.view_layer_eval         
                 rfb_log().info("Parsing scene...")
                 self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)             
-                self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
+                self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer)
                 self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
@@ -1116,7 +1122,7 @@ class RmanRender(object):
         if rm.queuing_system != 'none':
             spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
             spooler.batch_render()
-        self.rman_context.set_mode(RmanRenderContext.k_stopped)
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()
         return True                  
@@ -1352,7 +1358,7 @@ class RmanRender(object):
             self.sg_scene = None
             self.rman_scene.reset()  
 
-        self.rman_context.set_mode(RmanRenderContext.k_stopped) 
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()        
         return True                 
@@ -1370,9 +1376,8 @@ class RmanRender(object):
         
         if not self.rman_context.is_interactive_running() and not self.rman_context.is_render_running():
             return
-
-        self.rman_context.set_mode(RmanRenderContext.k_stopped)     
-        self.rman_context.set_render_state(RmanRenderContext.k_stopped)  
+        
+        self.rman_context.stop()
 
         # Remove callbacks
         ec = rman.EventCallbacks.Get()

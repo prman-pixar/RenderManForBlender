@@ -12,7 +12,6 @@ from collections import OrderedDict
 import rman_utils.stats_config.core as stcore
 from ..rfb_utils import prefs_utils
 from ..rfb_logger import rfb_log
-from ..rfb_utils.scene_utils import RmanRenderContext
 
 __oneK2__ = 1024.0*1024.0
 __RFB_STATS_MANAGER__ = None

@@ -106,11 +106,6 @@ class RmanScene(object):
         self.rm_rl = None
 
         self.do_motion_blur = False
-        self.rman_bake = False
-        self.is_interactive = False
-        self.external_render = False
-        self.is_viewport_render = False
-        self.is_swatch_render = False
         self.scene_solo_light = False
         self.scene_any_lights = False
         self.is_xpu = False
@@ -140,6 +135,29 @@ class RmanScene(object):
 
         self.create_translators()
 
+    @property
+    def external_render(self):
+        return self.rman_render.rman_context.is_external()
+    
+    @property 
+    def rman_bake(self):
+        return self.rman_render.rman_context.is_bake_mode()
+    
+    @property
+    def is_rib_mode(self):
+        return self.rman_render.rman_context.is_rib_mode()
+    
+    @property
+    def is_interactive(self):
+        return self.rman_render.rman_context.is_interactive_running()
+    
+    @property
+    def is_viewport_render(self):
+        return self.rman_render.rman_context.is_viewport_rendering()
+    
+    @property
+    def is_swatch_render(self):
+        return self.rman_render.rman_context.is_swatch_rendering()
 
     def create_translators(self):
         # Create our dictionary of translators. The object type is determined
@@ -208,31 +226,24 @@ class RmanScene(object):
             rfb_log().debug("Cannot set viewport_render_res_mult: %s" % str(err))
 
 
-    def export_for_final_render(self, depsgraph, sg_scene, bl_view_layer, is_external=False):
+    def export_for_final_render(self, depsgraph, sg_scene, bl_view_layer):
         self.sg_scene = sg_scene
         self.context = bpy.context
         self.bl_scene = depsgraph.scene_eval
         self.bl_view_layer = bl_view_layer
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = is_external
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = self.bl_scene.renderman.motion_blur
         self.export()
 
-    def export_for_bake_render(self, depsgraph, sg_scene, bl_view_layer, is_external=False):
+    def export_for_bake_render(self, depsgraph, sg_scene, bl_view_layer):
         self.sg_scene = sg_scene
         self.context = bpy.context
         self.bl_scene = depsgraph.scene_eval
         self.bl_view_layer = bl_view_layer
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = is_external
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = self.bl_scene.renderman.motion_blur
-        self.rman_bake = True
 
         if self.bl_scene.renderman.hider_type == 'BAKE_BRICKMAP_SELECTED':
             self.export_bake_brickmap_selected()
@@ -246,14 +257,6 @@ class RmanScene(object):
         self.bl_scene = depsgraph.scene_eval
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = False
-        self.is_interactive = True
-        self.is_viewport_render = False
-        self.rman_bake = False
-
-        if self.ipr_render_into == 'blender':
-            self.is_viewport_render = True
-
         self.do_motion_blur = False
 
         self.export()
@@ -267,10 +270,6 @@ class RmanScene(object):
         self.depsgraph = context.evaluated_depsgraph_get()
         self.bl_view_layer = self.depsgraph.view_layer_eval
         self._find_renderman_layer()
-        self.rman_bake = False
-        self.external_render = False
-        self.is_interactive = False
-        self.is_viewport_render = False
 
         self.export_root_sg_node()
         self.export_materials([m for m in self.depsgraph.ids if isinstance(m, bpy.types.Material)])
@@ -281,12 +280,7 @@ class RmanScene(object):
         self.context = bpy.context #None
         self.bl_scene = depsgraph.scene_eval
         self.depsgraph = depsgraph
-        self.external_render = False
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = False
-        self.rman_bake = False
-        self.is_swatch_render = True
         self.export_swatch_render_scene()
 
     def export(self):
@@ -1177,7 +1171,7 @@ class RmanScene(object):
             property_utils.set_rioption_bl_prop(options, prop_name, meta, rm)
 
         # threads
-        if not self.external_render:
+        if not self.is_rib_mode:
             options.SetInteger(self.rman.Tokens.Rix.k_limits_threads, rm.threads)
 
         # pixelfilter
