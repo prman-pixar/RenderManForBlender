@@ -60,7 +60,7 @@ class MATERIAL_PT_renderman_material_refresh(ShaderPanel, Panel):
         rr = RmanRender.get_rman_render()
         if not rr.rman_is_live_rendering:
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False
         return True
 
@@ -84,7 +84,7 @@ class DATA_PT_renderman_light_refresh(ShaderPanel, Panel):
         rr = RmanRender.get_rman_render()
         if not rr.rman_is_live_rendering:
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False            
         return True    
 

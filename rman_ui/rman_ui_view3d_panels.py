@@ -284,7 +284,8 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
             for label in rr.stats_mgr.stats_to_draw:
                 data = rr.stats_mgr.render_live_stats[label]        
                 box.label(text='%s: %s' % (label, data))        
-            if rr.rman_running:   
+            #if rr.rman_running:   
+            if rr.rman_context.is_render_running():
                 box.prop(rm, 'roz_stats_iterations', slider=True, text='Iterations (%d / %d)' % (rr.stats_mgr._iterations, rr.stats_mgr._maxSamples))
                 box.prop(rm, 'roz_stats_progress', slider=True)            
             '''
@@ -293,7 +294,8 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
                     for label in rr.stats_mgr.stats_to_draw:
                         data = rr.stats_mgr.render_live_stats[label]        
                         box.label(text='%s: %s' % (label, data))        
-                    if rr.rman_running:   
+                    #if rr.rman_running:   
+                    if rr.rman_context.is_render_running():
                         box.prop(rm, 'roz_stats_iterations', slider=True, text='Iterations (%d / %d)' % (rr.stats_mgr._iterations, rr.stats_mgr._maxSamples))
                         box.prop(rm, 'roz_stats_progress', slider=True)
                 
