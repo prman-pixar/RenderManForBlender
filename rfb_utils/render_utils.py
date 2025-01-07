@@ -107,6 +107,9 @@ class RmanRenderContext(object):
     
     def is_rib_mode(self):
         return bool(self.mode & RmanRenderContext.k_is_rib_mode)
+    
+    def is_xpu(self):
+        return bool(self.mode & RmanRenderContext.k_is_xpu)
 
     def is_exporting_state(self):
         return self.render_state == RmanRenderContext.k_render_state_exporting

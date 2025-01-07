@@ -216,7 +216,7 @@ def call_stats_update_payloads(db):
     while db.rman_context.is_render_running():
         if not db.bl_engine:
             break
-        if db.rman_is_xpu and db.rman_context.is_regular_rendering():
+        if db.is_xpu and db.rman_context.is_regular_rendering():
             # stop the render if we are rendering in XPU mode
             # and we've reached ~100%
             if float(db.stats_mgr._progress) > 98.0:
@@ -476,7 +476,6 @@ class RmanRender(object):
         self.rman_scene_sync = RmanSceneSync(rman_render=self, rman_scene=self.rman_scene)
         self.bl_engine = None
         self.rman_context = RmanRenderContext()
-        self.rman_is_xpu = False
         self.rman_render_into = 'blender'
         self.rman_license_failed = False
         self.rman_license_failed_message = ''
@@ -516,6 +515,10 @@ class RmanRender(object):
     @bl_engine.setter
     def bl_engine(self, bl_engine):
         self.__bl_engine = bl_engine        
+
+    @property
+    def is_xpu(self):
+        return self.rman_context.is_xpu()
 
     def _start_prman_begin(self):
         argv = []
@@ -662,7 +665,7 @@ class RmanRender(object):
             __RMAN_STATS_THREAD__.join()
             __RMAN_STATS_THREAD__ = None
         __RMAN_STATS_THREAD__ = threading.Thread(target=call_stats_update_payloads, args=(self, ))
-        if self.rman_is_xpu:
+        if self.is_xpu:
             # FIXME: for now, add a 1 second delay before starting the stats thread
             # for some reason, XPU doesn't seem to reset the progress between renders
             time.sleep(1.0)        
@@ -672,7 +675,6 @@ class RmanRender(object):
     def reset(self):
         self.rman_license_failed = False
         self.rman_license_failed_message = ''
-        self.rman_is_xpu = False
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False 
@@ -746,7 +748,8 @@ class RmanRender(object):
         render_config = rman.Types.RtParamList()
         rendervariant = render_utils.get_render_variant(self.bl_scene)
         render_utils.set_render_variant_config(self.bl_scene, config, render_config)
-        self.rman_is_xpu = (rendervariant == 'xpu')
+        if rendervariant == 'xpu':
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu)
         self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
 
         boot_strapping = False
@@ -1187,13 +1190,14 @@ class RmanRender(object):
         render_config = rman.Types.RtParamList()
         rendervariant = render_utils.get_render_variant(self.bl_scene)
         render_utils.set_render_variant_config(self.bl_scene, config, render_config)
-        self.rman_is_xpu = (rendervariant == 'xpu')
+        if rendervariant == 'xpu':
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu) 
 
         # XPU slow mode refers to our "pull" model for getting pixels to Blender for IPR. 
         # That is, in the drawing thread we periodically ask the display driver for the latest
         # pixels. In the non slow mode, the display driver "pushes" the pixels via a python callback
         # function, that we pass a pointer to to the display driver. 
-        if self.rman_is_xpu:
+        if self.is_xpu:
             self.xpu_slow_mode = int(envconfig().getenv('RFB_XPU_SLOW_MODE', default=1))
         elif sys.platform == 'darwin':
             # For macOS, always use the "pull" model. For some reason, Blender crashes at the end of

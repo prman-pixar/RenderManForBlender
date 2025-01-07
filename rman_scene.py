@@ -108,7 +108,6 @@ class RmanScene(object):
         self.do_motion_blur = False
         self.scene_solo_light = False
         self.scene_any_lights = False
-        self.is_xpu = False
 
         self.rman_materials = dict()
         self.rman_translators = dict()
@@ -158,6 +157,10 @@ class RmanScene(object):
     @property
     def is_swatch_render(self):
         return self.rman_render.rman_context.is_swatch_rendering()
+    
+    @property
+    def is_xpu(self):
+        return self.rman_render.rman_context.is_xpu()
 
     def create_translators(self):
         # Create our dictionary of translators. The object type is determined
@@ -212,7 +215,6 @@ class RmanScene(object):
         self.render_default_light = False
         self.world_df_node = None
         self.default_light = None
-        self.is_xpu = False
         self.num_object_instances = 0
         self.num_objects_in_viewlayer = 0
         self.objects_in_viewlayer.clear()
@@ -288,8 +290,6 @@ class RmanScene(object):
         self.reset()
 
         self.render_default_light = self.bl_scene.renderman.render_default_light
-        if sys.platform != "darwin":
-            self.is_xpu = (self.bl_scene.renderman.renderVariant != 'prman')
 
         # update variables
         string_utils.set_var('scene', self.bl_scene.name.replace(' ', '_'))
