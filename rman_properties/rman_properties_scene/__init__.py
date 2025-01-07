@@ -11,6 +11,7 @@ from ..rman_properties_misc import RendermanLightGroup, RendermanGroup, LightLin
 from ..rman_properties_renderlayers import RendermanRenderLayerSettings
 from ... import rman_config
 from ...rman_config import RmanBasePropertyGroup
+from ...rman_constants import RFB_PLATFORM
 
 import bpy
 import os
@@ -92,13 +93,8 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
 
     # Renderer Status properties
     def get_platform(self):
-        if sys.platform == ("win32"):
-            return 'windows'
-        elif sys.platform == ("darwin"):
-            return 'macOS'
-        else:
-            return 'linux'
-
+        return RFB_PLATFORM
+    
     def get_is_ncr_license(self):
         return envconfig().is_ncr_license
 

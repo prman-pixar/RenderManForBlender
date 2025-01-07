@@ -26,6 +26,7 @@
 from ..rfb_utils.prefs_utils import get_pref, get_addon_prefs, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
+from ..rman_constants import RFB_PLATFORM
 
 try:
     from ..rman_ui import rfb_qt
@@ -521,7 +522,7 @@ class PRMAN_OT_Renderman_Presets_Editor(bpy.types.Operator):
             if __PRESET_BROWSER_WINDOW__ and __PRESET_BROWSER_WINDOW__.isVisible():
                 return {'FINISHED'}
 
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 __PRESET_BROWSER_WINDOW__ = rfb_qt.run_with_timer(__PRESET_BROWSER_WINDOW__, PresetBrowserWrapper)   
             else:
                 bpy.ops.wm.rpb_qt_app_timed()

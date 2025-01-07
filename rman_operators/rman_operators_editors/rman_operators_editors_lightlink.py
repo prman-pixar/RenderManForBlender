@@ -11,7 +11,7 @@ from ...rfb_utils.envconfig_utils import envconfig
 from ... import rfb_icons
 from ...rman_operators.rman_operators_collections import return_empty_list   
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
-from ...rman_constants import RFB_ADDON_PATH
+from ...rman_constants import RFB_ADDON_PATH, RFB_PLATFORM
 import bpy
 import os
 import re
@@ -674,7 +674,7 @@ class PRMAN_PT_Renderman_Open_Light_Linking(bpy.types.Operator):
         '''
         if using_qt() and show_wip_qt():
             global __LIGHT_LINKING_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__LIGHT_LINKING_WINDOW__, LightLinkingQtWrapper)   
             else:
                 bpy.ops.wm.light_linking_qt_app_timed()     

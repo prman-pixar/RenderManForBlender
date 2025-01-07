@@ -1,6 +1,6 @@
 from ..rfb_logger import rfb_log
 from . import prefs_utils
-import sys
+from ..rman_constants import RFB_PLATFORM
 
 class RmanRenderState(object):
     k_stopped = -1
@@ -123,8 +123,8 @@ def get_render_variant(bl_scene):
         rfb_log().warning("Your RenderMan license does not include XPU. Reverting to RIS.")
         return 'prman'
 
-    if sys.platform == ("darwin") and bl_scene.renderman.renderVariant != 'prman':
-        rfb_log().warning("XPU is not implemented on OSX: using RIS...")
+    if RFB_PLATFORM == "macOS" and bl_scene.renderman.renderVariant != 'prman':
+        rfb_log().warning("XPU is not implemented on macOS: using RIS...")
         return 'prman'
 
     return bl_scene.renderman.renderVariant    

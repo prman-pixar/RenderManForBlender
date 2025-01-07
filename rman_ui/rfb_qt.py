@@ -10,6 +10,7 @@ except ImportError:
     
 import bpy
 import sys
+from ..rman_constants import RFB_PLATFORM
 
 """
 -------------------------------------------------
@@ -260,7 +261,7 @@ def get_rman_qt_wrapper():
 
             def __init__(self):
                 super().__init__()        
-                if sys.platform == "darwin":
+                if RFB_PLATFORM == "macOS":
                     self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                 else:
                     self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)         

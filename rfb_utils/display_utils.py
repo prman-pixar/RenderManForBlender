@@ -15,7 +15,7 @@ __RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR', 
 
 __RFB_DENOISER_AI__ = '1'
 __RFB_DENOISER_OPTIX__ = '2'
-if sys.platform == "darwin":
+if rman_constants.RFB_PLATFORM == "macOS":
     __RFB_DENOISER_OPTIX__ = '0'
 
 class OutputChannel:

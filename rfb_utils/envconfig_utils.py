@@ -2,7 +2,7 @@ from .prefs_utils import get_pref
 from ..rfb_logger import rfb_log
 from .. import rfb_logger
 from .. import rman_constants
-from ..rman_constants import RFB_ADDON_PATH
+from ..rman_constants import RFB_ADDON_PATH, RFB_PLATFORM
 import os
 import bpy
 import json
@@ -107,7 +107,7 @@ class RmanEnvConfig(object):
 
     def set_qn_dspy(self, dspy, immediate_close=True):
         ext = '.so'
-        if sys.platform == ("win32"):
+        if RFB_PLATFORM == "windows":
                 ext = '.dll'
         d = os.path.join(self.rmantree, 'lib', 'plugins', 'd_%s%s' % (dspy, ext))
         self.setenv('RMAN_QN_DISPLAY', d)
@@ -118,7 +118,7 @@ class RmanEnvConfig(object):
 
     def get_qn_dspy(self, dspy, immediate_close=True):
         ext = '.so'
-        if sys.platform == ("win32"):
+        if RFB_PLATFORM == "windows":
                 ext = '.dll'
         d = os.path.join(self.rmantree, 'lib', 'plugins', 'd_%s%s' % (dspy, ext))
         return d

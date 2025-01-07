@@ -24,14 +24,14 @@ def view_file(file_path):
             rfb_log().error("File or text editor not available. (Check and make sure text editor is in system path.)")        
 
 
-    if sys.platform == ("win32"):
+    if rman_constants.RFB_PLATFORM == "windows":
         try:
             os.startfile(file_path)
             return
         except:
             pass
     else:
-        if sys.platform == ("darwin"):
+        if rman_constants.RFB_PLATFORM == "macOS":
             opener = 'open -t'
         else:
             opener = os.getenv('EDITOR', 'xdg-open')
@@ -57,9 +57,9 @@ def get_cycles_shader_path():
     version  = '%d.%d' % (bpy.app.version[0], bpy.app.version[1])
     binary_path = os.path.dirname(bpy.app.binary_path)
     rel_config_path = os.path.join(version, rman_constants.CYCLES_SHADERS_PATH)
-    if sys.platform == ("win32"):
+    if rman_constants.RFB_PLATFORM == "windows":
         path = os.path.join(binary_path, rel_config_path)
-    elif sys.platform == ("darwin"):                
+    elif rman_constants.RFB_PLATFORM  == "macOS":                
         path = os.path.join(binary_path, '..', 'Resources', rel_config_path )
     else:
         path = os.path.join(binary_path, rel_config_path)        

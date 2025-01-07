@@ -10,7 +10,7 @@ from ..rfb_utils import object_utils
 from ..rfb_utils.prefs_utils import get_pref, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
-from ..rman_constants import RFB_HELP_URL
+from ..rman_constants import RFB_HELP_URL, RFB_PLATFORM
 from .. import rman_render
 from rman_utils.txmanager import txparams
 from rman_utils import txmanager as txmngr
@@ -761,7 +761,7 @@ class PRMAN_OT_Renderman_open_txmanager(Operator):
             if __TXMANAGER_WINDOW__ and __TXMANAGER_WINDOW__.isVisible():
                 return {'FINISHED'}
 
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__TXMANAGER_WINDOW__, create_widget)   
             else:
                 bpy.ops.wm.txm_qt_app_timed()

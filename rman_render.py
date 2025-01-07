@@ -4,7 +4,12 @@ import rman
 import ice
 import bpy
 import sys
-from .rman_constants import RFB_VIEWPORT_MAX_BUCKETS, RMAN_RENDERMAN_BLUE, USE_GPU_MODULE, BLENDER_41
+from .rman_constants import (
+        RFB_VIEWPORT_MAX_BUCKETS, 
+        RMAN_RENDERMAN_BLUE, 
+        USE_GPU_MODULE, 
+        BLENDER_41,
+        RFB_PLATFORM)
 from .rman_scene import RmanScene
 from .rman_scene_sync import RmanSceneSync
 from. import rman_spool
@@ -273,7 +278,7 @@ def preload_dsos(rman_render):
                                    the ctypes.CDLL
     
     """    
-    if sys.platform != 'linux':
+    if RFB_PLATFORM != 'linux':
         return
 
     plugins = [
@@ -298,7 +303,7 @@ def preload_dsos(rman_render):
 def preload_quicklynoiseless():
     global __D_QUICKLYNOISELESS__
     if __D_QUICKLYNOISELESS__ is None:
-        if sys.platform != 'linux':
+        if RFB_PLATFORM != 'linux':
             return
 
         plugin = 'lib/plugins/d_quicklyNoiseless.so'
@@ -565,7 +570,7 @@ class RmanRender(object):
         if envconfig().getenv('RFB_DUMP_RIB'):
             rfb_log().debug("Writing to RIB...")
             rib_time_start = time.time()
-            if sys.platform == ("win32"):
+            if RFB_PLATFORM == "windows":
                 self.sg_scene.Render("rib C:/tmp/blender.%04d.rib -format ascii -indent" % frame)
             else:
                 self.sg_scene.Render("rib /var/tmp/blender.%04d.rib -format ascii -indent" % frame)     
@@ -1199,7 +1204,7 @@ class RmanRender(object):
         # function, that we pass a pointer to to the display driver. 
         if self.is_xpu:
             self.xpu_slow_mode = int(envconfig().getenv('RFB_XPU_SLOW_MODE', default=1))
-        elif sys.platform == 'darwin':
+        elif RFB_PLATFORM == 'macOS':
             # For macOS, always use the "pull" model. For some reason, Blender crashes at the end of
             # batch renders if ctypes.CFUNCTYPE is ever called (true as of Blender 4.1)
             self.xpu_slow_mode = True
@@ -1431,7 +1436,7 @@ class RmanRender(object):
         if __BLENDER_DSPY_PLUGIN__ == None:
             # grab a pointer to the Blender display driver
             ext = '.so'
-            if sys.platform == ("win32"):
+            if RFB_PLATFORM == "windows":
                     ext = '.dll'
             __BLENDER_DSPY_PLUGIN__ = ctypes.CDLL(os.path.join(envconfig().rmantree, 'lib', 'plugins', 'd_blender%s' % ext))
 
@@ -1455,7 +1460,7 @@ class RmanRender(object):
         dspy_plugin.SetRedrawCallback(None)        
 
     def has_buffer_updated(self):        
-        if sys.platform == "darwin":
+        if RFB_PLATFORM == "macOS":
             # for now, always return True on macOS
             return True               
         dspy_plugin = self.get_blender_dspy_plugin()

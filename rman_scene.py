@@ -1092,7 +1092,7 @@ class RmanScene(object):
         RMAN_SHADERPATH = envconfig().getenv('RMAN_SHADERPATH', '')
         RMAN_TEXTUREPATH = envconfig().getenv('RMAN_TEXTUREPATH', '')
         RMAN_RIXPLUGINPATH = envconfig().getenv('RMAN_RIXPLUGINPATH', '')
-        if sys.platform == ("win32"):
+        if rman_constants.RFB_PLATFORM == "windows":
             # substitute ; for : in paths
             RMAN_SHADERPATH = RMAN_SHADERPATH.replace(';', ':')
             RMAN_TEXTUREPATH = RMAN_TEXTUREPATH.replace(';', ':')

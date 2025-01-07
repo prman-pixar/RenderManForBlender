@@ -5,6 +5,7 @@ from ...rman_operators.rman_operators_collections import return_empty_list
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from ...rfb_utils import scene_utils
 from ... import rfb_icons
+from ...rman_constants import RFB_PLATFORM
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
 import bpy
 import re
@@ -530,7 +531,7 @@ class PRMAN_OT_Renderman_Open_Volume_Aggregates_Editor(CollectionPanel, bpy.type
         '''
         if using_qt() and show_wip_qt():
             global __VOL_AGGREGATE_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__VOL_AGGREGATE_WINDOW__, VolAggregatesQtWrapper)   
             else:
                 bpy.ops.wm.vol_aggregates_qt_app_timed()     

@@ -66,6 +66,12 @@ RFB_HELP_URL = "https://rmanwiki.pixar.com/display/RFB%s" % RMAN_SUPPORTED_VERSI
 RFB_FLOAT3 = ['color', 'point', 'vector', 'normal']
 RFB_FLOATX = ['color', 'point', 'vector', 'normal', 'matrix']
 
+RFB_PLATFORM = "linux"
+if sys.platform == "win32":
+    RFB_PLATFORM = "windows"
+elif sys.platform == "darwin":
+    RFB_PLATFORM = "macOS"
+
 # 
 # Version for the preset browser asset
 #
