@@ -1,3 +1,7 @@
+from ..rfb_logger import rfb_log
+from . import prefs_utils
+import sys
+
 class RmanRenderState(object):
     k_stopped = -1
     k_exporting = 0
@@ -11,21 +15,22 @@ class RmanRenderContext(object):
     
     * is a render running?
     * are we rendering in the viewport?
+    * are we exporting to RIB?
     
     '''
     k_stopped = 0
     
-    k_render_running = 1
-    k_interactive_running = k_render_running << 1
-    k_viewport_rendering = k_interactive_running << 1
-    k_swatch_rendering = k_viewport_rendering << 1
-    k_is_xpu = k_swatch_rendering << 1
-    k_is_live_rendering = k_is_xpu << 1
-    k_is_refining = k_is_live_rendering << 1
-    k_for_background = k_is_refining << 1
-    k_is_external = k_for_background << 1
-    k_is_bake_mode = k_is_external << 1
-    k_is_rib_mode = k_is_bake_mode << 1
+    k_render_running = 1                                     # is a render runnnig
+    k_interactive_running = k_render_running << 1            # are we in interative (live) rendering 
+    k_viewport_rendering = k_interactive_running << 1        # are we rendering into the blender viewport
+    k_swatch_rendering = k_viewport_rendering << 1           # are we doing a swatch render (currently not used/enabled)
+    k_is_xpu = k_swatch_rendering << 1                       # is this an XPU render
+    k_is_live_rendering = k_is_xpu << 1                      # are we "live" rendering, this is just a flag to let us know we are using the -live flag, even in preview renders
+    k_is_refining = k_is_live_rendering << 1                 # are we in the middle refining the image, or has the renderer finished/waiting for the next edit
+    k_for_background = k_is_refining << 1                    # whether the blender background flag was used i.e.: we are rendering via blender batch mode
+    k_is_external = k_for_background << 1                    # is this an external render, can either be blender batch or RIB renders
+    k_is_bake_mode = k_is_external << 1                      # are we in baking mode
+    k_is_rib_mode = k_is_bake_mode << 1                      # are we in RIB mode/writing to RIB
 
     # not
     k_not_render_running = 0
@@ -36,9 +41,10 @@ class RmanRenderContext(object):
     k_not_is_refining =         0b11110111111
     k_not_for_background =      0b11101111111
 
-    k_render_state_exporting = 1
-    k_render_state_rendering = 2
-    k_render_state_denoising = 3   
+    # render states
+    k_render_state_exporting = 1                             # we are exporting/parsing the scene
+    k_render_state_rendering = 2                             # we are rendering
+    k_render_state_denoising = 3                             # we are denoising
 
     def __init__(self):
         self.mode = 0
@@ -107,3 +113,113 @@ class RmanRenderContext(object):
 
     def is_rendering_state(self):
         return self.render_state == RmanRenderContext.k_render_state_rendering
+    
+def get_render_variant(bl_scene):
+    #if bl_scene.renderman.is_ncr_license and bl_scene.renderman.renderVariant != 'prman':
+    if not bl_scene.renderman.has_xpu_license and bl_scene.renderman.renderVariant != 'prman':
+        rfb_log().warning("Your RenderMan license does not include XPU. Reverting to RIS.")
+        return 'prman'
+
+    if sys.platform == ("darwin") and bl_scene.renderman.renderVariant != 'prman':
+        rfb_log().warning("XPU is not implemented on OSX: using RIS...")
+        return 'prman'
+
+    return bl_scene.renderman.renderVariant    
+
+def set_render_variant_config(bl_scene, config, render_config):
+    variant = get_render_variant(bl_scene)
+    if variant.startswith('xpu'):
+        variant = 'xpu'
+    config.SetString('rendervariant', variant)
+
+    if variant == 'xpu':
+
+        xpu_gpu_devices = prefs_utils.get_pref('rman_xpu_gpu_devices')
+        gpus = list()
+        for device in xpu_gpu_devices:
+            if device.use:
+                gpus.append(device.id)
+        if gpus:
+            render_config.SetIntegerArray('xpu:gpuconfig', gpus, len(gpus))    
+
+        # For now, there is only one CPU
+        xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
+        if len(xpu_cpu_devices) > 0:
+            device = xpu_cpu_devices[0]
+            render_config.SetInteger('xpu:cpuconfig', int(device.use))
+
+            if not gpus and not device.use:
+                # Nothing was selected, we should at least use the cpu.
+                print("No devices were selected for XPU. Defaulting to CPU.")
+                render_config.SetInteger('xpu:cpuconfig', 1)
+        else:                
+            render_config.SetInteger('xpu:cpuconfig', 1) 
+        '''
+        ## OLD: single GPU device support code path
+        xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
+        if xpu_gpu_device > -1:
+            render_config.SetIntegerArray('xpu:gpuconfig', [xpu_gpu_device], 1)
+
+        # For now, there is only one CPU
+        xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
+        if len(xpu_cpu_devices) > 0:
+            device = xpu_cpu_devices[0]
+            render_config.SetInteger('xpu:cpuconfig', int(device.use))    
+
+            if xpu_gpu_device == -1 and not device.use:
+                # Nothing was selected, we should at least use the cpu.
+                print("No devices were selected for XPU. Defaulting to CPU.")
+                render_config.SetInteger('xpu:cpuconfig', 1)                         
+        else:
+            render_config.SetInteger('xpu:cpuconfig', 1)         
+        '''
+
+def set_render_variant_spool(bl_scene, args, is_tractor=False):
+    variant = get_render_variant(bl_scene)
+    if variant.startswith('xpu'):
+        variant = 'xpu'
+    args.append('-variant')
+    args.append(variant)
+
+    if variant == 'xpu':
+        device_list = list()
+        if not is_tractor:
+            
+            xpu_gpu_devices = prefs_utils.get_pref('rman_xpu_gpu_devices')
+            for device in xpu_gpu_devices:
+                if device.use:
+                    device_list.append('gpu%d' % device.id)
+
+            xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
+            if len(xpu_cpu_devices) > 0:
+                device = xpu_cpu_devices[0]
+                if device.use or not device_list:
+                    device_list.append('cpu')
+            else:
+                device_list.append('cpu')
+                            
+            '''
+            ## OLD: single GPU device support code path 
+            xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
+            if xpu_gpu_device > -1:
+                device_list.append('gpu%d' % xpu_gpu_device)
+
+            xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
+            if len(xpu_cpu_devices) > 0:
+                device = xpu_cpu_devices[0]
+
+                if device.use or xpu_gpu_device < 0:
+                    device_list.append('cpu')            
+            else:
+                device_list.append('cpu')     
+            '''     
+
+        else:
+            # Don't add the gpu list if we are spooling to Tractor
+            # There is no way for us to know what is available on the blade,
+            # so just ask for CPU for now.
+            device_list.append('cpu')
+
+        if device_list:
+            device_list = ','.join(device_list)
+            args.append('-xpudevices:%s' % device_list)  

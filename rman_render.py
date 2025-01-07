@@ -28,6 +28,7 @@ from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
+from .rfb_utils import render_utils
 from .rfb_utils.render_utils import RmanRenderContext
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
@@ -743,8 +744,8 @@ class RmanRender(object):
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = scene_utils.get_render_variant(self.bl_scene)
-        scene_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        rendervariant = render_utils.get_render_variant(self.bl_scene)
+        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
         self.rman_is_xpu = (rendervariant == 'xpu')
         self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
 
@@ -1184,8 +1185,8 @@ class RmanRender(object):
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = scene_utils.get_render_variant(self.bl_scene)
-        scene_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        rendervariant = render_utils.get_render_variant(self.bl_scene)
+        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
         self.rman_is_xpu = (rendervariant == 'xpu')
 
         # XPU slow mode refers to our "pull" model for getting pixels to Blender for IPR. 
