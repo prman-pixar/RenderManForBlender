@@ -625,7 +625,7 @@ class PRMAN_OT_Force_Material_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             mat = getattr(context, "material", None)
             if mat:
                 rr.rman_scene_sync.update_material(mat)
@@ -639,7 +639,7 @@ class PRMAN_OT_Force_Light_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             light = getattr(context, "light")
             if light:
                 users = context.blend_data.user_map(subset={light}, value_types={'OBJECT'})
@@ -655,7 +655,7 @@ class PRMAN_OT_Force_LightFilter_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             light_filter = getattr(context, "light_filter")
             if light_filter:
                 users = context.blend_data.user_map(subset={light_filter}, value_types={'OBJECT'})
