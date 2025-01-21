@@ -1582,7 +1582,9 @@ class RmanScene(object):
             if dspydriver_params:
                 display.params.Inherit(dspydriver_params)
             display.params.SetString("mode", channels)
-            if display_driver == "it":
+            if display_driver == "it" or (display_driver == "quicklyNoiseless" and self.ipr_render_into == "it"):
+                # include dspyParams if the display driver is "it", or display_driver == "quicklyNoiseless" and 
+                # the user selected to IPR to "it"
                 dspy_info = display_utils.make_dspy_info(self.bl_scene, self.is_interactive)
                 if rm.rfb_disgust:
                     # if debug logging is turned on make dspy_info empty
