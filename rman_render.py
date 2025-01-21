@@ -4,7 +4,12 @@ import rman
 import ice
 import bpy
 import sys
-from .rman_constants import RFB_VIEWPORT_MAX_BUCKETS, RMAN_RENDERMAN_BLUE, USE_GPU_MODULE, BLENDER_41
+from .rman_constants import (
+        RFB_VIEWPORT_MAX_BUCKETS, 
+        RMAN_RENDERMAN_BLUE, 
+        USE_GPU_MODULE, 
+        BLENDER_41,
+        RFB_PLATFORM)
 from .rman_scene import RmanScene
 from .rman_scene_sync import RmanSceneSync
 from. import rman_spool
@@ -28,7 +33,8 @@ from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
-from .rfb_utils.scene_utils import RmanRenderState
+from .rfb_utils import render_utils
+from .rfb_utils.render_utils import RmanRenderContext
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils.timer_utils import time_this
@@ -90,7 +96,7 @@ def __update_areas__():
 def __draw_callback__():
     # callback function for the display driver to call tag_redraw
     global __RMAN_RENDER__
-    if __RMAN_RENDER__.rman_is_viewport_rendering and __RMAN_RENDER__.bl_engine:
+    if __RMAN_RENDER__.rman_context.is_viewport_rendering() and __RMAN_RENDER__.bl_engine:
         try:
             __RMAN_RENDER__.bl_engine.tag_redraw()
             pass
@@ -106,12 +112,12 @@ class ItHandler(chatserver.ItBaseHandler):
 
     def dspyRender(self):
         global __RMAN_RENDER__
-        if not __RMAN_RENDER__.is_running:                        
+        if not __RMAN_RENDER__.rman_context.is_render_running():                        
             bpy.ops.render.render(layer=bpy.context.view_layer.name)             
 
     def dspyIPR(self):
         global __RMAN_RENDER__
-        if __RMAN_RENDER__.rman_interactive_running:
+        if __RMAN_RENDER__.rman_context.is_interactive_running():
             crop = []
             for c in self.msg.getOpt('crop').split(' '):
                 crop.append(float(c))
@@ -121,7 +127,7 @@ class ItHandler(chatserver.ItBaseHandler):
     def stopRender(self):
         global __RMAN_RENDER__
         rfb_log().debug("Stop Render Requested.")
-        if __RMAN_RENDER__.rman_interactive_running:
+        if __RMAN_RENDER__.rman_context.is_interactive_running():
             __RMAN_RENDER__.stop_render(stop_draw_thread=False)
         __RMAN_RENDER__.del_bl_engine() 
 
@@ -184,7 +190,7 @@ def start_cmd_server():
 
 def draw_threading_func(db):
     refresh_rate = get_pref('rman_viewport_refresh_rate', default=0.01)
-    while db.rman_is_live_rendering:
+    while db.rman_context.is_live_rendering():
         if db.bl_viewport.shading.type != 'RENDERED':
             # if the viewport is not rendering, stop IPR
             db.del_bl_engine()
@@ -207,21 +213,21 @@ def draw_threading_func(db):
             time.sleep(1.0)
 
 def call_stats_export_payloads(db):
-    while db.rman_render_state == RmanRenderState.k_exporting:
+    while db.rman_context.is_exporting_state():
         db.stats_mgr.update_payloads()
         time.sleep(0.1)  
 
 def call_stats_update_payloads(db):
-    while db.rman_running:
+    while db.rman_context.is_render_running():
         if not db.bl_engine:
             break
-        if db.rman_is_xpu and db.is_regular_rendering():
+        if db.is_xpu and db.rman_context.is_regular_rendering():
             # stop the render if we are rendering in XPU mode
             # and we've reached ~100%
             if float(db.stats_mgr._progress) > 98.0:
-                db.rman_is_live_rendering = False
+                db.rman_context.set_not_live_rendering()
                 break   
-        if db.rman_render_state == RmanRenderState.k_rendering:     
+        if db.rman_context.is_rendering_state():     
             db.stats_mgr.update_payloads()
         time.sleep(0.1)
 
@@ -231,8 +237,9 @@ def progress_cb(e, d, db):
         # we can at least get progress from the event callback
         # in case the stats listener is not connected
         db.stats_mgr._progress = int(d)
-    if db.rman_is_live_rendering and int(d) == 100:
-        db.rman_is_live_rendering = False
+    if db.rman_context.is_live_rendering() and int(d) == 100:
+        time.sleep(0.1)
+        db.rman_context.set_not_live_rendering()
 
 def bake_progress_cb(e, d, db): 
     if not db.stats_mgr.is_connected():
@@ -248,14 +255,15 @@ def batch_progress_cb(e, d, db):
 def render_cb(e, d, db):
     if d == 0:
         rfb_log().debug("RenderMan has exited.")
-        if db.rman_is_live_rendering:
-            db.rman_is_live_rendering = False
+        if db.rman_context.is_live_rendering():
+            time.sleep(0.1)
+            db.rman_context.set_not_live_rendering()
 
 def live_render_cb(e, d, db):
     if d == 0:
-        db.rman_is_refining = False
+        db.rman_context.set_is_not_refining()
     else:
-        db.rman_is_refining = True
+        db.rman_context.set_is_refining()
 
 def preload_dsos(rman_render):
     """On linux there is a problem with std::call_once and
@@ -270,7 +278,7 @@ def preload_dsos(rman_render):
                                    the ctypes.CDLL
     
     """    
-    if sys.platform != 'linux':
+    if RFB_PLATFORM != 'linux':
         return
 
     plugins = [
@@ -295,7 +303,7 @@ def preload_dsos(rman_render):
 def preload_quicklynoiseless():
     global __D_QUICKLYNOISELESS__
     if __D_QUICKLYNOISELESS__ is None:
-        if sys.platform != 'linux':
+        if RFB_PLATFORM != 'linux':
             return
 
         plugin = 'lib/plugins/d_quicklyNoiseless.so'
@@ -472,14 +480,7 @@ class RmanRender(object):
         self.rman_scene = RmanScene(rman_render=self)
         self.rman_scene_sync = RmanSceneSync(rman_render=self, rman_scene=self.rman_scene)
         self.bl_engine = None
-        self.rman_running = False
-        self.rman_render_state = RmanRenderState.k_stopped
-        self.rman_interactive_running = False
-        self.rman_swatch_render_running = False
-        self.rman_is_live_rendering = False
-        self.rman_is_viewport_rendering = False
-        self.rman_is_xpu = False
-        self.rman_is_refining = False
+        self.rman_context = RmanRenderContext()
         self.rman_render_into = 'blender'
         self.rman_license_failed = False
         self.rman_license_failed_message = ''
@@ -519,6 +520,10 @@ class RmanRender(object):
     @bl_engine.setter
     def bl_engine(self, bl_engine):
         self.__bl_engine = bl_engine        
+
+    @property
+    def is_xpu(self):
+        return self.rman_context.is_xpu()
 
     def _start_prman_begin(self):
         argv = []
@@ -565,7 +570,7 @@ class RmanRender(object):
         if envconfig().getenv('RFB_DUMP_RIB'):
             rfb_log().debug("Writing to RIB...")
             rib_time_start = time.time()
-            if sys.platform == ("win32"):
+            if RFB_PLATFORM == "windows":
                 self.sg_scene.Render("rib C:/tmp/blender.%04d.rib -format ascii -indent" % frame)
             else:
                 self.sg_scene.Render("rib /var/tmp/blender.%04d.rib -format ascii -indent" % frame)     
@@ -634,24 +639,20 @@ class RmanRender(object):
        
         if self.rman_license_failed:
             rfb_log().error(self.rman_license_failed_message)
-            if not self.rman_interactive_running:
+            if not self.rman_context.is_interactive_running():
                 self.bl_engine.report({'ERROR'}, self.rman_license_failed_message)
                 self.stop_render()
             return False
 
         return True     
 
-    def is_regular_rendering(self):
-        # return if we are doing a regular render and not interactive
-        return (self.rman_running and not self.rman_interactive_running)   
-
     def is_ipr_to_it(self):
-        return (self.rman_interactive_running and self.rman_scene.ipr_render_into == 'it')
+        return (self.rman_context.is_interactive_running() and self.rman_scene.ipr_render_into == 'it')
 
     def do_draw_buckets(self):
         if self.use_qn:
             return False
-        return get_pref('rman_viewport_draw_bucket', default=True) and self.rman_is_refining
+        return get_pref('rman_viewport_draw_bucket', default=True) and self.rman_context.is_refining()
 
     def do_draw_progressbar(self):
         return get_pref('rman_viewport_draw_progress') and self.stats_mgr.is_connected() and self.stats_mgr._progress < 100    
@@ -669,7 +670,7 @@ class RmanRender(object):
             __RMAN_STATS_THREAD__.join()
             __RMAN_STATS_THREAD__ = None
         __RMAN_STATS_THREAD__ = threading.Thread(target=call_stats_update_payloads, args=(self, ))
-        if self.rman_is_xpu:
+        if self.is_xpu:
             # FIXME: for now, add a 1 second delay before starting the stats thread
             # for some reason, XPU doesn't seem to reset the progress between renders
             time.sleep(1.0)        
@@ -679,8 +680,6 @@ class RmanRender(object):
     def reset(self):
         self.rman_license_failed = False
         self.rman_license_failed_message = ''
-        self.rman_is_xpu = False
-        self.rman_is_refining = False
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False 
@@ -710,10 +709,11 @@ class RmanRender(object):
         if not self._check_prman_license():
             return False        
 
-        self.rman_running = True
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
         do_persistent_data = rm.do_persistent_data
         use_compositor = scene_utils.should_use_bl_compositor(self.bl_scene)
         if for_background:
+            self.rman_context.set_mode_append(RmanRenderContext.k_for_background)
             self.rman_render_into = ''
             is_external = True
             if use_compositor:
@@ -746,11 +746,15 @@ class RmanRender(object):
             except:
                 pass
 
+        if is_external:
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_external)
+
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = scene_utils.get_render_variant(self.bl_scene)
-        scene_utils.set_render_variant_config(self.bl_scene, config, render_config)
-        self.rman_is_xpu = (rendervariant == 'xpu')
+        rendervariant = render_utils.get_render_variant(self.bl_scene)
+        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        if rendervariant == 'xpu':
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu)
         self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
 
         boot_strapping = False
@@ -766,21 +770,21 @@ class RmanRender(object):
 
         # Export the scene
         try:
-            self.rman_render_state = RmanRenderState.k_exporting
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
             self.start_export_stats_thread()
             if boot_strapping:
                 # This is our first time exporting
-                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
+                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer)
             else:   
                 # Scene still exists, which means we're in persistent data mode
                 # Try to get the scene diffs.                    
                 self.rman_scene_sync.batch_update_scene(bpy.context, depsgraph)
-            self.rman_render_state = RmanRenderState.k_rendering
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
             self.stats_mgr.reset_progress()
 
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start)) 
-            self.rman_is_live_rendering = True
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_live_rendering)
         except Exception as e:      
             self.bl_engine.report({'ERROR'}, 'Export failed: %s' % str(e))
             rfb_log().error('Export Failed:\n%s' % traceback.format_exc())
@@ -813,15 +817,16 @@ class RmanRender(object):
             bl_rr_helper.register_passes()
                               
         self.start_stats_thread()
-        while self.bl_engine and not self.bl_engine.test_break() and self.rman_is_live_rendering:
+        #while self.bl_engine and not self.bl_engine.test_break() and self.rman_is_live_rendering:
+        while self.bl_engine and not self.bl_engine.test_break() and self.rman_context.is_live_rendering():
             time.sleep(0.01)      
             if bl_rr_helper:
                 bl_rr_helper.update_passes()
         if bl_rr_helper and self.use_qn and not self.bl_engine.test_break():
-            self.rman_render_state = RmanRenderState.k_denoising
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_denoising)
             bl_rr_helper.denoise_passes()
         if bl_rr_helper:
-            self.rman_render_state = RmanRenderState.k_rendering
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
             bl_rr_helper.finish_passes()            
         elif for_background and not use_compositor:
             # if we're background mode and not using the compositor,
@@ -847,7 +852,6 @@ class RmanRender(object):
         bl_scene = depsgraph.scene_eval
         rm = bl_scene.renderman
 
-        self.rman_running = True
         self.rman_render_into = ''
         rib_options = ""
         if rm.rib_compression == "gzip":
@@ -859,6 +863,7 @@ class RmanRender(object):
         if rib_format == "ascii":
             rib_options += " -indent"
 
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_external | RmanRenderContext.k_is_rib_mode)
         if rm.external_animation:
             original_frame = bl_scene.frame_current
             do_persistent_data = rm.do_persistent_data
@@ -878,9 +883,9 @@ class RmanRender(object):
                         self.bl_engine.frame_set(frame, subframe=0.0)
                         rfb_log().debug("Frame: %d" % frame)
                         if frame == bl_scene.frame_start:
-                            self.rman_render_state = RmanRenderState.k_exporting
-                            self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                            self.rman_render_state = RmanRenderState.k_rendering
+                            self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
+                            self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
+                            self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                         else:
                             self.rman_scene_sync.batch_update_scene(bpy.context, depsgraph)
                             
@@ -908,9 +913,9 @@ class RmanRender(object):
                     try:
                         self.bl_engine.frame_set(frame, subframe=0.0)
                         rfb_log().debug("Frame: %d" % frame)
-                        self.rman_render_state = RmanRenderState.k_exporting
-                        self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                        self.rman_render_state = RmanRenderState.k_rendering
+                        self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
+                        self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
+                        self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                             
                         rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                                 asFilePath=True)
@@ -948,9 +953,9 @@ class RmanRender(object):
                         
                 bl_view_layer = depsgraph.view_layer_eval      
                 rfb_log().info("Parsing scene...")      
-                self.rman_render_state = RmanRenderState.k_exporting       
-                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                self.rman_render_state = RmanRenderState.k_rendering
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)       
+                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_view_layer)
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
 
@@ -971,7 +976,7 @@ class RmanRender(object):
 
         spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
         spooler.batch_render()
-        self.rman_running = False
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()
         return True          
@@ -980,7 +985,7 @@ class RmanRender(object):
         self.reset()
         if self._do_prman_render_begin():
             return False        
-        self.rman_running = True
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_bake_mode)
         self.bl_scene = depsgraph.scene_eval
         rm = self.bl_scene.renderman
         self.it_port = start_cmd_server()    
@@ -991,6 +996,7 @@ class RmanRender(object):
 
         if for_background:
             is_external = True
+            self.rman_context.set_mode_append(RmanRenderContext.k_for_background | RmanRenderContext.k_is_external)
             self.rman_callbacks.clear()
             ec = rman.EventCallbacks.Get()
             ec.RegisterCallback("Render", render_cb, self)
@@ -1016,11 +1022,11 @@ class RmanRender(object):
             self.del_bl_engine()
             return False        
         try:
-            bl_layer = depsgraph.view_layer_eval_eval
-            self.rman_render_state = RmanRenderState.k_exporting
+            bl_layer = depsgraph.view_layer_eval
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
             self.start_export_stats_thread()
-            self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
-            self.rman_render_state = RmanRenderState.k_rendering
+            self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer)
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start)) 
@@ -1048,7 +1054,7 @@ class RmanRender(object):
         bl_scene = depsgraph.scene_eval
         rm = bl_scene.renderman
 
-        self.rman_running = True
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_external | RmanRenderContext.k_is_bake_mode)
         self.rman_render_into = ''
         rib_options = ""
         if rm.rib_compression == "gzip":
@@ -1071,9 +1077,9 @@ class RmanRender(object):
                 self.create_scene(config, render_config)
                 try:
                     self.bl_engine.frame_set(frame, subframe=0.0)
-                    self.rman_render_state = RmanRenderState.k_exporting
-                    self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                    self.rman_render_state = RmanRenderState.k_rendering
+                    self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
+                    self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer)
+                    self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                     rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                             asFilePath=True)                                                                            
                     self.sg_scene.Render("rib %s %s" % (rib_output, rib_options))
@@ -1100,9 +1106,9 @@ class RmanRender(object):
                         
                 bl_view_layer = depsgraph.view_layer_eval         
                 rfb_log().info("Parsing scene...")
-                self.rman_render_state = RmanRenderState.k_exporting             
-                self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer, is_external=True)
-                self.rman_render_state = RmanRenderState.k_rendering
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)             
+                self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_view_layer)
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                 rib_output = string_utils.expand_string(rm.path_rib_output, 
                                                         asFilePath=True)            
 
@@ -1125,7 +1131,7 @@ class RmanRender(object):
         if rm.queuing_system != 'none':
             spooler = rman_spool.RmanSpool(self, self.rman_scene, depsgraph)
             spooler.batch_render()
-        self.rman_running = False
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()
         return True                  
@@ -1137,10 +1143,10 @@ class RmanRender(object):
         if self._do_prman_render_begin():
             return False        
         __update_areas__()
-        self.rman_interactive_running = True
+        self.rman_context.set_mode(RmanRenderContext.k_interactive_running)
         if not self._check_prman_license():
             return False          
-        self.rman_running = True            
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running)            
         self.bl_scene = depsgraph.scene_eval
         rm = depsgraph.scene_eval.renderman
         self.it_port = start_cmd_server()    
@@ -1153,8 +1159,8 @@ class RmanRender(object):
         # register the blender display driver
         try:
             if self.rman_render_into == 'blender':
-                # turn off dspyserver mode if we're not rendering to "it"
-                self.rman_is_viewport_rendering = True    
+                # turn off dspyserver mode if we're not rendering to "it"  
+                self.rman_context.set_mode_append(RmanRenderContext.k_viewport_rendering) 
                 rman.Dspy.DisableDspyServer()             
                 self.rman_callbacks.clear()
                 ec = rman.EventCallbacks.Get()      
@@ -1187,17 +1193,18 @@ class RmanRender(object):
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = scene_utils.get_render_variant(self.bl_scene)
-        scene_utils.set_render_variant_config(self.bl_scene, config, render_config)
-        self.rman_is_xpu = (rendervariant == 'xpu')
+        rendervariant = render_utils.get_render_variant(self.bl_scene)
+        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        if rendervariant == 'xpu':
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu) 
 
         # XPU slow mode refers to our "pull" model for getting pixels to Blender for IPR. 
         # That is, in the drawing thread we periodically ask the display driver for the latest
         # pixels. In the non slow mode, the display driver "pushes" the pixels via a python callback
         # function, that we pass a pointer to to the display driver. 
-        if self.rman_is_xpu:
+        if self.is_xpu:
             self.xpu_slow_mode = int(envconfig().getenv('RFB_XPU_SLOW_MODE', default=1))
-        elif sys.platform == 'darwin':
+        elif RFB_PLATFORM == 'macOS':
             # For macOS, always use the "pull" model. For some reason, Blender crashes at the end of
             # batch renders if ctypes.CFUNCTYPE is ever called (true as of Blender 4.1)
             self.xpu_slow_mode = True
@@ -1211,14 +1218,14 @@ class RmanRender(object):
         try:
             self.rman_scene_sync.sg_scene = self.sg_scene
             rfb_log().info("Parsing scene...")        
-            self.rman_render_state = RmanRenderState.k_exporting
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
             self.start_export_stats_thread()        
             self.rman_scene.export_for_interactive_render(context, depsgraph, self.sg_scene)
-            self.rman_render_state = RmanRenderState.k_rendering
+            self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
             self._dump_rib_(self.bl_scene.frame_current)
-            rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start))      
-            self.rman_is_live_rendering = True     
+            rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start))        
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_live_rendering) 
             render_cmd = "prman -live"   
             render_cmd = self._append_render_cmd(render_cmd)
             self.rman_scene_sync.reset() # reset the rman_scene_sync instance
@@ -1268,17 +1275,16 @@ class RmanRender(object):
         render_config = rman.Types.RtParamList()
 
         self.create_scene(config, render_config)
-        self.rman_render_state = RmanRenderState.k_exporting
+        self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
         self.rman_scene.export_for_swatch_render(depsgraph, self.sg_scene)
-        self.rman_render_state = RmanRenderState.k_rendering
+        self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
-        self.rman_running = True
-        self.rman_swatch_render_running = True
+        self.rman_context.set_mode(RmanRenderContext.k_render_running | RmanRenderContext.k_swatch_rendering)
         self._dump_rib_()
         rfb_log().debug("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start)) 
         if not self._check_prman_license():
             return False
-        self.rman_is_live_rendering = True
+        self.rman_context.set_mode_append(RmanRenderContext.k_is_live_rendering) 
         self.sg_scene.Render("prman")
         render = self.rman_scene.bl_scene.render
         render_view = self.bl_engine.active_view_get()
@@ -1307,7 +1313,7 @@ class RmanRender(object):
 
     def start_export_rib_selected(self, context, rib_path, export_materials=True, export_all_frames=False):
 
-        self.rman_running = True  
+        self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
         bl_scene = context.scene
         if self._do_prman_render_begin():
             return False              
@@ -1321,9 +1327,9 @@ class RmanRender(object):
 
                 self.create_scene(config, render_config)
                 try:
-                    self.rman_render_state = RmanRenderState.k_exporting
+                    self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
                     self.rman_scene.export_for_rib_selection(context, self.sg_scene)
-                    self.rman_render_state = RmanRenderState.k_rendering
+                    self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                     rib_output = string_utils.expand_string(rib_path, 
                                                         asFilePath=True) 
                     cmd = 'rib ' + rib_output + ' -archive'                                                        
@@ -1344,9 +1350,9 @@ class RmanRender(object):
 
             self.create_scene(config, render_config)
             try:
-                self.rman_render_state = RmanRenderState.k_exporting
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
                 self.rman_scene.export_for_rib_selection(context, self.sg_scene)
-                self.rman_render_state = RmanRenderState.k_rendering
+                self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
                 rib_output = string_utils.expand_string(rib_path, 
                                                     asFilePath=True) 
                 cmd = 'rib ' + rib_output + ' -archive'
@@ -1362,7 +1368,7 @@ class RmanRender(object):
             self.sg_scene = None
             self.rman_scene.reset()  
 
-        self.rman_running = False        
+        self.rman_context.stop()
         self.del_bl_engine()
         self._do_prman_render_end()        
         return True                 
@@ -1378,14 +1384,10 @@ class RmanRender(object):
         if not self.stop_render_mtx.acquire(timeout=5.0):
             return
         
-        if not self.rman_interactive_running and not self.rman_running:
+        if not self.rman_context.is_interactive_running() and not self.rman_context.is_render_running():
             return
-
-        self.rman_running = False
-        self.rman_interactive_running = False  
-        self.rman_swatch_render_running = False
-        self.rman_is_viewport_rendering = False       
-        self.rman_render_state = RmanRenderState.k_stopped     
+        
+        self.rman_context.stop()
 
         # Remove callbacks
         ec = rman.EventCallbacks.Get()
@@ -1396,7 +1398,7 @@ class RmanRender(object):
         self.rman_callbacks.clear()          
         remove_ipr_to_it_handlers()
 
-        self.rman_is_live_rendering = False
+        self.rman_context.set_not_live_rendering()
 
         # wait for the drawing thread to finish
         # if we are told to.
@@ -1434,7 +1436,7 @@ class RmanRender(object):
         if __BLENDER_DSPY_PLUGIN__ == None:
             # grab a pointer to the Blender display driver
             ext = '.so'
-            if sys.platform == ("win32"):
+            if RFB_PLATFORM == "windows":
                     ext = '.dll'
             __BLENDER_DSPY_PLUGIN__ = ctypes.CDLL(os.path.join(envconfig().rmantree, 'lib', 'plugins', 'd_blender%s' % ext))
 
@@ -1458,7 +1460,7 @@ class RmanRender(object):
         dspy_plugin.SetRedrawCallback(None)        
 
     def has_buffer_updated(self):        
-        if sys.platform == "darwin":
+        if RFB_PLATFORM == "macOS":
             # for now, always return True on macOS
             return True               
         dspy_plugin = self.get_blender_dspy_plugin()
@@ -1471,7 +1473,7 @@ class RmanRender(object):
     def draw_pixels(self, width, height):
         self.viewport_res_x = width
         self.viewport_res_y = height
-        if self.rman_is_viewport_rendering is False:
+        if not self.rman_context.is_viewport_rendering():
             return
                  
         dspy_plugin = self.get_blender_dspy_plugin()
@@ -1732,7 +1734,7 @@ class RmanRender(object):
 
     @time_this
     def save_viewport_snapshot(self):
-        if not self.rman_is_viewport_rendering:
+        if not self.rman_context.is_viewport_rendering():
             return
 
         res_mult = self.rman_scene.viewport_render_res_mult
@@ -1768,9 +1770,11 @@ class RmanRender(object):
             img.update()            
        
     def update_scene(self, context, depsgraph):
-        if self.rman_interactive_running:
+        #if self.rman_interactive_running:
+        if self.rman_context.is_interactive_running():
             self.rman_scene_sync.update_scene(context, depsgraph)
 
     def update_view(self, context, depsgraph):
-        if self.rman_interactive_running:
+        #if self.rman_interactive_running:
+        if self.rman_context.is_interactive_running():
             self.rman_scene_sync.update_view(context, depsgraph)

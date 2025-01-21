@@ -35,6 +35,7 @@ from .rfb_utils import envconfig_utils
 from .rfb_utils import register_utils
 from . import rfb_logger
 from . import rfb_icons
+from . import rman_constants
 
 # Defaults for our preferences.
 # Append to this dictionary whenever a new preference is added.
@@ -775,7 +776,7 @@ class RendermanPreferences(AddonPreferences):
         col.prop(self, 'rman_enhance_zoom_factor')
 
         # XPU Prefs
-        if sys.platform != ("darwin") and rman_env.has_xpu_license:
+        if rman_constants.RFB_PLATFORM != "macOS" and rman_env.has_xpu_license:
             row = layout.row()
             row.label(text='XPU', icon_value=rman_r_icon.icon_id)
             row = layout.row()

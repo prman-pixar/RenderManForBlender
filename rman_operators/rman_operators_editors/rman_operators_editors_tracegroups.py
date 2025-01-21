@@ -4,6 +4,7 @@ from ...rman_ui.rman_ui_base import CollectionPanel
 from ...rman_operators.rman_operators_collections import return_empty_list   
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
+from ...rman_constants import RFB_PLATFORM
 import bpy
 import re
 import sys
@@ -508,7 +509,7 @@ class PRMAN_OT_Renderman_Open_Groups_Editor(CollectionPanel, bpy.types.Operator)
         '''
         if using_qt() and show_wip_qt():
             global __TRACE_GROUPS_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__TRACE_GROUPS_WINDOW__, TraceGroupsQtWrapper)   
             else:
                 bpy.ops.wm.trace_groups_qt_app_timed()     

@@ -4,7 +4,7 @@ from ..rfb_utils import string_utils
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import upgrade_utils
 from ..rfb_utils.envconfig_utils import envconfig
-from ..rman_constants import RMAN_FAKE_NODEGROUP
+from ..rman_constants import RMAN_FAKE_NODEGROUP, RFB_PLATFORM
 from bpy.app.handlers import persistent
 import bpy
 import os
@@ -15,7 +15,7 @@ import sys
 __ORIGINAL_BL_FILEPATH__ = None
 __ORIGINAL_BL_FILE_FORMAT__ = None
 __BL_TMP_FILE__ = None
-if sys.platform == ("win32"):
+if RFB_PLATFORM == "windows":
     __BL_TMP_DIR__ = 'C:/tmp'
 else:
     __BL_TMP_DIR__ = '/tmp'
@@ -138,7 +138,7 @@ def render_post(bl_scene):
 def render_stop(bl_scene):
     from .. import rman_render
     rr = rman_render.RmanRender.get_rman_render()
-    if rr.is_regular_rendering():
+    if rr.rman_context.is_regular_rendering():
         rfb_log().debug("Render stop handler called. Try to stop the renderer.")
         rr.stop_render()
 

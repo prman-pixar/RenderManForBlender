@@ -5,6 +5,7 @@ from ...rfb_utils import scene_utils
 from ...rfb_utils import shadergraph_utils
 from ...rfb_logger import rfb_log
 from ... import rfb_icons
+from ...rman_constants import RFB_PLATFORM
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
 from ...rman_operators.rman_operators_collections import return_empty_list   
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
@@ -781,7 +782,7 @@ class PRMAN_OT_Renderman_Open_Light_Mixer_Editor(CollectionPanel, bpy.types.Oper
         '''
         if using_qt() and show_wip_qt():
             global __LIGHT_MIXER_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__LIGHT_MIXER_WINDOW__, LightMixerQtWrapper)   
             else:
                 bpy.ops.wm.light_mixer_qt_app_timed()     

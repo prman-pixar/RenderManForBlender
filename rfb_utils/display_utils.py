@@ -15,7 +15,7 @@ __RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR', 
 
 __RFB_DENOISER_AI__ = '1'
 __RFB_DENOISER_OPTIX__ = '2'
-if sys.platform == "darwin":
+if rman_constants.RFB_PLATFORM == "macOS":
     __RFB_DENOISER_OPTIX__ = '0'
 
 class OutputChannel:
@@ -39,7 +39,7 @@ __INTERACTIVE_DENOISE_CHANNELS = [
     OutputChannel("color", "diffuse", "color lpe:C(D[DS]*[LO])|O"),
     OutputChannel("color", "diffuse_mse", "color lpe:C(D[DS]*[LO])|O", "mse"),
     DENOISER_NORMAL,
-    OutputChannel("color", "normal_mse", "normal Nn", "mse"),
+    OutputChannel("normal", "normal_mse", "normal Nn", "mse"),
     OutputChannel("color", "specular", "color lpe:CS[DS]*[LO]"),
     OutputChannel("color", "specular_mse", "color lpe:CS[DS]*[LO]", "mse"),
     OutputChannel("float", "sampleCount", "sampleCount")
@@ -339,7 +339,9 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
 
     elif display_driver == "quicklyNoiseless":
         _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
-        display_driver = 'null' 
+        display_driver = 'null'
+        if rman_scene.ipr_render_into == "it": 
+            display_driver = "socket"
 
     # so use built in aovs
     blender_aovs = [
@@ -406,9 +408,13 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
         dspys_dict['channels']['id'] = d     
         dspy_params['displayChannels'].append('id')
         filePath = 'id_pass'
+
+        id_dspy_drv = display_driver
+        if rman_scene.ipr_render_into == "it" and dspy_drv == "quicklyNoiseless":
+            id_dspy_drv = "socket"
         
         dspys_dict['displays']['id_pass'] = {
-            'driverNode': display_driver,
+            'driverNode': id_dspy_drv,
             'filePath': filePath,
             'denoise': False,
             'denoise_mode': 'singleframe',  

@@ -1040,7 +1040,7 @@ class RmanSceneSync(object):
                 self.rman_scene.default_light.SetHidden(0)    
                  
     def update_cropwindow(self, cropwindow=None):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return
         if cropwindow:
             with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
@@ -1049,7 +1049,7 @@ class RmanSceneSync(object):
                 self.rman_scene.sg_scene.SetOptions(options)           
 
     def update_integrator(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         if context:
             self.rman_scene.bl_scene = context.scene
@@ -1058,7 +1058,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_viewport_stats()
 
     def update_samplefilters(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         if context:
             self.rman_scene.bl_scene = context.scene
@@ -1066,7 +1066,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_samplefilters(sel_chan_name=self.selected_channel)
 
     def update_displayfilters(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         if context:
             self.rman_scene.bl_scene = context.scene
@@ -1074,7 +1074,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_displayfilters()     
 
     def update_viewport_integrator(self, context, integrator):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         self.rman_scene.bl_scene = context.scene
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):
@@ -1083,7 +1083,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_viewport_stats(integrator=integrator)  
 
     def update_viewport_res_mult(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         if not self.rman_scene.is_viewport_render:
             return         
@@ -1099,7 +1099,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_viewport_stats()                  
 
     def update_global_options(self, prop_name, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         from .rfb_utils import property_utils
         self.rman_scene.bl_scene = context.scene
@@ -1114,7 +1114,7 @@ class RmanSceneSync(object):
 
 
     def update_root_node_func(self, prop_name, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return     
         from .rfb_utils import property_utils               
         self.rman_scene.bl_scene = context.scene
@@ -1128,7 +1128,7 @@ class RmanSceneSync(object):
             root_sg.SetAttributes(attrs)
 
     def update_root_lightlinks(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return     
         from .rfb_utils import property_utils               
         self.rman_scene.bl_scene = context.scene
@@ -1140,7 +1140,7 @@ class RmanSceneSync(object):
             root_sg.SetAttributes(attrs)            
 
     def update_sg_node_riattr(self, prop_name, context, bl_object=None):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return                 
         self.rman_scene.bl_scene = context.scene
         if bl_object:
@@ -1155,7 +1155,7 @@ class RmanSceneSync(object):
         rfb_log().debug("Updated RiAttribute: %s (%s)" % (rman_update.updated_prop_name, ob.name))
 
     def update_sg_node_primvar(self, prop_name, context, bl_object=None):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return                 
         self.rman_scene.bl_scene = context.scene
         if bl_object:
@@ -1170,7 +1170,7 @@ class RmanSceneSync(object):
         rfb_log().debug("Updated primvar: %s" % rman_update.updated_prop_name)        
 
     def update_material(self, mat):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         rman_sg_material = self.rman_scene.rman_materials.get(mat.original, None)
         if not rman_sg_material:
@@ -1188,17 +1188,17 @@ class RmanSceneSync(object):
             self._mesh_light_update(mat)    
 
     def update_light(self, ob):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         ob.data.node_tree.update_tag()
         
     def update_light_filter(self, ob):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         ob.data.node_tree.update_tag()
 
     def update_solo_light(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         # solo light has changed
         self.rman_scene.bl_scene = context.scene
@@ -1209,7 +1209,7 @@ class RmanSceneSync(object):
                 light_ob.update_tag()
 
     def update_un_solo_light(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         # solo light has changed
         self.rman_scene.bl_scene = context.scene
@@ -1220,14 +1220,14 @@ class RmanSceneSync(object):
                 light_ob.update_tag()
 
     def update_viewport_chan(self, context, chan_name):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         self.selected_channel = chan_name
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):
             self.rman_scene.export_samplefilters(sel_chan_name=chan_name)
 
     def update_displays(self, context):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         self.rman_scene.bl_scene = context.scene    
         self.rman_scene._find_renderman_layer()
@@ -1235,7 +1235,7 @@ class RmanSceneSync(object):
             self.rman_scene.export_displays()         
 
     def texture_updated(self, nodeID):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return        
         if nodeID == '':
             return
@@ -1264,14 +1264,14 @@ class RmanSceneSync(object):
             ob.update_tag(refresh={'DATA'})
 
     def flush_texture_cache(self, texture_list):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return         
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):  
             for tex in texture_list:
                 self.rman_scene.sg_scene.InvalidateTexture(tex)   
 
     def update_enhance(self, context, x, y, zoom):
-        if not self.rman_render.rman_interactive_running:
+        if not self.rman_render.rman_context.is_interactive_running():
             return         
         rman_sg_camera = self.rman_scene.main_camera
         if rman_sg_camera.projection_shader.name.CStr() != 'PxrCamera':

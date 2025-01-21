@@ -12,7 +12,6 @@ from collections import OrderedDict
 import rman_utils.stats_config.core as stcore
 from ..rfb_utils import prefs_utils
 from ..rfb_logger import rfb_log
-from ..rfb_utils.scene_utils import RmanRenderState
 
 __oneK2__ = 1024.0*1024.0
 __RFB_STATS_MANAGER__ = None
@@ -260,7 +259,8 @@ class RfBStatsManager(object):
         """
 
         # No stats if no render
-        if not self.rman_render.rman_running:
+        #if not self.rman_render.rman_running:
+        if not self.rman_render.rman_context.is_render_running():
             return None
         
         return self.web_socket_server_id            
@@ -450,13 +450,14 @@ class RfBStatsManager(object):
         self.export_stat_progress = progress
 
     def draw_stats(self):
-        if self.rman_render.rman_render_state == RmanRenderState.k_exporting:
+        if self.rman_render.rman_context.is_exporting_state():
             self.draw_export_stats()
         else:
             self.draw_render_stats()        
 
     def draw_message(self, msg):
-        if self.rman_render.rman_interactive_running:
+        #if self.rman_render.rman_interactive_running:
+        if self.rman_render.rman_context.is_interactive_running():
             pass
         else:
             message = ''
@@ -476,7 +477,8 @@ class RfBStatsManager(object):
     def draw_export_stats(self):
         if self.rman_render.bl_engine:
             try:
-                if self.rman_render.rman_interactive_running:
+                #if self.rman_render.rman_interactive_running:
+                if self.rman_render.rman_context.is_interactive_running():
                     progress = int(self.export_stat_progress*100)
                     self.rman_render.bl_engine.update_stats('RenderMan (Stats)', "\n%s: %d%%" % (self.export_stat_label, progress))
                 else:
@@ -488,10 +490,12 @@ class RfBStatsManager(object):
                 rfb_log().debug("Cannot update progress")        
 
     def draw_render_stats(self):
-        if not self.rman_render.rman_running:
+        #if not self.rman_render.rman_running:
+        if not self.rman_render.rman_context.is_render_running():
             return
            
-        if self.rman_render.rman_interactive_running:
+        #if self.rman_render.rman_interactive_running:
+        if self.rman_render.rman_context.is_interactive_running():
             message = '\n%s, %d, %d%%' % (self._integrator, self._decidither, self._res_mult)
             if self.is_connected():
                 for label in self.stats_to_draw:

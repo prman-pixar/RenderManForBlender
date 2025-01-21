@@ -24,7 +24,7 @@ class MATERIAL_PT_renderman_preview(ShaderPanel, Panel):
         if not mat:
             return False        
         rr = RmanRender.get_rman_render()
-        if rr.rman_interactive_running:
+        if rr.rman_context.is_interactive_running():
             return False    
         return get_pref('rman_do_preview_renders', False)
 
@@ -58,9 +58,9 @@ class MATERIAL_PT_renderman_material_refresh(ShaderPanel, Panel):
         if not mat:
             return False
         rr = RmanRender.get_rman_render()
-        if not rr.rman_is_live_rendering:
+        if not rr.rman_context.is_live_rendering():
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False
         return True
 
@@ -68,7 +68,7 @@ class MATERIAL_PT_renderman_material_refresh(ShaderPanel, Panel):
         mat = context.material
         layout = self.layout
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             layout.context_pointer_set("material", mat)
             layout.operator("node.rman_force_material_refresh", text='Force Refresh')
 
@@ -82,9 +82,9 @@ class DATA_PT_renderman_light_refresh(ShaderPanel, Panel):
         if not light:
             return False
         rr = RmanRender.get_rman_render()
-        if not rr.rman_is_live_rendering:
+        if not rr.rman_context.is_live_rendering():
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False            
         return True    
 
@@ -515,7 +515,7 @@ class RENDERMAN_UL_LightFilters(CollectionPanel):
             if lightfilter.data.node_tree:
                 col = layout.column()
                 rr = RmanRender.get_rman_render()
-                if rr.rman_is_live_rendering:
+                if rr.rman_context.is_live_rendering():
                     col.context_pointer_set("light_filter", lightfilter)
                     col.operator("node.rman_force_lightfilter_refresh", text='Force Refresh')              
 

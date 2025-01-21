@@ -2,6 +2,7 @@ import bpy
 import sys
 from ..rfb_logger import rfb_log
 from .. import rman_render
+from ..rman_constants import RFB_PLATFORM
 
 __STATS_WINDOW__ = None 
 
@@ -63,7 +64,7 @@ if not bpy.app.background:
                 if __STATS_WINDOW__ and __STATS_WINDOW__.isVisible():
                     return {'FINISHED'}
 
-                if sys.platform == "darwin":
+                if RFB_PLATFORM == "macOS":
                     __STATS_WINDOW__ = rfb_qt.run_with_timer(__STATS_WINDOW__, RmanStatsWrapper)
                 else:
                     bpy.ops.wm.live_stats_qt_app_timed()

@@ -30,7 +30,7 @@ class PRManRender(bpy.types.RenderEngine):
         self.rman_render = rman_render.RmanRender.get_rman_render()
         self.export_failed = None
         self.ipr_already_running = False
-        if self.rman_render.rman_interactive_running:
+        if self.rman_render.rman_context.is_interactive_running():
             # If IPR is already running, just flag it
             # and don't do anything in the update methods
             self.ipr_already_running = True
@@ -50,11 +50,11 @@ class PRManRender(bpy.types.RenderEngine):
         except:
             pass
 
-        if rr.rman_running:
-            if rr.rman_interactive_running:
+        if rr.rman_context.is_render_running():
+            if rr.rman_context.is_interactive_running():
                 rfb_log().debug("Stop interactive render.")
-                rr.rman_is_live_rendering = False            
-            elif rr.is_regular_rendering():
+                rr.rman_context.set_not_live_rendering()
+            elif rr.rman_context.is_regular_rendering():
                 rfb_log().debug("Stop render.")
             rr.stop_render(stop_draw_thread=False)                 
 
@@ -68,7 +68,7 @@ class PRManRender(bpy.types.RenderEngine):
         '''
 
         # check if we are already doing a regular render
-        if self.rman_render.is_regular_rendering():
+        if self.rman_render.rman_context.is_regular_rendering():
             return
 
         if self.export_failed:
@@ -82,7 +82,7 @@ class PRManRender(bpy.types.RenderEngine):
             self.rman_render.stop_render(stop_draw_thread=False)
 
         # if interactive rendering has not started, start it
-        if not self.rman_render.rman_interactive_running and self.rman_render.sg_scene is None:
+        if not self.rman_render.rman_context.is_interactive_running() and self.rman_render.sg_scene is None:
             self.rman_render.bl_engine = self
             self.rman_render.rman_scene.ipr_render_into = 'blender'
             if not self.rman_render.start_interactive_render(context, depsgraph):
@@ -90,7 +90,7 @@ class PRManRender(bpy.types.RenderEngine):
                 return
             self.export_failed = False
                 
-        if self.rman_render.rman_interactive_running and not self.rman_render.rman_license_failed:
+        if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:
             self.rman_render.update_scene(context, depsgraph)   
 
     def view_draw(self, context, depsgraph):
@@ -106,7 +106,7 @@ class PRManRender(bpy.types.RenderEngine):
             self.draw_viewport_message(context, 'Multiple viewport rendering not supported.')
             return
 
-        if self.rman_render.rman_interactive_running and not self.rman_render.rman_license_failed:               
+        if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:               
             self.rman_render.update_view(context, depsgraph)
 
         self._draw_pixels(context, depsgraph)
@@ -165,7 +165,7 @@ class PRManRender(bpy.types.RenderEngine):
         rm = bl_scene.renderman
         baking = (rm.hider_type in ['BAKE', 'BAKE_BRICKMAP_SELECTED'])   
 
-        if self.rman_render.rman_interactive_running:
+        if self.rman_render.rman_context.is_interactive_running():
             # report an error if a render is trying to start while IPR is running
             if self.is_preview and get_pref('rman_do_preview_renders', False):
                 #self.report({'ERROR'}, 'Cannot start a preview render when IPR is running')
@@ -176,7 +176,7 @@ class PRManRender(bpy.types.RenderEngine):
             return
         elif self.is_preview:
             # double check we're not already viewport rendering
-            if self.rman_render.rman_interactive_running:
+            if self.rman_render.rman_context.is_interactive_running():
                 if get_pref('rman_do_preview_renders', False):
                     rfb_log().error("Cannot preview render while viewport rendering.")
                 return            
@@ -185,7 +185,7 @@ class PRManRender(bpy.types.RenderEngine):
                 self.rman_render.bl_scene = depsgraph.scene_eval
                 #self.rman_render._load_placeholder_image()
                 return    
-            if self.rman_render.rman_swatch_render_running:
+            if self.rman_render.rman_context.is_swatch_rendering():
                 return       
             self.rman_render.bl_engine = self                                  
             self.rman_render.start_swatch_render(depsgraph)
@@ -214,7 +214,7 @@ class PRManRender(bpy.types.RenderEngine):
         if self.rman_render.rman_license_failed:
             draw_viewport_message(context, self.rman_render.rman_license_failed_message)
 
-        if not self.rman_render.rman_is_viewport_rendering:
+        if not self.rman_render.rman_context.is_viewport_rendering():
             return       
 
         scene = depsgraph.scene

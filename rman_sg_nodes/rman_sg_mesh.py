@@ -15,7 +15,7 @@ class RmanSgMesh(RmanSgNode):
         self.sg_mesh = None
 
     def __del__(self):
-        if self.rman_scene.rman_render.rman_running and self.rman_scene.rman_render.sg_scene:
+        if self.rman_scene.rman_render.rman_context.is_render_running() and self.rman_scene.rman_render.sg_scene:
             with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
                 self.rman_scene.sg_scene.DeleteDagNode(self.sg_mesh)
         super().__del__()

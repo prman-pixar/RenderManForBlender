@@ -9,7 +9,7 @@ from .rfb_utils import filepath_utils
 from .rfb_utils import string_utils
 from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import display_utils
-from .rfb_utils import scene_utils
+from .rfb_utils import render_utils
 from .rfb_utils.prefs_utils import get_pref
 from .rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from .rfb_logger import rfb_log
@@ -121,7 +121,7 @@ class RmanSpool(object):
             args.append('-recover')
             args.append('%r')
 
-        scene_utils.set_render_variant_spool(self.bl_scene, args, self.is_tractor)
+        render_utils.set_render_variant_spool(self.bl_scene, args, self.is_tractor)
 
     def add_preview_task(self, task, imgs):
         if imgs is None:
