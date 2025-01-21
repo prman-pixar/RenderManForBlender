@@ -134,7 +134,8 @@ class ItHandler(chatserver.ItBaseHandler):
     def selectObjectById(self):
         global __RMAN_RENDER__
 
-        obj_id = int(self.msg.getOpt('id', '0'))
+        obj_id_str = self.msg.getOpt('id', '0')
+        obj_id = int(obj_id_str.split(' ')[0])
         if obj_id < 0 or not (obj_id in __RMAN_RENDER__.rman_scene.obj_hash):
             return
         name = __RMAN_RENDER__.rman_scene.obj_hash[obj_id]

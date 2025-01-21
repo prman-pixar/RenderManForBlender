@@ -255,6 +255,7 @@ def _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene):
         param_list.SetInteger('minSamples', rm.blender_ipr_aidenoiser_minSamples)
         param_list.SetInteger('interval', rm.blender_ipr_aidenoiser_interval)
         param_list.SetInteger('immediateClose', 1)
+        param_list.SetInteger('normalAsColor', 0)
 
         dspys_dict['displays']['beauty']['dspyDriverParams'] = param_list
 
@@ -286,20 +287,20 @@ def _add_optix_denoiser_channels(dspys_dict, rman_scene):
 
 def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens, do_optix_denoise=False):   
 
+    from .envconfig_utils import envconfig
+
     rm = rman_scene.bl_scene.renderman
     display_driver = dspy_drv
-    param_list = None
+    param_list = rman_scene.rman.Types.ParamList()
     aov_denoise = False
 
     if not display_driver:
         display_driver = __BLENDER_TO_RMAN_DSPY__.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
-        param_list = rman_scene.rman.Types.ParamList()
         if display_driver == 'openexr':
             param_list.SetInteger('asrgba', 1)              
 
     if display_driver == 'blender' and do_optix_denoise:   
-        aov_denoise = True
-        param_list = rman_scene.rman.Types.ParamList()     
+        aov_denoise = True   
         param_list.SetInteger("use_optix_denoiser", 1)        
 
     # add beauty (Ci,a)
@@ -339,9 +340,11 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
 
     elif display_driver == "quicklyNoiseless":
         _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
-        display_driver = 'null'
-        if rman_scene.ipr_render_into == "it": 
-            display_driver = "socket"
+        if rman_scene.ipr_render_into == "blender":
+            display_driver = 'null'
+        else: 
+            qn_passthru = envconfig().get_qn_dspy('socket')
+            param_list.SetString('dspyDSOPath', qn_passthru)
 
     # so use built in aovs
     blender_aovs = [
@@ -409,19 +412,15 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
         dspy_params['displayChannels'].append('id')
         filePath = 'id_pass'
 
-        id_dspy_drv = display_driver
-        if rman_scene.ipr_render_into == "it" and dspy_drv == "quicklyNoiseless":
-            id_dspy_drv = "socket"
-        
         dspys_dict['displays']['id_pass'] = {
-            'driverNode': id_dspy_drv,
+            'driverNode': display_driver,
             'filePath': filePath,
             'denoise': False,
             'denoise_mode': 'singleframe',  
             'camera': None,    
             'bake_mode': None,          
             'params': dspy_params,
-            'dspyDriverParams': None}   
+            'dspyDriverParams': param_list}   
 
     if do_optix_denoise:
         _add_optix_denoiser_channels(dspys_dict, rman_scene)                           
