@@ -184,6 +184,8 @@
             "type": "int",
             "default": 0,
             "help": "Select which denoiser to use to denoise IPR renders. Optix requires an Nvidia GPU. The RenderMan Denoiser option is not supported in XPU. Note, the Optix denoiser is built-in into 'it', so selecting Optix here will not do anything when rendering to 'it'.",
+            "update_function_name": "update_blender_ipr_denoiser",
+            "update_function": "def update_blender_ipr_denoiser(self, context):\n    from ..rman_render import RmanRender\n    rr = RmanRender.get_rman_render()\n    rr.rman_scene_sync.update_displays(context)",            
             "widget": "mapper",
             "bl_prop_options": "",
             "options": "None:0|RenderMan Denoiser:1|Optix:2"         
@@ -199,7 +201,7 @@
             "bl_prop_options": "",
             "help": "If checked, the first denoise pass will use a cheaper (slightly faster but lower quality) heuristic. This can be useful if rendering something that is converging very quickly and you want to prioritize getting a denoised result faster.",
             "update_function_name": "update_blender_ipr_aidenoiser_cheapFirstPass",
-            "update_function": "def update_blender_ipr_aidenoiser_cheapFirstPass(self, context):\n    from ..rfb_utils.envconfig_utils import envconfig\n    envconfig().set_qn_env_vars(context.scene)"
+            "update_function": "def update_blender_ipr_aidenoiser_cheapFirstPass(self, context):\n    from ..rman_render import RmanRender\n    rr = RmanRender.get_rman_render()\n    rr.rman_scene_sync.update_displays(context)"
         },     
         {
             "panel": "",
@@ -211,7 +213,7 @@
             "bl_prop_options": "",
             "help": "The minimum number of average samples per bucket before interactive denoising runs for the first time. Changing this preference requires a render restart to be respected",
             "update_function_name": "update_blender_ipr_aidenoiser_minSamples",
-            "update_function": "def update_blender_ipr_aidenoiser_minSamples(self, context):\n    from ..rfb_utils.envconfig_utils import envconfig\n    envconfig().set_qn_env_vars(context.scene)"            
+            "update_function": "def update_blender_ipr_aidenoiser_minSamples(self, context):\n    from ..rman_render import RmanRender\n    rr = RmanRender.get_rman_render()\n    rr.rman_scene_sync.update_displays(context)"
         },  
         {
             "panel": "",
@@ -223,7 +225,7 @@
             "bl_prop_options": "",
             "help": "The time interval between denoising runs (in seconds).",
             "update_function_name": "update_blender_ipr_aidenoiser_interval",
-            "update_function": "def update_blender_ipr_aidenoiser_interval(self, context):\n    from ..rfb_utils.envconfig_utils import envconfig\n    envconfig().set_qn_env_vars(context.scene)"            
+            "update_function": "def update_blender_ipr_aidenoiser_interval(self, context):\n    from ..rman_render import RmanRender\n    rr = RmanRender.get_rman_render()\n    rr.rman_scene_sync.update_displays(context)"
         },                                                 
         {
             "panel": "",
