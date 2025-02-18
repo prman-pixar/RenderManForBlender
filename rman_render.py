@@ -989,7 +989,7 @@ class RmanRender(object):
             self.del_bl_engine()
             return False        
         try:
-            bl_layer = depsgraph.view_layer_eval_eval
+            bl_layer = depsgraph.view_layer_eval
             self.rman_is_exporting = True
             self.start_export_stats_thread()
             self.rman_scene.export_for_bake_render(depsgraph, self.sg_scene, bl_layer, is_external=is_external)
