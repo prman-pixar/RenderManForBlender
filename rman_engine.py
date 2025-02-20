@@ -24,7 +24,8 @@ class PRManRender(bpy.types.RenderEngine):
     bl_use_eevee_viewport = True # Use Eevee for look dev viewport mode
     bl_use_postprocess = True
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         from . import rman_render
         self.rman_render = rman_render.RmanRender.get_rman_render()
         self.export_failed = None
