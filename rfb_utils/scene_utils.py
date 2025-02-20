@@ -45,6 +45,100 @@ class BlAttribute:
         self.values = []
 
     @staticmethod
+    def parse_attribute(attr, detail_map, detail_default='vertex'):
+        import numpy as np
+
+        rman_attr = None
+        if attr.data_type == 'FLOAT2':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'float2'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*2, dtype=np.float32)
+            attr.data.foreach_get('vector', values)
+            values = np.reshape(values, (npoints, 2))
+            rman_attr.values = values.tolist()
+
+        elif attr.data_type == 'FLOAT_VECTOR':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'vector'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*3, dtype=np.float32)
+            attr.data.foreach_get('vector', values)
+            values = np.reshape(values, (npoints, 3))
+            rman_attr.values = values.tolist()
+        
+        elif attr.data_type in ['BYTE_COLOR', 'FLOAT_COLOR']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            if attr.name == 'color':
+                rman_attr.rman_name = 'Cs'
+            rman_attr.rman_type = 'color'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*4, dtype=np.float32)
+            attr.data.foreach_get('color', values)
+            values = np.reshape(values, (npoints, 4))
+            rman_attr.values .extend(values[0:, 0:3].tolist())
+
+        elif attr.data_type == 'FLOAT':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'float'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.float32)
+            attr.data.foreach_get('value', values)
+            rman_attr.values = values.tolist()                          
+        elif attr.data_type in ['INT8', 'INT']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            rman_attr.values = values.tolist()
+        elif attr.data_type == 'BOOLEAN':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            rman_attr.values = values.tolist()       
+        elif attr.data_type == 'STRING':
+            detail = detail_map.get(len(attr.data), detail_default) 
+            if detail not in ["uniform", "constant"]:
+                rfb_log().error("Unsupported string domain type: %s" % attr.domain)
+                return None
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'string'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            rman_attr.values = values.tolist()        
+        else:    
+            rfb_log().error("Unsupported data type: %s" % attr.data_type)                  
+
+        if rman_attr:
+            rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)    
+            detail = detail_map.get(len(attr.data), detail_default)                
+            rman_attr.rman_detail = detail            
+
+        return rman_attr
+
+    @staticmethod
     def parse_attributes(attrs_dict, ob, detail_map, detail_default='vertex'):
         '''
         Helper function to parse an array of Blender's bpy.types.Attribute
@@ -56,74 +150,30 @@ class BlAttribute:
             detail_default (str): default detail if we cannot determine what the detail should
                                   be from detail_map
         '''
-        import numpy as np
 
         for attr in ob.data.attributes:
             if attr.name.startswith('.'):
                 continue
-            rman_attr = None
-            if attr.data_type == 'FLOAT2':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'float2'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*2, dtype=np.float32)
-                attr.data.foreach_get('vector', values)
-                values = np.reshape(values, (npoints, 2))
-                rman_attr.values = values.tolist()
-
-            elif attr.data_type == 'FLOAT_VECTOR':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'vector'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*3, dtype=np.float32)
-                attr.data.foreach_get('vector', values)
-                values = np.reshape(values, (npoints, 3))
-                rman_attr.values = values.tolist()
-            
-            elif attr.data_type in ['BYTE_COLOR', 'FLOAT_COLOR']:
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                if attr.name == 'color':
-                    rman_attr.rman_name = 'Cs'
-                rman_attr.rman_type = 'color'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*4, dtype=np.float32)
-                attr.data.foreach_get('color', values)
-                values = np.reshape(values, (npoints, 4))
-                rman_attr.values .extend(values[0:, 0:3].tolist())
-
-            elif attr.data_type == 'FLOAT':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'float'
-                rman_attr.array_len = -1
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints, dtype=np.float32)
-                attr.data.foreach_get('value', values)
-                rman_attr.values = values.tolist()                          
-            elif attr.data_type in ['INT8', 'INT']:
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'integer'
-                rman_attr.array_len = -1
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints, dtype=np.int32)
-                attr.data.foreach_get('value', values)
-                rman_attr.values = values.tolist()                
-            
+            rman_attr = BlAttribute.parse_attribute(attr, detail_map=detail_map, detail_default=detail_default)            
             if rman_attr:
-                rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)
                 attrs_dict[attr.name] = rman_attr     
-                detail = detail_map.get(len(attr.data), detail_default)                
-                rman_attr.rman_detail = detail
 
+    @staticmethod
+    def set_rman_primvar(primvar, rman_attr):
+        if rman_attr.rman_type == "float":
+            primvar.SetFloatDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == "float2":
+            primvar.SetFloatArrayDetail(rman_attr.rman_name, rman_attr.values, 2, rman_attr.rman_detail)
+        elif rman_attr.rman_type == "vector":
+            primvar.SetVectorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'color':
+            primvar.SetColorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'integer':
+            primvar.SetIntegerDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'string':
+            primvar.SetStringDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+
+    
     @staticmethod
     def set_rman_primvars(primvar, bl_attributes):
         '''
@@ -137,16 +187,7 @@ class BlAttribute:
         for nm, rman_attr in bl_attributes.items():
             if rman_attr.rman_detail is None:
                 continue
-            if rman_attr.rman_type == "float":
-                primvar.SetFloatDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == "float2":
-                primvar.SetFloatArrayDetail(rman_attr.rman_name, rman_attr.values, 2, rman_attr.rman_detail)
-            elif rman_attr.rman_type == "vector":
-                primvar.SetVectorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == 'color':
-                primvar.SetColorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == 'integer':
-                primvar.SetIntegerDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+            BlAttribute.set_rman_primvar(primvar, rman_attr)
 
 # ------------- Filtering -------------
 def is_visible_layer(scene, ob):
