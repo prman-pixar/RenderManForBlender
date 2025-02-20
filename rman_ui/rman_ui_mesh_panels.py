@@ -38,7 +38,9 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
 
         row = layout.row()
         row.prop(item, "data_source", text="Source")
-        if item.data_source == 'VERTEX_COLOR':
+        if item.data_source == "ATTRIBUTES":
+            row.prop_search(item, "data_name", geo, "attributes", text="")
+        elif item.data_source == 'VERTEX_COLOR':
             row.prop_search(item, "data_name", geo, "vertex_colors", text="")
         elif item.data_source == 'UV_TEXTURE':
             row.prop_search(item, "data_name", geo, "uv_layers", text="")

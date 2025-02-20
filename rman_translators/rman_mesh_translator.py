@@ -251,7 +251,8 @@ def _get_primvars_(ob, rman_sg_mesh, geo, rixparams):
     if output_all_primvars:
         # export all of the attributes
         detail_map = { facevarying_detail: 'facevarying',
-                    rman_sg_mesh.npoints: 'vertex', rman_sg_mesh.npolys: 'uniform'}
+                    rman_sg_mesh.npoints: 'vertex', rman_sg_mesh.npolys: 'uniform',
+                    1: "constant"}
         attrs_dict = dict()
         BlAttribute.parse_attributes(attrs_dict, ob, detail_map)
         BlAttribute.set_rman_primvars(rixparams, attrs_dict)
@@ -266,7 +267,17 @@ def _get_primvars_(ob, rman_sg_mesh, geo, rixparams):
     else:
         # custom prim vars
         for p in rm.prim_vars:
-            if p.data_source == 'VERTEX_COLOR':
+            if p.data_source == 'ATTRIBUTES':
+                if p.data_name in geo.attributes:
+                    detail_map = { facevarying_detail: 'facevarying',
+                    rman_sg_mesh.npoints: 'vertex', rman_sg_mesh.npolys: 'uniform',
+                    1: 'constant'}
+                    rman_attr = BlAttribute.parse_attribute(geo.attributes[p.data_name], detail_map)
+                    if rman_attr:
+                        if p.name != "":
+                            rman_attr.rman_name = string_utils.sanitize_node_name(p.name)
+                        BlAttribute.set_rman_primvar(rixparams, rman_attr)
+            elif p.data_source == 'VERTEX_COLOR':
                 vcols = _get_mesh_vcol_(geo, p.data_name)
                 
                 if vcols and len(vcols) > 0:
