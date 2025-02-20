@@ -2,7 +2,7 @@ from .prefs_utils import get_pref
 from ..rfb_logger import rfb_log
 from .. import rfb_logger
 from .. import rman_constants
-from ..rman_constants import RFB_ADDON_PATH, RFB_PLATFORM
+from ..rman_constants import RFB_ADDON_PATH, BLENDER_44, RFB_PLATFORM
 import os
 import bpy
 import json
@@ -193,11 +193,18 @@ class RmanEnvConfig(object):
         if not os.path.exists(rman_packages):
             return False
 
-        sys.path.append(rman_packages)        
-        sys.path.append(os.path.join(self.rmantree, 'bin'))
-        pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
-        sys.path.append(pythonbindings)     
-   
+        if BLENDER_44:
+            # FIXME: remove this once rman's oslquery is moved
+            sys.path.insert(0, rman_packages)        
+            sys.path.insert(1, os.path.join(self.rmantree, 'bin'))
+            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
+            sys.path.insert(2, pythonbindings)     
+        else:
+            sys.path.append(rman_packages)        
+            sys.path.append(os.path.join(self.rmantree, 'bin'))
+            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
+            sys.path.append(pythonbindings)     
+
         if platform.system() == 'Windows':
             # apparently, we need to do this for windows app versions
             # of Blender, otherwise the rman python modules don't load
