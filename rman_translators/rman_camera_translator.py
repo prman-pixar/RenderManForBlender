@@ -672,6 +672,7 @@ class RmanCameraTranslator(RmanTranslator):
         elif cam.type == 'PERSP':
             rman_sg_camera.projection_shader = self.rman_scene.rman.SGManager.RixSGShader("Projection", "PxrCamera", "proj")
             self._set_fov(ob, rman_sg_camera, cam, aspectratio, rman_sg_camera.projection_shader.params)
+            self._set_dof(ob, rman_sg_camera, cam, rman_sg_camera.projection_shader.params)
             self.set_tilt_shift_focus(ob, cam, rman_sg_camera.projection_shader.params)
                      
         elif cam.type == 'PANO':
