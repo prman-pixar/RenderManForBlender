@@ -4,7 +4,7 @@ from ..rfb_logger import rfb_log
 from .. import rman_render
 from ..rman_constants import RFB_PLATFORM
 
-__STATS_WINDOW__ = None 
+STATS_WINDOW = None 
 
 RmanStatsWrapperImpl = None
 if not bpy.app.background:
@@ -23,9 +23,9 @@ if not bpy.app.background:
 
             def execute(self, context):
                 global RmanStatsWrapperImpl
-                global __STATS_WINDOW__
-                __STATS_WINDOW__ = RmanStatsWrapperImpl()
-                self._window = __STATS_WINDOW__
+                global STATS_WINDOW
+                STATS_WINDOW = RmanStatsWrapperImpl()
+                self._window = STATS_WINDOW
                 return super(LiveStatsQtAppTimed, self).execute(context)
             
         class PRMAN_OT_Open_Stats(bpy.types.Operator):
@@ -42,16 +42,37 @@ if not bpy.app.background:
 
                         # import here because we will crash Blender
                         # when we try to import it globally
-                        import rman_utils.stats_config.ui as rui  
+                        try:
+                            from stportal.ui.live.overview import LiveStatsOverviewUI
+                            from stportal.core.datamanager import DataManager
+                            from rman_utils.vendor.Qt import QtWidgets
+                            
+                            rr = rman_render.RmanRender.get_rman_render()
+                                       
+                            self.mgr = DataManager(                          
+                                # sync live stats server ID betw UI (client) & plugin (server)
+                                assign_server_id_func=rr.stats_mgr.assign_server_id_func)
+                            __statsui__ = LiveStatsOverviewUI(parent=self, manager=self.mgr)
+                            self.resize(950, 650)
+                            self.setWindowTitle('RenderMan Live Stats')
 
-                        self.resize(512, 512)
-                        self.setWindowTitle('RenderMan Live Stats')
-                        
-                        rr = rman_render.RmanRender.get_rman_render()
-                        mgr = rr.stats_mgr.mgr
-                        self.ui = rui.StatsManagerUI(self, manager=mgr, show_config=False)
-                        self.setLayout(self.ui.topLayout)
-                        self.show() # Show window   
+                            self.lyt = QtWidgets.QVBoxLayout()
+                            self.scroll = QtWidgets.QScrollArea()
+                            self.scroll.setWidgetResizable(True)
+                            self.lyt.addWidget(self.scroll)
+                            self.setLayout(self.lyt)
+                            self.setAcceptDrops(True)
+                            # Set up manager and UI for stats configuration
+                            self.ui = __statsui__
+                            self.scroll.setWidget(self.ui)
+                            if self.ui:
+                                self.scroll.setWidget(self.ui)
+                            else:
+                                self.scroll.setWidget(QtWidgets.QLabel("Live Stats: Failed to initialize"))
+
+                            self.show() # Show window   
+                        except Exception as e:
+                            rfb_log().warning('Live stats initialization failed: %r', e)
 
                     def show(self):            
                         super(RmanStatsWrapper, self).show()
@@ -60,12 +81,12 @@ if not bpy.app.background:
                         event.accept()                            
                 RmanStatsWrapperImpl = RmanStatsWrapper
 
-                global __STATS_WINDOW__
-                if __STATS_WINDOW__ and __STATS_WINDOW__.isVisible():
+                global STATS_WINDOW
+                if STATS_WINDOW and STATS_WINDOW.isVisible():
                     return {'FINISHED'}
 
                 if RFB_PLATFORM == "macOS":
-                    __STATS_WINDOW__ = rfb_qt.run_with_timer(__STATS_WINDOW__, RmanStatsWrapper)
+                    STATS_WINDOW = rfb_qt.run_with_timer(STATS_WINDOW, RmanStatsWrapper)
                 else:
                     bpy.ops.wm.live_stats_qt_app_timed()
                 

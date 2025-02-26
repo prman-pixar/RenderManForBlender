@@ -475,6 +475,7 @@ class RmanRender(object):
     def __init__(self):
         global __RMAN_RENDER__
         self.rictl = rman.RiCtl.Get()
+        self._start_prman_begin()
         self.sgmngr = rman.SGManager.Get()
         self.rman = rman
         self.sg_scene = None
@@ -498,8 +499,6 @@ class RmanRender(object):
         self.xpu_slow_mode = False
         self.use_qn = False
         self.rman_denoiser = RmanDenoiser(self.stats_mgr)
-
-        self._start_prman_begin()
 
         # hold onto this or python will unload it
         self.preloaded_dsos = list()

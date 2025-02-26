@@ -28,9 +28,9 @@
             "name": "renderVariant",
             "label": "Renderer",
             "type": "string",
-            "default": "prman",
+            "default": "ris",
             "widget": "popup",
-            "options": "RIS:prman|XPU:xpu",
+            "options": "RIS:ris|XPU:xpu",
             "bl_prop_options": "",
             "help": "",
             "conditionalLockOps": {

@@ -268,13 +268,19 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
         rr = RmanRender.get_rman_render()
         prefs = prefs_utils.get_addon_prefs()
         if prefs_utils.using_qt():
+            from ..rman_stats.operators import STATS_WINDOW
+            visible = False
+            if STATS_WINDOW:
+                visible = STATS_WINDOW.isVisible()
             layout.separator()
-            layout.operator("renderman.rman_open_stats")  
+            row = layout.row()
+            row.operator("renderman.rman_open_stats")  
+            row.enabled = not visible
             layout.prop(prefs, 'rman_roz_stats_print_level')        
         else:    
             layout.prop(prefs, 'rman_roz_stats_print_level')    
-            server_id = rr.stats_mgr.assign_server_id_func()
-            if server_id:
+            server_id = rr.stats_mgr.web_socket_server_id
+            if rr.rman_context.is_render_running() and server_id:
                 layout.label(text='Connected: %s' % server_id)
             else:
                 layout.label(text='No render active')            
