@@ -701,7 +701,6 @@ class RmanSceneSync(object):
             self.num_instances_changed = True
             self.rman_scene.num_object_instances = len(depsgraph.object_instances)
 
-        print("UPDATES: %d" % len(depsgraph.updates))
         for dps_update in reversed(depsgraph.updates):
             if isinstance(dps_update.id, bpy.types.Scene):
                 rfb_log().debug("Scene updated:")
