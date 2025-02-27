@@ -118,11 +118,11 @@ class RmanRenderContext(object):
         return self.render_state == RmanRenderContext.k_render_state_rendering
     
 def get_render_variant(bl_scene):
-    if not bl_scene.renderman.has_xpu_license and bl_scene.renderman.renderVariant != 'prman':
+    if not bl_scene.renderman.has_xpu_license and bl_scene.renderman.renderVariant != 'ris':
         rfb_log().warning("Your RenderMan license does not include XPU. Reverting to RIS.")
         return 'ris'
 
-    if RFB_PLATFORM == "macOS" and bl_scene.renderman.renderVariant != 'prman':
+    if RFB_PLATFORM == "macOS" and bl_scene.renderman.renderVariant != 'ris':
         rfb_log().warning("XPU is not implemented on macOS: using RIS...")
         return 'ris'
 

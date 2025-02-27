@@ -260,20 +260,20 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
             conditionalVisOps = getattr(ndp, 'conditionalVisOps', None)
             conditionalLockOps = getattr(ndp, 'conditionalLockOps', None)
             if conditionalVisOps:
-                # eval the conditionalVisOps to see if we should be visible
-                expr = conditionalVisOps.get('expr', None)
-                node = parent              
-                if expr and not eval(expr):
-                    continue
-
-            if conditionalVisOps and conditionalLockOps:
-                # check if there is a conditionalLockOps
-                expr = conditionalVisOps.get('lock_expr', None)
-                if expr is None:
+                if conditionalLockOps:
+                    # check if there is a conditionalLockOps
+                    expr = conditionalVisOps.get('lock_expr', None)
+                    if expr is None:
+                        expr = conditionalVisOps.get('expr', None)
+                    node = parent                           
+                    if expr and not eval(expr):
+                        is_enabled = False      
+                else:
+                    # eval the conditionalVisOps to see if we should be visible
                     expr = conditionalVisOps.get('expr', None)
-                node = parent                           
-                if expr and not eval(expr):
-                    is_enabled = False                        
+                    node = parent              
+                    if expr and not eval(expr):
+                        continue
 
             label = ndp.label if hasattr(ndp, 'label') else ndp.name
             row = curr_col.row()
