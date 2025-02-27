@@ -317,7 +317,7 @@ class RmanSceneSync(object):
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):
             rman_sg_camera = self.rman_scene.rman_cameras.get(ob.original)
             translator = self.rman_scene.rman_translators['CAMERA']
-                     
+    
             rman_update = RmanUpdate()     
             self.rman_updates[ob.original] = rman_update      
 
@@ -701,11 +701,14 @@ class RmanSceneSync(object):
             self.num_instances_changed = True
             self.rman_scene.num_object_instances = len(depsgraph.object_instances)
 
+        print("UPDATES: %d" % len(depsgraph.updates))
         for dps_update in reversed(depsgraph.updates):
             if isinstance(dps_update.id, bpy.types.Scene):
+                rfb_log().debug("Scene updated:")
                 self.scene_updated()
 
             elif isinstance(dps_update.id, bpy.types.World):
+                rfb_log().debug("World updated: %s" % dps_update.id.name)
                 with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
                     self.rman_scene.export_integrator()
                     self.rman_scene.export_samplefilters()
@@ -861,6 +864,9 @@ class RmanSceneSync(object):
                     # check if one of the users of this object updated
                     # ex: the object was instanced via a GeometryNodeTree, and the 
                     # geometry node tree updated
+                    if ob_eval.original in already_udpated:
+                        # we've already checked this
+                        continue
                     users = self.rman_scene.context.blend_data.user_map(subset={ob_eval.original})
                     user_exist = False
                     for o in users[ob_eval.original]:
@@ -879,11 +885,14 @@ class RmanSceneSync(object):
                         # check if the instance_parent was the thing that 
                         # changed
                         if not instance_parent:
+                            already_udpated.append(ob_eval.original)
                             continue
                         rman_update = self.rman_updates.get(instance_parent.original, None)
                         if rman_update is None:
+                            already_udpated.append(ob_eval.original)
                             continue
                         if rman_update.is_updated_attributes:
+                            already_udpated.append(ob_eval.original)
                             continue
                         rfb_log().debug("\t%s parent updated (%s)" % (ob_eval.name, instance_parent.name))
 
