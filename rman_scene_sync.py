@@ -61,7 +61,7 @@ class RmanSceneSync(object):
 
         self.rman_updates = dict() # A dicitonary to hold RmanUpdate instances
         self.selected_channel = None
-        self.need_cleaning = dict() # A dictionary to hold what instances need to be deleted
+        self.need_cleaning = dict() # A dictionary to hold what instances need to be kept/deleted
 
     @property
     def sg_scene(self):
@@ -855,7 +855,6 @@ class RmanSceneSync(object):
                     # set update_geometry to False
                     # since we've already exported the datablock                        
                     rman_update.is_updated_geometry = False
-                    #clear_instances.append(rman_sg_node)
                                                                 
                 if self.check_all_instances:
                     # check all instances in the scene
@@ -869,46 +868,10 @@ class RmanSceneSync(object):
                         self.rman_updates[ob_key] = rman_update  
                 elif rman_update is None:    
                     # no RmanUpdate exists for this object
-                    if ob_eval.original.users > 1:
+                    if len(rman_sg_node.instances) > 1:
                         self.add_to_need_cleaning(instance, rman_sg_node)                  
                     continue
                     
-                    # check if one of the users of this object updated
-                    # ex: the object was instanced via a GeometryNodeTree, and the 
-                    # geometry node tree updated
-                    if ob_eval.original in already_udpated:
-                        # we've already checked this
-                        continue
-                    # FIXME: accessing the user_map is sloooooooow, figure out a better way to do this
-                    users = self.rman_scene.context.blend_data.user_map(subset={ob_eval.original})
-                    user_exist = False
-                    for o in users[ob_eval.original]:
-                        if o.original in self.rman_updates:
-                            parent = getattr(o.original, 'parent', None)
-                            if parent == ob_eval.original:
-                                # don't consider this object if there's a
-                                # parent/child relation
-                                continue
-                            rfb_log().debug("\t%s user updated (%s)" % (ob_eval.name, o.name))
-                            user_exist = True
-                            break
-                    if user_exist:
-                        rman_update = self.create_rman_update(ob_key, update_transform=True)
-                    else:
-                        # check if the instance_parent was the thing that 
-                        # changed
-                        if not instance_parent:
-                            already_udpated.append(ob_eval.original)
-                            continue
-                        rman_update = self.rman_updates.get(instance_parent.original, None)
-                        if rman_update is None:
-                            already_udpated.append(ob_eval.original)
-                            continue
-                        if rman_update.is_updated_attributes:
-                            already_udpated.append(ob_eval.original)
-                            continue
-                        rfb_log().debug("\t%s parent updated (%s)" % (ob_eval.name, instance_parent.name))
-
                 # Originally, we were only updating the prototype, if the DepsgraphInstance
                 # was not is_instance. However, this doesn't work for META
                 # objects as the mesh has is_instance=True.
@@ -945,60 +908,31 @@ class RmanSceneSync(object):
                         self.rman_scene._export_hidden_instance(ob_eval, rman_sg_node)
                     continue                         
 
-                if rman_update.do_clear_instances:
-                    # clear all instances for this prototype, if
-                    # we have not already done so
-                    if psys and instance_parent:
-                        parent_proto_key = object_utils.prototype_key(instance_parent)
-                        rman_parent_node = self.rman_scene.get_rman_prototype(parent_proto_key, ob=instance_parent)
-                        #if rman_parent_node and rman_parent_node not in clear_instances:
-                        #    rfb_log().debug("\tClearing parent instances: %s" % parent_proto_key)
-                            #rman_parent_node.clear_instances()
-                        #    #clear_instances.append(rman_parent_node) 
-                    #if rman_sg_node not in clear_instances:
-                        #rfb_log().debug("\tClearing instances: %s" % proto_key)
-                        #rman_sg_node.clear_instances()
-                        #clear_instances.append(rman_sg_node) 
+                # simply grab the existing instance and update the transform and/or material
+                rman_sg_group = self.rman_scene.get_rman_sg_instance(instance, rman_sg_node, instance_parent, psys, create=False)
+                rman_group_translator = self.rman_scene.rman_translators['GROUP']
 
-                    if not self.rman_scene.check_visibility(instance):
-                         # This instance is not visible in the viewport. Don't
-                        # add an instance of it
+                self.add_to_need_cleaning(instance, rman_sg_node)  
+
+                if rman_sg_group:
+                    # update instance attributes
+                    self.rman_scene.update_instance_attributes(rman_group_translator, rman_sg_group, ob_eval, instance, remove=True)                                
+                    if rman_update.is_updated_attributes:    
                         continue
 
-                    self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)
-                    self.add_to_need_cleaning(instance, rman_sg_node)  
+                    if rman_update.is_updated_transform:
+                        rman_group_translator.update_transform(instance, rman_sg_group) 
+                    if is_empty_instancer and instance_parent.renderman.rman_material_override:
+                        self.rman_scene.attach_material(instance_parent, rman_sg_group)                            
+                    elif rman_update.is_updated_shading:  
+                        if psys:
+                            self.rman_scene.attach_particle_material(psys.settings, instance_parent, ob_eval, rman_sg_group)
+                        else:
+                            self.rman_scene.attach_material(ob_eval, rman_sg_group)                            
                 else:
-                    #if rman_sg_node not in clear_instances:
-                        # this might be a bit werid, but we don't want another RmanUpdate
-                        # instance to clear the instances afterwards, so we add to the
-                        # clear_instances list
-                    #    clear_instances.append(rman_sg_node) 
-
-                    # simply grab the existing instance and update the transform and/or material
-                    rman_sg_group = self.rman_scene.get_rman_sg_instance(instance, rman_sg_node, instance_parent, psys, create=False)
-                    rman_group_translator = self.rman_scene.rman_translators['GROUP']
-
-                    self.add_to_need_cleaning(instance, rman_sg_node)  
-
-                    if rman_sg_group:
-                        # update instance attributes
-                        self.rman_scene.update_instance_attributes(rman_group_translator, rman_sg_group, ob_eval, instance, remove=True)                                
-                        if rman_update.is_updated_attributes:    
-                            continue
-
-                        if rman_update.is_updated_transform:
-                            rman_group_translator.update_transform(instance, rman_sg_group) 
-                        if is_empty_instancer and instance_parent.renderman.rman_material_override:
-                            self.rman_scene.attach_material(instance_parent, rman_sg_group)                            
-                        elif rman_update.is_updated_shading:  
-                            if psys:
-                                self.rman_scene.attach_particle_material(psys.settings, instance_parent, ob_eval, rman_sg_group)
-                            else:
-                                self.rman_scene.attach_material(ob_eval, rman_sg_group)                            
-                    else:
-                        # Didn't get an rman_sg_group. Do a full instance export.
-                        self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)
-                                
+                    # Didn't get an rman_sg_group. Do a full instance export.
+                    self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)
+                            
                 if not batch_mode:
                     if rman_type == 'LIGHT':
                         # We are dealing with a light. Check if it's a solo light, or muted
@@ -1031,6 +965,7 @@ class RmanSceneSync(object):
 
             # finally, check what instances need to be deleted
             for rman_sg_node, lst in self.need_cleaning.items():
+                # get the difference in the keys; what's left is what needs to be deleted
                 to_delete = set(rman_sg_node.instances.keys()) - set(lst)
                 for k in to_delete:
                     if k in rman_sg_node.instances:
