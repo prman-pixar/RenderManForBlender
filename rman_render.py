@@ -1209,6 +1209,7 @@ class RmanRender(object):
             # batch renders if ctypes.CFUNCTYPE is ever called (true as of Blender 4.1)
             self.xpu_slow_mode = True
 
+        self.rman_scene_sync.reset() # reset the rman_scene_sync instance
         if not self.create_scene(config, render_config):
             self.bl_engine.report({'ERROR'}, 'Could not connect to the stats server. Aborting...' )
             self.stop_render(stop_draw_thread=False)

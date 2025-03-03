@@ -61,6 +61,7 @@ class RmanSceneSync(object):
 
         self.rman_updates = dict() # A dicitonary to hold RmanUpdate instances
         self.selected_channel = None
+        self.need_cleaning = dict() # A dictionary to hold what instances need to be deleted
 
     @property
     def sg_scene(self):
@@ -75,7 +76,8 @@ class RmanSceneSync(object):
         self.frame_number_changed = False
         self.check_all_instances = False 
         self.rman_updates = dict()
-        self.selected_channel = None        
+        self.selected_channel = None   
+        self.need_cleaning = dict()    
 
     def update_view(self, context, depsgraph):
         camera = depsgraph.scene.camera
@@ -101,7 +103,7 @@ class RmanSceneSync(object):
         rman_update.is_updated_geometry = kwargs.get('update_geometry', False)
         rman_update.is_updated_attributes = kwargs.get('update_attributes', False)
         rman_update.updated_prop_name = kwargs.get('prop_name', None)
-        rman_update.do_clear_instances = kwargs.get('clear_instances', True)
+        rman_update.do_clear_instances = kwargs.get('clear_instances', False)
         self.rman_updates[ob_key] = rman_update   
         return rman_update                       
 
@@ -686,6 +688,7 @@ class RmanSceneSync(object):
         self.num_instances_changed = False
         self.frame_number_changed = False
         self.check_all_instances = False
+        self.do_geo_node_tree_check = False
                 
         self.rman_scene.depsgraph = depsgraph
         self.rman_scene.bl_scene = depsgraph.scene
@@ -774,11 +777,18 @@ class RmanSceneSync(object):
         self.rman_updates = dict()                        
         rfb_log().debug("------End update scene----------")    
 
+    def add_to_need_cleaning(self, instance, rman_sg_node):
+        group_db_name = object_utils.get_group_db_name(instance)
+        lst = self.need_cleaning.get(rman_sg_node, list())
+        lst.append(group_db_name)
+        self.need_cleaning[rman_sg_node] = lst           
+
     @time_this
     def check_instances(self, batch_mode=False):
         deleted_obj_keys = list(self.rman_scene.rman_prototypes) # list of potential objects to delete
         already_udpated = list() # list of objects already updated during our loop
-        clear_instances = list() # list of objects who had their instances cleared            
+        # clear_instances = list() # list of objects who had their instances cleared       
+        self.need_cleaning = dict()     
         rfb_log().debug("Updating instances")        
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
             for instance in self.rman_scene.depsgraph.object_instances:
@@ -845,7 +855,7 @@ class RmanSceneSync(object):
                     # set update_geometry to False
                     # since we've already exported the datablock                        
                     rman_update.is_updated_geometry = False
-                    clear_instances.append(rman_sg_node)
+                    #clear_instances.append(rman_sg_node)
                                                                 
                 if self.check_all_instances:
                     # check all instances in the scene
@@ -859,13 +869,17 @@ class RmanSceneSync(object):
                         self.rman_updates[ob_key] = rman_update  
                 elif rman_update is None:    
                     # no RmanUpdate exists for this object
-                    #                    
+                    if ob_eval.original.users > 1:
+                        self.add_to_need_cleaning(instance, rman_sg_node)                  
+                    continue
+                    
                     # check if one of the users of this object updated
                     # ex: the object was instanced via a GeometryNodeTree, and the 
                     # geometry node tree updated
                     if ob_eval.original in already_udpated:
                         # we've already checked this
                         continue
+                    # FIXME: accessing the user_map is sloooooooow, figure out a better way to do this
                     users = self.rman_scene.context.blend_data.user_map(subset={ob_eval.original})
                     user_exist = False
                     for o in users[ob_eval.original]:
@@ -937,14 +951,14 @@ class RmanSceneSync(object):
                     if psys and instance_parent:
                         parent_proto_key = object_utils.prototype_key(instance_parent)
                         rman_parent_node = self.rman_scene.get_rman_prototype(parent_proto_key, ob=instance_parent)
-                        if rman_parent_node and rman_parent_node not in clear_instances:
-                            rfb_log().debug("\tClearing parent instances: %s" % parent_proto_key)
-                            rman_parent_node.clear_instances()
-                            clear_instances.append(rman_parent_node) 
-                    if rman_sg_node not in clear_instances:
-                        rfb_log().debug("\tClearing instances: %s" % proto_key)
-                        rman_sg_node.clear_instances()
-                        clear_instances.append(rman_sg_node) 
+                        #if rman_parent_node and rman_parent_node not in clear_instances:
+                        #    rfb_log().debug("\tClearing parent instances: %s" % parent_proto_key)
+                            #rman_parent_node.clear_instances()
+                        #    #clear_instances.append(rman_parent_node) 
+                    #if rman_sg_node not in clear_instances:
+                        #rfb_log().debug("\tClearing instances: %s" % proto_key)
+                        #rman_sg_node.clear_instances()
+                        #clear_instances.append(rman_sg_node) 
 
                     if not self.rman_scene.check_visibility(instance):
                          # This instance is not visible in the viewport. Don't
@@ -952,16 +966,20 @@ class RmanSceneSync(object):
                         continue
 
                     self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)
+                    self.add_to_need_cleaning(instance, rman_sg_node)  
                 else:
-                    if rman_sg_node not in clear_instances:
+                    #if rman_sg_node not in clear_instances:
                         # this might be a bit werid, but we don't want another RmanUpdate
                         # instance to clear the instances afterwards, so we add to the
                         # clear_instances list
-                        clear_instances.append(rman_sg_node) 
+                    #    clear_instances.append(rman_sg_node) 
 
                     # simply grab the existing instance and update the transform and/or material
                     rman_sg_group = self.rman_scene.get_rman_sg_instance(instance, rman_sg_node, instance_parent, psys, create=False)
                     rman_group_translator = self.rman_scene.rman_translators['GROUP']
+
+                    self.add_to_need_cleaning(instance, rman_sg_node)  
+
                     if rman_sg_group:
                         # update instance attributes
                         self.rman_scene.update_instance_attributes(rman_group_translator, rman_sg_group, ob_eval, instance, remove=True)                                
@@ -1009,7 +1027,15 @@ class RmanSceneSync(object):
                                                                                             
             # delete objects
             if deleted_obj_keys:
-                self.delete_objects(deleted_obj_keys)        
+                self.delete_objects(deleted_obj_keys)      
+
+            # finally, check what instances need to be deleted
+            for rman_sg_node, lst in self.need_cleaning.items():
+                to_delete = set(rman_sg_node.instances.keys()) - set(lst)
+                for k in to_delete:
+                    if k in rman_sg_node.instances:
+                        g = rman_sg_node.instances.pop(k)
+                        del g
                      
     @time_this
     def delete_objects(self, deleted_obj_keys=list()):
