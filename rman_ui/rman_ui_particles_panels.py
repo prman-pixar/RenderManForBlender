@@ -11,10 +11,11 @@ class PARTICLE_PT_renderman_particle(ParticleButtonsPanel, Panel, _RManPanelHead
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
         psys = context.particle_system
         rm = psys.settings.renderman
-        is_rman_interactive_running = context.scene.renderman.is_rman_interactive_running
 
         col = layout.column()
 
@@ -35,17 +36,23 @@ class PARTICLE_PT_renderman_particle(ParticleButtonsPanel, Panel, _RManPanelHead
             ob = psys.id_data
             mesh = getattr(ob, 'data', None)
 
-            col.prop(rm, 'export_scalp_st')
-            if rm.export_scalp_st and mesh:
-                col.prop_search(rm, "uv_name", mesh, "uv_layers", text="")
-            col.separator()
-            col.prop(rm, 'export_mcol')
-            if rm.export_mcol and mesh:
-                col.prop_search(rm, "mcol_name", mesh, "vertex_colors", text="")
-            col.separator()                
-            col.prop(rm, 'hair_index_name')
+            if psys.settings.render_type not in ['OBJECT', 'COLLECTION']:
+                col.prop(rm, 'export_scalp_st')
+                if rm.export_scalp_st and mesh:
+                    col.prop_search(rm, "uv_name", mesh, "uv_layers", text="")
+                col.separator()
+                col.prop(rm, 'export_mcol')
+                if rm.export_mcol and mesh:
+                    col.prop_search(rm, "mcol_name", mesh, "vertex_colors", text="")
+                col.separator()                
+                col.prop(rm, 'hair_index_name')
 
-        col.prop(rm, 'do_velocity_blur')
+        if psys.settings.render_type in ['OBJECT', 'COLLECTION']:
+            col.prop(rm, 'motion_segments_override')
+            if rm.motion_segments_override:
+                col.prop(rm, 'motion_segments')
+        else:
+            col.prop(rm, 'do_velocity_blur')
 
 
 class PARTICLE_PT_renderman_prim_vars(CollectionPanel, Panel):

@@ -113,9 +113,23 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
 
     do_velocity_blur: BoolProperty(
         name="Velocity Blur",
-        description="By default, we do velocity based motion blur for particle systems. Uncheck this if you don't want any blur",
+        description="By default, we do velocity based motion blur for particle systems. This only applies to non instance object particles. Uncheck this if you don't want any blur",
         default=True,
         update=update_psys
+    )
+    
+    motion_segments_override: BoolProperty(
+        name="Override Motion Samples",
+        description="",
+        default=False
+    )
+
+    motion_segments: IntProperty(
+        name="Motion Samples",
+        default=2,
+        min=1,
+        max=16,
+        description="Number of samples for transformation blur for object instances"
     )
 
     override_instance_material: BoolProperty(

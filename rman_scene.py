@@ -673,10 +673,26 @@ class RmanScene(object):
             rman_sg_node.sg_attributes.AddChild(rman_sg_group.sg_node)
 
         # check if instance has transform motion
-        if self.do_motion_blur and object_utils.is_transforming(ob_eval):
+        if self.do_motion_blur: 
             mb_segs = self.bl_scene.renderman.motion_segments
-            if ob_eval.renderman.motion_segments_override:
-                mb_segs = ob_eval.renderman.motion_segments
+            if ob_inst.is_instance:
+                # this is an instance
+                # check if we need to blur 
+                if psys:
+                    if psys.settings.renderman.motion_segments_override:
+                        mb_segs = psys.settings.renderman.motion_segments
+                elif is_empty_instancer:
+                    if instance_parent.renderman.motion_segments_override:
+                        mb_segs = instance_parent.renderman.motion_segments                   
+                elif ob_inst.instance_object.renderman.motion_segments_override:
+                    mb_segs = ob_inst.instance_object.renderman.motion_segments
+            else:
+                if object_utils.is_transforming(ob_eval):
+                    if ob_eval.renderman.motion_segments_override:
+                        mb_segs = ob_eval.renderman.motion_segments
+                else:
+                    mb_segs = 1
+
             if mb_segs > 1:
                 subframes = scene_utils._get_subframes_(mb_segs, self.bl_scene)
                 rman_sg_group.motion_steps = subframes
@@ -760,24 +776,10 @@ class RmanScene(object):
         rman_sg_node.rman_type = rman_type
         self.rman_prototypes[proto_key] = rman_sg_node
 
-        # motion blur
-        # we set motion steps for this object, even if it's not moving
-        # it could be moving as part of a particle system
-        #
-        # FIXME: remove the checking of transform motion here, this should
-        # and is already being done in export_instance.
-        mb_segs = -1
+        # set deformation motion segments
         mb_deform_segs = -1
         if self.do_motion_blur:
-            mb_segs = self.bl_scene.renderman.motion_segments
             mb_deform_segs = self.bl_scene.renderman.deform_motion_segments
-            if ob.renderman.motion_segments_override:
-                mb_segs = ob.renderman.motion_segments
-            if mb_segs > 1:
-                subframes = scene_utils._get_subframes_(mb_segs, self.bl_scene)
-                rman_sg_node.motion_steps = subframes
-                self.motion_steps.update(subframes)
-
             if ob.renderman.motion_segments_override:
                 mb_deform_segs = ob.renderman.deform_motion_segments
 
@@ -786,14 +788,12 @@ class RmanScene(object):
                 rman_sg_node.deform_motion_steps = subframes
                 self.motion_steps.update(subframes)
 
-        if rman_sg_node.is_transforming or rman_sg_node.is_deforming:
-            if mb_segs > 1 or mb_deform_segs > 1:
-                self.moving_objects[ob.name_full] = ob
+            if rman_sg_node.is_deforming:
+                if mb_deform_segs > 1:
+                    self.moving_objects[ob.name_full] = ob
 
-            if mb_segs < 1:
-                rman_sg_node.is_transforming = False
-            if mb_deform_segs < 1:
-                rman_sg_node.is_deforming = False
+                if mb_deform_segs < 1:
+                    rman_sg_node.is_deforming = False        
 
         translator.update(ob, rman_sg_node)
         
@@ -850,18 +850,14 @@ class RmanScene(object):
 
     def export_instances_motion(self, selected_objects=False):
         origframe = self.bl_scene.frame_current
-
-        mb_segs = self.bl_scene.renderman.motion_segments
-        origframe = self.bl_scene.frame_current
-
         motion_steps = sorted(list(self.motion_steps))
 
         first_sample = False
         delta = 0.0
         if len(motion_steps) > 0:
             delta = -motion_steps[0]
-        psys_translator = self.rman_translators['PARTICLES']
         rman_group_translator = self.rman_translators['GROUP']
+        deform_sampled = dict() # dictionary to know what segment we've already sampled for deform blur
         for samp, seg in enumerate(motion_steps):
             first_sample = (samp == 0)
             if seg < 0.0:
@@ -872,12 +868,11 @@ class RmanScene(object):
             self.depsgraph.update()
             time_samp = seg + delta # get the normlized version of the segment
             total = len(self.depsgraph.object_instances)
-            objFound = False
 
             # update camera
             if not first_sample and self.main_camera.is_transforming and seg in self.main_camera.motion_steps:
                 cam_translator =  self.rman_translators['CAMERA']
-                idx = 0
+                idx = -1
                 for i, s in enumerate(self.main_camera.motion_steps):
                     if s == seg:
                         idx = i
@@ -906,28 +901,10 @@ class RmanScene(object):
                 if rman_type in object_utils._RMAN_NO_INSTANCES_:
                     continue
 
-                # check particles for motion
-                '''
-                for psys in ob.particle_systems:
-                    ob_psys = self.rman_particles.get(proto_key, None)
-                    if not ob_psys:
+                # if an object is not an instance, check if it's a moving object
+                if not ob_inst.is_instance:
+                    if ob.name_full not in self.moving_objects:
                         continue
-                    rman_sg_particles = ob_psys.get(psys.settings.original, None)
-                    if not rman_sg_particles:
-                        continue
-                    if not seg in rman_sg_particles.motion_steps:
-                        continue
-                    idx = 0
-                    for i, s in enumerate(rman_sg_particles.motion_steps):
-                        if s == seg:
-                            idx = i
-                            break
-                    psys_translator.export_deform_sample(rman_sg_particles, ob, psys, idx)
-                '''
-
-                # object is not moving and not part of a particle system
-                if ob.name_full not in self.moving_objects and not psys:
-                    continue
 
                 rman_sg_node = self.get_rman_prototype(proto_key, ob=ob)
                 if not rman_sg_node:
@@ -935,33 +912,35 @@ class RmanScene(object):
 
                 rman_sg_group = self.get_rman_sg_instance(ob_inst, rman_sg_node, instance_parent, psys)
                 if not rman_sg_group:
-                    continue
+                    continue         
 
                 # transformation blur
-                if seg in rman_sg_group.motion_steps:
+                if rman_sg_group.is_transforming and seg in rman_sg_group.motion_steps:
                     idx = 0
                     for i, s in enumerate(rman_sg_group.motion_steps):
                         if s == seg:
                             idx = i
                             break
 
-                    if rman_sg_group.is_transforming or psys:
-                        if first_sample:
-                            rman_group_translator.update_transform_num_samples(rman_sg_group, rman_sg_group.motion_steps ) 
-                        rman_group_translator.update_transform_sample( ob_inst, rman_sg_group, idx, time_samp)
+                    if first_sample:
+                        rman_group_translator.update_transform_num_samples(rman_sg_group, rman_sg_group.motion_steps ) 
+                    rman_group_translator.update_transform_sample( ob_inst, rman_sg_group, idx, time_samp)
 
                 # deformation blur
-                if rman_sg_node.is_deforming and seg in rman_sg_node.deform_motion_steps:
+                sampled = deform_sampled.get(rman_sg_node, list())
+                if rman_sg_node.is_deforming and seg in rman_sg_node.deform_motion_steps and seg not in sampled:
                     rman_type = rman_sg_node.rman_type
                     if rman_type in ['MESH', 'FLUID', 'CURVES']:
-                        translator = self.rman_translators.get(rman_type, None)
-                        if translator:
+                        translator = self.rman_translators.get(rman_type, None)                        
+                        if translator :
                             deform_idx = 0
                             for i, s in enumerate(rman_sg_node.deform_motion_steps):
                                 if s == seg:
                                     deform_idx = i
                                     break
                             translator.export_deform_sample(rman_sg_node, ob, deform_idx)
+                            sampled.append(seg)
+                            deform_sampled[rman_sg_node] = sampled
 
         self.rman_render.bl_engine.frame_set(origframe, subframe=0)
         rfb_log().debug("   Finished exporting motion instances")

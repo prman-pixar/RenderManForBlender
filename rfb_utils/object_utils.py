@@ -128,7 +128,10 @@ def is_deforming_fluid(ob):
         mod = ob.modifiers[len(ob.modifiers) - 1]
         return mod.type == 'FLUID' and mod.fluid_type == 'DOMAIN'
 
-def _is_deforming_(ob):
+def _is_deforming_(ob, scene):
+    if ob.is_deform_modified(scene, "RENDER"):
+        return True
+
     deforming_modifiers = ['ARMATURE', 'MESH_SEQUENCE_CACHE', 'CAST', 'CLOTH', 'CURVE', 'DISPLACE',
                            'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP', 'EXPLODE',
                            'SIMPLE_DEFORM', 'SMOOTH', 'WAVE', 'SOFT_BODY',
@@ -146,7 +149,7 @@ def _is_deforming_(ob):
                 return True
     if ob.data and hasattr(ob.data, 'shape_keys') and ob.data.shape_keys:
         return True
-
+    
     return is_deforming_fluid(ob)
 
 def is_transforming(ob, recurse=False):

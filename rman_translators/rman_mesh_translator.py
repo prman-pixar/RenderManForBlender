@@ -393,7 +393,7 @@ class RmanMeshTranslator(RmanTranslator):
 
         if self.rman_scene.do_motion_blur:
             rman_sg_mesh.is_transforming = object_utils.is_transforming(ob)
-            rman_sg_mesh.is_deforming = object_utils._is_deforming_(ob)
+            rman_sg_mesh.is_deforming = object_utils._is_deforming_(ob, self.rman_scene.bl_scene)
 
         return rman_sg_mesh
 

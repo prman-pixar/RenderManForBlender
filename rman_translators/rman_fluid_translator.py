@@ -46,7 +46,7 @@ class RmanFluidTranslator(RmanTranslator):
         sg_node = self.rman_scene.sg_scene.CreateGroup(db_name)
         rman_sg_fluid = RmanSgFluid(self.rman_scene, sg_node, db_name)
         if self.rman_scene.do_motion_blur:
-            rman_sg_fluid.is_deforming = object_utils._is_deforming_(ob)        
+            rman_sg_fluid.is_deforming = object_utils._is_deforming_(ob, self.rman_scene.bl_scene)        
 
         return rman_sg_fluid
 
