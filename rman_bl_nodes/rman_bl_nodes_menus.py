@@ -78,7 +78,7 @@ class NODE_MT_renderman_node_solo_output_menu(Menu):
         nt = context.nodetree   
         node = context.node 
 
-        solo_node = nt.nodes.get(node.solo_node_name)
+        solo_node, nt = shadergraph_utils.find_node_pointer(nt, node.solo_node_pointer)
 
         for o in solo_node.outputs:
             if o.renderman_type in ['float', 'color', 'normal', 'vector', 'point']:
@@ -86,7 +86,7 @@ class NODE_MT_renderman_node_solo_output_menu(Menu):
                 layout.context_pointer_set("nodetree", nt)     
                 op = layout.operator('node.rman_set_node_solo_output', text=o.name)
                 op.solo_node_output = o.name      
-                op.solo_node_name = node.solo_node_name               
+                op.solo_node_pointer = str(solo_node.as_pointer())
 
 class NODE_MT_renderman_connection_menu(Menu):
     bl_label = "Connect New"
@@ -359,7 +359,7 @@ class NODE_MT_renderman_connection_menu(Menu):
                 rman_icon = rfb_icons.get_icon('rman_solo_on')
                 op = layout.operator('node.rman_set_node_solo', text='Solo Input Node', icon_value=rman_icon.icon_id)
                 op.refresh_solo = False
-                op.solo_node_name = from_node.name                 
+                op.solo_node_pointer = str(from_node.as_pointer())
 
         if is_output_node:
             layout.separator()                                

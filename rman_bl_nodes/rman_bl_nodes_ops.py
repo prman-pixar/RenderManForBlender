@@ -550,29 +550,19 @@ class NODE_OT_rman_node_set_solo(bpy.types.Operator):
     bl_label = "Set Node Solo"
     bl_description = "Solo a node in material shader tree"
 
-    solo_node_name: StringProperty(default="")
     refresh_solo: BoolProperty(default=False)
 
     def invoke(self, context, event):
         nt = context.nodetree
+        mat = context.material
         output_node = context.node
-        selected_node = None
+        selected_node = getattr(context, "selected_node", None)
 
         if self.refresh_solo:
-            set_solo_node(output_node, nt, '', refresh_solo=True)
+            set_solo_node(output_node, None, mat, refresh_solo=True)
             return {'FINISHED'}           
-
-        if self.solo_node_name:
-            set_solo_node(output_node, nt, self.solo_node_name, refresh_solo=False)
-            return {'FINISHED'}        
-
-        selected_node = find_selected_pattern_node(nt)
-
-        if not selected_node:
-            self.report({'ERROR'}, "Pattern node not selected")
-            return {'FINISHED'}   
             
-        set_solo_node(output_node, nt, selected_node.name, refresh_solo=False)   
+        set_solo_node(output_node, selected_node, mat, refresh_solo=False)   
 
         return {'FINISHED'}        
 
@@ -582,13 +572,13 @@ class NODE_OT_rman_node_set_solo_output(bpy.types.Operator):
     bl_description = "Select output for solo node"
 
     solo_node_output: StringProperty(default="")
-    solo_node_name: StringProperty(default="")
+    solo_node_pointer: StringProperty(default="")
 
     def invoke(self, context, event):
         node = getattr(context, 'node', None) 
         if node:
             node.solo_node_output = self.solo_node_output
-            node.solo_node_name = self.solo_node_name
+            node.solo_node_pointer = self.solo_node_pointer
 
         return {'FINISHED'}         
 

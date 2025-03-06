@@ -9,7 +9,7 @@ from ..rman_constants import NODE_LAYOUT_SPLIT
 from .. import rfb_icons
 from ..rfb_utils import object_utils
 from ..rfb_utils.prefs_utils import get_pref
-from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes
+from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_node_pointer
 from ..rman_cycles_convert import do_cycles_convert
 from bpy.types import Panel
 import bpy
@@ -181,15 +181,15 @@ class MATERIAL_PT_renderman_object_shader_surface(Panel, CollectionPanel):
             rman_output_node = is_renderman_nodetree(mat)
 
             if rman_output_node:
-                if rman_output_node.solo_node_name != '':
-                    solo_node = nt.nodes.get(rman_output_node.solo_node_name, None)
+                if rman_output_node.solo_node_pointer != '':
+                    solo_node, solo_nt = find_node_pointer(nt, rman_output_node.solo_node_pointer)
                     if solo_node:
 
                         split = layout.split(factor=0.25)
-                        split.context_pointer_set("nodetree", nt)  
+                        split.context_pointer_set("nodetree", solo_nt)  
                         split.context_pointer_set("node", rman_output_node)  
                         rman_icon = rfb_icons.get_icon('rman_solo_on')   
-                        split.label(text=rman_output_node.solo_node_name , icon_value=rman_icon.icon_id)  
+                        split.label(text=solo_node.name , icon_value=rman_icon.icon_id)  
                         
                         split = split.split(factor=0.95)
                         split.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')

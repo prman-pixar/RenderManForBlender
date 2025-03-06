@@ -13,7 +13,7 @@ from .. import rfb_icons
 from .. import rman_render
 from copy import deepcopy
 from bpy.types import Menu
-from bpy.props import EnumProperty, StringProperty, CollectionProperty, BoolProperty, PointerProperty
+from bpy.props import EnumProperty, StringProperty, BoolProperty, PointerProperty
 import _cycles
 import bpy
 import os
@@ -79,7 +79,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
             mat = bpy.context.material
             if shadergraph_utils.is_soloable_node(self):
                 out_node = shadergraph_utils.find_node(mat, 'RendermanOutputNode')
-                if out_node.solo_nodetree == self.id_data and self.name == out_node.solo_node_name:
+                if out_node.solo_material and out_node.solo_material.node_tree == self.id_data and str(self.as_pointer()) == out_node.solo_node_pointer:
                     nm = "%s (SOLO)" % nm
         return nm
 
@@ -104,41 +104,37 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         col.label(text=self.bl_label, icon_value=rman_icon.icon_id)  
         if shadergraph_utils.is_soloable_node(self):
             self.draw_solo_button(nt, out_node, split)
-            # draw solo output select menu
-            if self.name == out_node.solo_node_name:            
-                solo_node = nt.nodes.get(out_node.solo_node_name, None)
-                if solo_node:
-                    col = layout.column(align=True)
-                    col.context_pointer_set("nodetree", nt)  
-                    col.context_pointer_set("node", out_node) 
-                    col.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
+            # draw solo output select menu         
+            if str(self.as_pointer()) == out_node.solo_node_pointer:
+                col = layout.column(align=True)
+                col.context_pointer_set("nodetree", nt)  
+                col.context_pointer_set("node", self) 
+                col.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
 
         layout.separator()
         self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node)
 
     def draw_solo_button(self, nt, rman_output_node, layout):
         layout.context_pointer_set("nodetree", nt)  
-        layout.context_pointer_set("node", rman_output_node)                  
+        layout.context_pointer_set("node", rman_output_node)
+        layout.context_pointer_set("selected_node", self)                  
 
-        if rman_output_node.solo_node_name == '':
+        if rman_output_node.solo_node_pointer == '':
             col = layout.column(align=True)
             rman_icon = rfb_icons.get_icon('rman_solo_off')
             op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
-            op.refresh_solo = False
-            op.solo_node_name = self.name           
+            op.refresh_solo = False       
         else:
             rman_icon = rfb_icons.get_icon('rman_solo_on')
-            if rman_output_node.solo_nodetree == self.id_data and  self.name == rman_output_node.solo_node_name:
+            if str(self.as_pointer()) == rman_output_node.solo_node_pointer:
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = True
-                op.solo_node_name = self.name                             
             else:
                 rman_icon = rfb_icons.get_icon('rman_solo_off')
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = False
-                op.solo_node_name = self.name 
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH', emboss=False)
                 op.refresh_solo = True                          
@@ -780,7 +776,7 @@ class RendermanOutputNode(RendermanShadingNode):
     bl_icon = 'MATERIAL'
     node_tree = None
 
-    def update_solo_node_name(self, context):
+    def update_solo_node_pointer(self, context):
         rr = rman_render.RmanRender.get_rman_render()        
         mat = getattr(bpy.context, 'material', None)
         if mat:
@@ -804,9 +800,9 @@ class RendermanOutputNode(RendermanShadingNode):
         return items 
 
 
-    solo_node_name: StringProperty(name='Solo Node', update=update_solo_node_name)
     solo_node_output: StringProperty(name='Solo Node Output')
-    solo_nodetree: PointerProperty(type=bpy.types.NodeTree)
+    solo_material: PointerProperty(type=bpy.types.Material)
+    solo_node_pointer: StringProperty(default="", update=update_solo_node_pointer)
 
 
     bxdf_filter_method: EnumProperty(name="Filter Method",
@@ -883,16 +879,15 @@ class RendermanOutputNode(RendermanShadingNode):
         super().update()
 
         # check if the solo node still exists
-        if self.solo_node_name:
-            if self.solo_nodetree:
-                solo_nodetree = self.solo_nodetree
-                solo_node = solo_nodetree.nodes.get(self.solo_node_name, None)
-                if solo_node is None:
-                    shadergraph_utils.set_solo_node(self, solo_nodetree, '', refresh_solo=True)
-                    solo_nodetree.update_tag()
-                    return     
+        if self.solo_node_pointer != "":
+            solo_material = self.solo_material
+            solo_node, nt = shadergraph_utils.find_node_pointer(solo_material.node_tree, self.solo_node_pointer)
+            if solo_node:
+                shadergraph_utils.set_solo_node(self, solo_node, solo_material, refresh_solo=True)
+                solo_material.node_tree.update_tag()
+                return     
             else:
-                shadergraph_utils.set_solo_node(self, None, '', refresh_solo=True)      
+                shadergraph_utils.set_solo_node(self, None, None , refresh_solo=True)      
 
 class RendermanIntegratorsOutputNode(RendermanShadingNode):
     bl_label = 'RenderMan Integrators'

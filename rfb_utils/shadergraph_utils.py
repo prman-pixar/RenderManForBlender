@@ -293,7 +293,9 @@ def is_socket_float3_type(socket):
     else:
         return socket.type in ['RGBA', 'VECTOR'] 
 
-def set_solo_node(node, nt, solo_node_name, refresh_solo=False, solo_node_output=''):
+def set_solo_node(node, selected_node, material, refresh_solo=False, solo_node_output=''):
+
+    nt = material.node_tree
     def hide_all(nt, node):
         if not get_pref('rman_solo_collapse_nodes'):
             return
@@ -331,19 +333,23 @@ def set_solo_node(node, nt, solo_node_name, refresh_solo=False, solo_node_output
                     output.hide = hide
 
     if refresh_solo:
-        node.solo_nodetree = None
-        node.solo_node_name = ''
+        node.solo_material = None
         node.solo_node_output = ''
+        node.solo_node_pointer = ''
         unhide_all(nt)
         return
 
-    if solo_node_name:
-        node.solo_nodetree = nt
-        node.solo_node_name = solo_node_name
+    if selected_node:
+        node.solo_material = material
         node.solo_node_output = solo_node_output
-        solo_node = nt.nodes[solo_node_name]
-        hide_all(nt, solo_node)
-
+        node.solo_node_pointer = str(selected_node.as_pointer())
+        hide_all(nt, selected_node)
+    else:
+        node.solo_material = None
+        node.solo_node_output = ''
+        node.solo_node_pointer = ''
+        unhide_all(nt)
+        return
 
 # do we need to convert this socket?
 def do_convert_socket(from_socket, to_socket):
@@ -359,6 +365,25 @@ def find_node_input(node, name):
 
     return None
 
+def find_node_pointer(nt, pointer):
+    '''
+    Returns the node that matches the pointer in the given nodetree
+
+    Args:
+        nt (bpy.types.ShaderNodeTree): the input nodetree we want to look in
+        pointer (str): string that represents the memory address of the node. This
+        should be the value returned from the call to as_pointer() and cast to a string
+
+    Returns:
+        (tuple): a bpy.types.Node and bpy.types.NodeTree
+    '''
+    for node in nt.nodes:
+        if node.bl_idname == 'ShaderNodeGroup':
+            return find_node_pointer(node.node_tree, pointer)
+        elif str(node.as_pointer()) == pointer:
+            return (node, nt)
+    return (None, None)
+    
 
 def find_node(material, nodetype):
     if material and material.node_tree:
