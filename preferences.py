@@ -111,7 +111,8 @@ __DEFAULTS__ = {
     'rman_tractor_whenerror': '',
     'rman_tractor_whenalways': '',
     'rman_tractor_dirmaps': [],
-    'rman_single_node_view': True
+    'rman_single_node_view': True,
+    'rman_show_no_connect_params': False,
 }
 
 class RendermanPreferencePath(bpy.types.PropertyGroup):
@@ -710,6 +711,12 @@ class RendermanPreferences(AddonPreferences):
         description="If enabled, the Material tab will only show the current selected node, rather than embedding all of the connected nodes."
     )
 
+    rman_show_no_connect_params: BoolProperty(
+        name='Show Non Connectable Params',
+        default=False,
+        description="If enabled, show non-connectable parameters for nodes in the shader editor graph. You can always view these in the Node tab on the right, in the shader graph"
+    )
+
     def draw_xpu_devices(self, context, layout):
         if self.rman_xpu_device == 'CPU':
             device = self.rman_xpu_cpu_devices[0]
@@ -774,6 +781,7 @@ class RendermanPreferences(AddonPreferences):
         col.prop(self, 'rman_parent_lightfilter')
         col.prop(self, 'rman_editor')      
         col.prop(self, 'rman_enhance_zoom_factor')
+        col.prop(self, 'rman_show_no_connect_params')
 
         # XPU Prefs
         if rman_constants.RFB_PLATFORM != "macOS" and rman_env.has_xpu_license:

@@ -6,6 +6,7 @@ from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import draw_utils
 from ..rfb_utils.property_utils import BlPropInfo, __LOBES_ENABLE_PARAMS__
 from ..rfb_utils import filepath_utils
+from ..rfb_utils import prefs_utils
 from ..rman_config import __RFB_CONFIG_DICT__
 from ..rman_constants import RFB_FLOAT3, RFB_SHADER_ALLOWED_CONNECTIONS, __RMAN_SOCKET_MAP__
 from .. import rman_bl_nodes
@@ -90,7 +91,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         nt = self.id_data
         mat = context.material
         out_node = shadergraph_utils.find_node(mat, 'RendermanOutputNode')
-        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node)
+        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node, is_side=False)
         if self.bl_idname == "PxrOSLPatternNode":
             layout.operator("node.rman_refresh_osl_shader")
 
@@ -112,7 +113,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 col.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
 
         layout.separator()
-        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node)
+        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node, is_side=True)
 
     def draw_solo_button(self, nt, rman_output_node, layout):
         layout.context_pointer_set("nodetree", nt)  
@@ -139,10 +140,11 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 op = col.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH', emboss=False)
                 op.refresh_solo = True                          
 
-    def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0):
+    def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0, is_side=False, bl_prop_info=None):
         node = self
         prop_meta = node.prop_meta[prop_name]
-        bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
+        if bl_prop_info is False:
+            bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
         ui_structs = getattr(node, 'ui_structs', dict())
         if not bl_prop_info.is_ui_struct and bl_prop_info.prop is None:
             return
@@ -164,6 +166,34 @@ class RendermanShadingNode(bpy.types.ShaderNode):
 
         if bl_prop_info.prop_hidden:
             return
+        
+        if bl_prop_info.is_texture:
+            split = layout.split(factor=0.95)
+            row = split.row(align=True)
+            row.enabled = not bl_prop_info.prop_disabled            
+            row.prop(node, prop_name, slider=True)           
+            draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)             
+            prop_val = getattr(node, prop_name)
+            if prop_val != '':
+                from ..rfb_utils import texture_utils
+                from ..rfb_utils import scene_utils
+                if texture_utils.get_txmanager().is_file_src_tex(node, prop_name):
+                    return
+                colorspace_prop_name = '%s_colorspace' % prop_name
+                if not hasattr(node, colorspace_prop_name):
+                    return
+                row = layout.row(align=True)
+                if texture_utils.get_txmanager().does_file_exist(prop_val):
+                    row.prop(node, colorspace_prop_name, text='Color Space')
+                    rman_icon = rfb_icons.get_icon('rman_txmanager')  
+                    id = scene_utils.find_node_owner(node)
+                    nodeID = texture_utils.generate_node_id(node, prop_name, ob=id)                                      
+                    op = row.operator('rman_txmgr_list.open_txmanager', text='', icon_value=rman_icon.icon_id)   
+                    op.nodeID = nodeID     
+                else:
+                    row.label(text="Input mage does not exists.", icon='ERROR')         
+            return
+        
 
         if bl_prop_info.is_ui_struct:                      
             ui_prop = prop_name + "_uio"
@@ -193,7 +223,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                         sub_prop_name = '%s[%d]' % (nm, i)
                         meta = node.prop_meta[sub_prop_name]
                         if meta.get('__noconnection', False):
-                             self.draw_nonconnectable_prop(context, layout, sub_prop_name, output_node=output_node, level=level+1)
+                             self.draw_nonconnectable_prop(context, layout, sub_prop_name, output_node=output_node, level=level+1, is_side=is_side)
 
             return                
         elif bl_prop_info.widget == 'colorramp':
@@ -276,7 +306,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 row.label(text=page_label)                
                 if ui_open:                  
                     self.draw_nonconnectable_props(
-                        context, layout, sub_prop_names, output_node, level=level+1)          
+                        context, layout, sub_prop_names, output_node, level=level+1, is_side=is_side)          
                 return
 
             elif bl_prop_info.renderman_type == 'array':
@@ -356,31 +386,11 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 draw_utils.draw_sticky_toggle(row2, node, prop_name, output_node)
             else:
                 row.prop(node, prop_name, slider=True)           
-                draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)                       
-            
-            if bl_prop_info.is_texture:
-                prop_val = getattr(node, prop_name)
-                if prop_val != '':
-                    from ..rfb_utils import texture_utils
-                    from ..rfb_utils import scene_utils
-                    if texture_utils.get_txmanager().is_file_src_tex(node, prop_name):
-                        return
-                    colorspace_prop_name = '%s_colorspace' % prop_name
-                    if not hasattr(node, colorspace_prop_name):
-                        return
-                    row = layout.row(align=True)
-                    if texture_utils.get_txmanager().does_file_exist(prop_val):
-                        row.prop(node, colorspace_prop_name, text='Color Space')
-                        rman_icon = rfb_icons.get_icon('rman_txmanager')  
-                        id = scene_utils.find_node_owner(node)
-                        nodeID = texture_utils.generate_node_id(node, prop_name, ob=id)                                      
-                        op = row.operator('rman_txmgr_list.open_txmanager', text='', icon_value=rman_icon.icon_id)   
-                        op.nodeID = nodeID     
-                    else:
-                        row.label(text="Input mage does not exists.", icon='ERROR')       
+                draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)                             
 
-    def draw_nonconnectable_props(self, context, layout, prop_names, output_node=None, level=0):        
-        if level == 0 and shadergraph_utils.has_lobe_enable_props(self):
+    def draw_nonconnectable_props(self, context, layout, prop_names, output_node=None, level=0, is_side=False):
+        draw_it = (is_side is True or prefs_utils.get_pref('rman_show_no_connect_params'))
+        if draw_it and level == 0 and shadergraph_utils.has_lobe_enable_props(self):
             # We want to draw the enable lobe params at the top of the node
             col = layout.column(align=True)
             for prop_name in __LOBES_ENABLE_PARAMS__:
@@ -407,7 +417,14 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 layout.prop(self, "expression")
         else:            
             for prop_name in prop_names:
-                self.draw_nonconnectable_prop(context, layout, prop_name, output_node=output_node, level=level)
+                node = self
+                prop_meta = node.prop_meta[prop_name]
+                bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
+                if not draw_it and not bl_prop_info.is_texture:
+                    # if rman_show_no_connnect_params is on, we want to still
+                    # draw file textures
+                    continue
+                self.draw_nonconnectable_prop(context, layout, prop_name, output_node=output_node, level=level, is_side=is_side, bl_prop_info=bl_prop_info)
 
 
     def copy(self, node):
