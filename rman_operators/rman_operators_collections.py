@@ -4,7 +4,7 @@ from ..rfb_logger import rfb_log
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import scenegraph_utils
 from ..rfb_utils import object_utils
-from ..rfb_utils.rman_socket_utils import node_add_input
+from ..rfb_utils import collection_utils
 
 import bpy
 
@@ -941,60 +941,10 @@ class PRMAN_OT_Add_Remove_Array_Element(bpy.types.Operator):
     def execute(self, context):
         
         node = context.node
-        collection = getattr(node, self.collection)
-        index = getattr(node, self.collection_index)        
-        meta = node.prop_meta[self.param_name]
-        connectable = True
-        if '__noconnection' in meta and meta['__noconnection']:
-            connectable = False
         if self.action == 'ADD':
-            elem = collection.add()
-            index = len(collection)-1
-            setattr(node, self.collection_index, index)
-            elem.name = '%s[%d]' % (self.param_name, len(collection)-1)  
-            elem.type = self.elem_type
-            if connectable:
-                param_array_label = '%s[%d]' % (meta.get('label', self.param_name), len(collection)-1)
-                node_add_input(node, self.elem_type, elem.name, meta, param_array_label)
-
+            collection_utils.node_add_array_elem(node, self.collection, self.collection_index, self.param_name, self.elem_type)
         else:
-            do_rename = False
-            idx = -1
-            if connectable:
-                # rename sockets
-                def update_sockets(socket, name, label):
-                    link = None
-                    from_socket = None
-                    if socket.is_linked:                    
-                        link = socket.links[0]
-                        from_socket = link.from_socket       
-                    node.inputs.remove(socket)                                     
-                    new_socket = node_add_input(node, self.elem_type, name, meta, label)
-                    if not new_socket:
-                        return
-                    if link and from_socket:
-                        nt = node.id_data
-                        nt.links.new(from_socket, new_socket)
-                    
-                idx = 0 
-                elem = collection[index]
-                node.inputs.remove(node.inputs[elem.name])
-                for elem in collection:
-                    nm = elem.name
-                    new_name = '%s[%d]' % (self.param_name, idx)
-                    new_label = '%s[%d]' % (meta.get('label', self.param_name), idx)
-                    socket = node.inputs.get(nm, None)
-                    if socket:
-                        update_sockets(socket, new_name, new_label)
-                        idx += 1                    
-                    
-            collection.remove(index)                    
-            index -= 1
-            setattr(node, self.collection_index, 0)
-            for i in range(len(collection)):
-                elem = collection[i]
-                elem.name = '%s[%d]' % (self.param_name, i)
-
+            collection_utils.node_remove_array_elem(node, self.collection, self.collection_index, self.param_name, self.elem_type)
         return {'FINISHED'}   
 
 
