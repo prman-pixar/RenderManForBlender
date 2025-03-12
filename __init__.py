@@ -40,22 +40,6 @@ bl_info = {
 
 __RMAN_ADDON_LOADED__ = False
 
-def load_node_arrange():
-    '''
-    Make sure that the node_arrange addon is enabled
-    '''
-
-    if addon_utils.check('node_arrange')[1] is False:
-        available = False
-        for m in addon_utils.modules():
-            # check if node_arrange is available
-            # it's been removed as of blender 4.0
-            if m.__name__ == 'node_arrange':
-                available = True
-                break
-        if available:
-            addon_utils.enable('node_arrange')
-
 def load_addon():
     global __RMAN_ADDON_LOADED__
 
@@ -93,7 +77,6 @@ def register():
     from . import preferences
     preferences.register()
     load_addon()
-    load_node_arrange()
 
 def unregister():
     global __RMAN_ADDON_LOADED__
