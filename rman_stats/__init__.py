@@ -7,7 +7,6 @@ import time
 import getpass
 
 from collections import OrderedDict
-import rman_utils.stats_config.core as stcore
 from ..rfb_utils import prefs_utils
 from ..rfb_logger import rfb_log
 from typing import Union
