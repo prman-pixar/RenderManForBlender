@@ -115,9 +115,10 @@ def is_subdmesh(ob):
     if not rm:
         return False
 
+    check_modifiers = False
     rman_subdiv_scheme = getattr(ob.data.renderman, 'rman_subdiv_scheme', 'none')
 
-    if rm.primitive == 'AUTO' and rman_subdiv_scheme == 'none':
+    if check_modifiers and rm.primitive == 'AUTO' and rman_subdiv_scheme == 'none':
         return (is_subd_last(ob) or is_subd_displace_last(ob))
     else:
         return (rman_subdiv_scheme != 'none')       

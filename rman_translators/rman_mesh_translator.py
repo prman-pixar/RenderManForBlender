@@ -456,12 +456,8 @@ class RmanMeshTranslator(RmanTranslator):
             sg_node = rman_sg_mesh.sg_mesh
 
         rman_sg_mesh.is_subdiv = object_utils.is_subdmesh(ob.original)
-        use_subdiv_modifer = (rman_sg_mesh.is_subdiv and rm.rman_subdiv_scheme == "none")
         use_smooth_normals = getattr(rm, 'rman_smoothnormals', False)
         get_normals = (rman_sg_mesh.is_subdiv == 0 and not use_smooth_normals)
-        if use_subdiv_modifer:
-            # always get the normals when we're using the subdiv modifier
-            get_normals = True
         rman_mesh = mesh_utils.get_mesh(mesh, get_normals=get_normals)
         nverts = rman_mesh.nverts
         verts = rman_mesh.verts
