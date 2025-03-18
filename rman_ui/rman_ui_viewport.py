@@ -915,7 +915,7 @@ class PRMAN_PT_Viewport_Options(Panel):
             col.prop(rm, 'blender_ipr_aidenoiser_minSamples')
             col.prop(rm, 'blender_ipr_aidenoiser_interval')
 
-        if rm.current_platform != ("macOS") and rm.has_xpu_license:
+        if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:
             col = layout.column(align=True)
             col.label(text='XPU')
             col = layout.row()

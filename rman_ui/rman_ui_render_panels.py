@@ -54,6 +54,21 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
             rman_batch = rfb_icons.get_icon("rman_batch")
             row.operator("render.render", text="Render Animation",
                         icon_value=rman_batch.icon_id).animation = True
+            
+            row = layout.row(align=True)
+            row.prop(rm, 'renderVariant')
+
+            if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:
+                prefs = prefs_utils.get_addon_prefs()
+                col = layout.row()
+                col.enabled = not rm.is_rman_running
+                col.prop(prefs, 'rman_xpu_device', expand=True)
+                col = layout.column()
+                col.enabled = not rm.is_rman_running
+                prefs.find_xpu_devices()
+                col = col.column()
+                box = col.box()
+                prefs.draw_xpu_devices(context, box)
 
         _draw_ui_from_rman_config('rman_properties_scene', 'RENDER_PT_renderman_render', context, layout, rm)  
 

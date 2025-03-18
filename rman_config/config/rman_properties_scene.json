@@ -23,7 +23,7 @@
             "help": "(hidden) Enable external RIB rendering"
         },    
         {
-            "panel": "RENDER_PT_renderman_render",
+            "panel": "",
             "page": "",
             "name": "renderVariant",
             "label": "Renderer",
