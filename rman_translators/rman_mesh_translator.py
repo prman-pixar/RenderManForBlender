@@ -506,17 +506,12 @@ class RmanMeshTranslator(RmanTranslator):
 
         if rman_sg_mesh.is_subdiv:
             creases = self._get_subd_tags_(ob, mesh, primvar)
-            if use_subdiv_modifer:
-                # we were tagged as a subdiv by a modifier
-                # use bilinear
-                sg_node.SetScheme(self.rman_scene.rman.Tokens.Rix.k_bilinear) 
-            else:
-                sg_node.SetScheme(rm.rman_subdiv_scheme) 
+            sg_node.SetScheme(rm.rman_subdiv_scheme) 
 
         else:
             sg_node.SetScheme(None)
 
-        if not rman_sg_mesh.is_subdiv or use_subdiv_modifer:
+        if not rman_sg_mesh.is_subdiv:
             if N:
                 if len(N) == numnverts:
                     primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N, "facevarying")         

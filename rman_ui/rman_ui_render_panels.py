@@ -23,6 +23,7 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
         layout = self.layout
         rd = context.scene.render
         rm = context.scene.renderman
+        is_rman_running = rm.is_rman_running
 
         if rm.is_ncr_license:
             split = layout.split(factor=0.7)
@@ -37,7 +38,7 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")
             row.operator('renderman.stop_ipr', text="Stop IPR",
                             icon_value=rman_rerender_controls.icon_id)    
-        elif rm.is_rman_running:
+        elif is_rman_running:
             row = layout.row(align=True)
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")
             row.operator('renderman.stop_render', text="Stop Render",
@@ -55,20 +56,22 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
             row.operator("render.render", text="Render Animation",
                         icon_value=rman_batch.icon_id).animation = True
             
-            row = layout.row(align=True)
-            row.prop(rm, 'renderVariant')
+        row = layout.row(align=True)
+        row.prop(rm, 'renderVariant')
+        if is_rman_running or rm.current_platform == ("macOS") or not rm.has_xpu_license:
+            row.enabled = False
 
-            if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:
-                prefs = prefs_utils.get_addon_prefs()
-                col = layout.row()
-                col.enabled = not rm.is_rman_running
-                col.prop(prefs, 'rman_xpu_device', expand=True)
-                col = layout.column()
-                col.enabled = not rm.is_rman_running
-                prefs.find_xpu_devices()
-                col = col.column()
-                box = col.box()
-                prefs.draw_xpu_devices(context, box)
+        if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:
+            prefs = prefs_utils.get_addon_prefs()
+            col = layout.row()
+            col.enabled = not is_rman_running
+            col.prop(prefs, 'rman_xpu_device', expand=True)
+            col = layout.column()
+            col.enabled = not is_rman_running
+            prefs.find_xpu_devices()
+            col = col.column()
+            box = col.box()
+            prefs.draw_xpu_devices(context, box)
 
         _draw_ui_from_rman_config('rman_properties_scene', 'RENDER_PT_renderman_render', context, layout, rm)  
 
