@@ -1022,6 +1022,11 @@ def create_bxdf(bxdf):
         lama_node.location = srf.location
         lama_node.location[0] -= 300
 
+        if bxdf in ['LamaSSS', 'LamaTricolorSSS']:
+            # this is one of the SSS lama nodes
+            # turn on computeSubsurface
+            setattr(srf, 'computeSubsurface', 1)
+
         nt.links.new(lama_node.outputs[0], srf.inputs['materialFront'])
         lama_node.update_mat(mat)
     else:
