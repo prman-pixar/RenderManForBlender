@@ -192,18 +192,11 @@ class RmanEnvConfig(object):
             rman_packages = os.path.join(self.rmantree, 'lib', python_vers, 'site-packages')
         if not os.path.exists(rman_packages):
             return False
-
-        if BLENDER_44:
-            # FIXME: remove this once rman's oslquery is moved
-            sys.path.insert(0, rman_packages)        
-            sys.path.insert(1, os.path.join(self.rmantree, 'bin'))
-            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
-            sys.path.insert(2, pythonbindings)     
-        else:
-            sys.path.append(rman_packages)        
-            sys.path.append(os.path.join(self.rmantree, 'bin'))
-            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
-            sys.path.append(pythonbindings)     
+        
+        sys.path.append(rman_packages)        
+        sys.path.append(os.path.join(self.rmantree, 'bin'))
+        pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
+        sys.path.append(pythonbindings)     
 
         if platform.system() == 'Windows':
             # apparently, we need to do this for windows app versions
