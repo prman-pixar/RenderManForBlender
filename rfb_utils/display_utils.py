@@ -567,8 +567,9 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
                                                     token_dict=token_dict,
                                                     asFilePath=True)
 
-        if aov.name != 'beauty' and (display_driver in ['it', 'blender']): #(display_driver == 'it' or rman_scene.is_viewport_render):
-            # break up display per channel when rendering to it
+        #if aov.name != 'beauty' and (display_driver in ['it', 'blender']): #(display_driver == 'it' or rman_scene.is_viewport_render):
+        if display_driver in ['it', 'blender']: 
+            # break up display per channel when rendering to it or blender
             if len(aov.dspy_channels) == 1:
                 dspys_dict['displays'][aov.name] = {
                     'driverNode': display_driver,
@@ -580,7 +581,25 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
                     'params': dspy_params,
                     'dspyDriverParams': param_list }         
             else:       
+                if aov.name == "beauty":
+                    # first, create a display for Ci and a
+                    new_dspy_params = deepcopy(dspy_params)
+                    new_dspy_params['displayChannels'] = ['Ci', 'a']                    
+                    dspys_dict['displays'][aov.name] = {
+                        'driverNode': display_driver,
+                        'filePath': filePath,
+                        'denoise': aov_denoise,
+                        'denoise_mode': aov_denoise_mode,
+                        'camera': aov.camera,
+                        'bake_mode': aov.aov_bake,
+                        'params': new_dspy_params,
+                        'dspyDriverParams': param_list }
+
+                # now, create a display for each subsequent channel
                 for chan_ptr in aov.dspy_channels:
+                    if aov.name == 'beauty' and chan_ptr.dspy_chan_idx in [0,1]:
+                        # skip Ci, a for beauty
+                        continue
                     chan = rm_rl.dspy_channels[chan_ptr.dspy_chan_idx]
                     ch_name = _get_real_chan_name(chan)
                     dspy_name = '%s_%s' % (aov.name, ch_name)

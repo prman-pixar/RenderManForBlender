@@ -189,8 +189,11 @@ class PRMAN_OT_Renderman_layer_delete_channel(Operator):
 
     def execute(self, context):
         rm_rl = scene_utils.get_renderman_layer(context)
-        if rm_rl:
+        if rm_rl:            
             aov = rm_rl.custom_aovs[rm_rl.custom_aov_index]
+            if rm_rl.custom_aov_index == 0 and aov.dspy_channels_index in [0,1]:
+                self.report({'ERROR'}, "Ci and a cannot be removed from the beauty pass")
+                return {'FINISHED'}
             idx = aov.dspy_channels_index
             chan = aov.dspy_channels.remove(aov.dspy_channels_index)  
             update_displays_func(None, context)
@@ -284,15 +287,18 @@ class RENDER_PT_layer_custom_aovs(CollectionPanel, Panel):
         row = col.row()
         row.label(text="Channels")
         row = col.row()
-        if rm_rl and rm_rl.custom_aov_index == 0 and not envconfig().getenv('RFB_DUMP_RIB'):
-            row.enabled = False
         row.menu('PRMAN_MT_renderman_create_dspychan_menu', text='Add Channel')
-        row.operator("renderman.dspychan_delete_channel", text="Delete Channel")
+        op_col = row.column()
+        op_col.operator("renderman.dspychan_delete_channel", text="Delete Channel")
+        if item.dspy_channels_index < 0:
+            op_col.enabled = False
+        elif rm_rl and rm_rl.custom_aov_index == 0 and (item.dspy_channels_index in [0,1] or item.dspy_channels_index >= len(item.dspy_channels)):
+            op_col.enabled = False
         row = col.row()
         row.template_list("PRMAN_UL_Renderman_channel_list", "PRMAN", item, "dspy_channels", item,
                           "dspy_channels_index", rows=1)
 
-        if rm_rl and rm_rl.custom_aov_index == 0:
+        if rm_rl and rm_rl.custom_aov_index == 0 and item.dspy_channels_index in [0,1]:
             return
 
         if item.dspy_channels_index < 0:

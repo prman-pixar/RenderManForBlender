@@ -133,6 +133,11 @@ class PRMAN_OT_BatchRender(bpy.types.Operator):
         rm = context.scene.renderman
         if rm.queuing_system != 'none':
             from .. import rman_spool
+
+            bl_scene_file = bpy.data.filepath
+            if bl_scene_file == '':
+                self.report({'ERROR'}, "Current blend file must be saved first")
+                return            
             
             depsgraph = context.evaluated_depsgraph_get()
 
@@ -146,7 +151,6 @@ class PRMAN_OT_BatchRender(bpy.types.Operator):
             rr.rman_scene.external_render = True
             spooler = rman_spool.RmanSpool(rr, rr.rman_scene, depsgraph)
 
-            bl_scene_file = bpy.data.filepath
             pid = os.getpid()
             timestamp = int(time.time())
             _id = 'pid%s_%d' % (str(pid), timestamp)
