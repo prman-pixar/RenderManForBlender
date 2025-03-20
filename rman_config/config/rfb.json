@@ -15,6 +15,17 @@
             "default": false
         }
     },
+    "vp_light_scale": {
+        "PxrDomeLight": {
+            "scale": 100.0
+        },
+        "PxrDistantLight": {
+            "scale": 10.0
+        },        
+        "PxrEnvDayLight": {
+            "scale": 10.0
+        }
+    },
     "editor_preferences": {
         "preset_browser": {
             "width": 750

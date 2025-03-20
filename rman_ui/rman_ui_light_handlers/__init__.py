@@ -852,6 +852,9 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
     if not prefs_utils.get_pref('rman_viewport_draw_lights_textured'):
         return
     
+    if not ob.data.renderman.rman_vp_draw_texture:
+        return
+    
     real_path = string_utils.expand_string(tex)
     if os.path.exists(real_path):
         if USE_GPU_MODULE:
@@ -944,7 +947,9 @@ def draw_rect_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale        
     m = ob_matrix @ __MTX_Y_180__ 
 
     box = [m @ Vector(pt) for pt in s_rmanLightLogo['box']]
@@ -1002,7 +1007,9 @@ def draw_sphere_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale    
     m = ob_matrix @ __MTX_Y_180__ 
 
     disk = [m @ Vector(pt) for pt in s_diskLight]
@@ -1065,7 +1072,7 @@ def draw_envday_light(ob):
 
     loc, rot, sca = Matrix(ob.matrix_world).decompose()
     axis,angle = rot.to_axis_angle()
-    scale = max(sca) # take the max axis   
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis   
     m = Matrix.Translation(loc)
     m = m @ Matrix.Rotation(angle, 4, axis)
     m = m @ Matrix.Scale(scale, 4)
@@ -1146,7 +1153,9 @@ def draw_cheat_shadow_lightfilter(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale        
     m = ob_matrix @ __MTX_Y_180__ 
 
     box = [m @ Vector(pt) for pt in s_rmanLightLogo['box']]
@@ -1164,7 +1173,9 @@ def draw_disk_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale    
     m = ob_matrix @ __MTX_Y_180__ 
 
     disk = [m @ Vector(pt) for pt in s_diskLight]
@@ -1216,8 +1227,16 @@ def draw_dist_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
-    m = ob_matrix @ __MTX_Y_180__ 
+    ob_matrix = Matrix(ob.matrix_world)  
+    loc, rot, sca = Matrix(ob.matrix_world).decompose()
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis 
+    scale = Matrix.Scale(scale, 4)
+    ob_matrix = ob_matrix @ scale
+    m = ob_matrix @ __MTX_Y_180__
+
+    disk = [m @ Vector(pt) for pt in s_diskLight]
+    disk_indices = _get_indices(s_diskLight)
+    draw_line_shape(ob, _SHADER_, disk, disk_indices)    
 
     arrow1 = [m @ Vector(pt) for pt in s_distantLight['arrow1']]
     arrow1_indices = _get_indices(s_distantLight['arrow1'])
@@ -1245,7 +1264,9 @@ def draw_portal_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)   
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale
     m = ob_matrix
 
     R_outside = [m @ Vector(pt) for pt in s_rmanLightLogo['R_outside']]
@@ -1274,9 +1295,9 @@ def draw_dome_light(ob):
 
     loc, rot, sca = Matrix(ob.matrix_world).decompose()
     axis,angle = rot.to_axis_angle()
-    scale = max(sca) # take the max axis   
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis   
     m = Matrix.Rotation(angle, 4, axis)
-    m = m @ Matrix.Scale(100 * scale, 4)
+    m = m @ Matrix.Scale(scale, 4)
     m = m @ __MTX_X_90__ 
     uv_offsets = [0.25, 0.0]
     if USE_GPU_MODULE:
@@ -1308,7 +1329,10 @@ def draw_cylinder_light(ob):
 
     set_selection_color(ob)
 
-    m = Matrix(ob.matrix_world)
+    ob_matrix = ob.matrix_world
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale
+    m = ob_matrix
 
     cylinder = [m @ Vector(pt) for pt in s_cylinderLight['vtx']]
     draw_line_shape(ob, _SHADER_, cylinder, s_cylinderLight['indices'])
@@ -1424,7 +1448,8 @@ def draw_rod_light_filter(ob):
     set_selection_color(ob)
 
     m = Matrix(ob.matrix_world)        
-    m = m @ __MTX_Y_180__ 
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)    
+    m = m @ __MTX_Y_180__ @ scale
 
     light = ob.data
     rm = light.renderman.get_light_node()
@@ -1598,7 +1623,8 @@ def draw_barn_light_filter(ob, light_shader, light_shader_name):
     _SHADER_.bind()
 
     m = Matrix(ob.matrix_world) 
-    m = m @ __MTX_Y_180__ 
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)    
+    m = m @ __MTX_Y_180__ @ scale
 
     set_selection_color(ob) 
 
@@ -1686,7 +1712,9 @@ def draw():
         elif light_shader_name == 'PxrPortalLight': 
             draw_portal_light(ob)      
         elif light_shader_name == 'PxrDomeLight': 
-            draw_dome_light(ob)        
+            if viewport.region_3d.is_perspective:
+                # only draw the dome light in perspective view
+                draw_dome_light(ob)        
         elif light_shader_name == 'PxrCylinderLight':
             draw_cylinder_light(ob)     
         elif light_shader_name in ['PxrRectLight']:

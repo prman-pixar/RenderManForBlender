@@ -103,6 +103,14 @@
                 }                               
             }
         },
+        "vp_light_scale": {
+            "type": "object",
+            "properties": {
+                "scale": {
+                    "type": "number"
+                }
+            }
+        },        
         "editor_preference": {
             "type": "object",
             "properties": {
@@ -171,6 +179,14 @@
                 }
             }
         },
+        "vp_light_scale": {
+            "type": "object",
+            "patternProperties": {
+                "[A-Za-z0-9_-]+": {
+                    "$ref": "#/definitions/vp_light_scale"
+                }
+            }
+        },        
         "editor_preferences": {
             "type": "object",
             "patternProperties": {

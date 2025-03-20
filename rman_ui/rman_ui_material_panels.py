@@ -612,17 +612,21 @@ class DATA_PT_renderman_node_shader_light_viewport(ShaderNodePanel, Panel):
         rd = context.scene.render
         return rd.engine == 'PRMAN_RENDER' and hasattr(context, "light") \
             and context.light is not None and hasattr(context.light, 'renderman') \
-            and context.light.renderman.renderman_light_role != 'RMAN_LIGHTFILTER' \
-            and context.light.renderman.get_light_node_name() in ['PxrRectLight', 'PxrCylinderLight', 'PxrSphereLight', 'PxrDiskLight']
+            and context.light.renderman.renderman_light_role != 'RMAN_LIGHTFILTER'
 
     def draw(self, context):
         layout = self.layout
         light = context.light
+        layout.prop(light.renderman, 'rman_vp_draw_texture')        
+        layout.prop(light.renderman, 'rman_vp_scale')
         node = light.renderman.get_light_node()
+        col = layout.column()
         if getattr(node, 'coneAngle', 90.0) >= 90.0:
-            layout.enabled = False
-        layout.prop(light.renderman, 'rman_coneAngleDepth')  
-        layout.prop(light.renderman, 'rman_coneAngleOpacity') 
+            col.enabled = False
+        row = col.row()
+        row.prop(light.renderman, 'rman_coneAngleDepth')  
+        row = col.row()
+        row.prop(light.renderman, 'rman_coneAngleOpacity') 
 class MATERIAL_PT_renderman_shader_light_filters(RENDERMAN_UL_LightFilters, Panel):
     bl_context = "material"
     bl_label = "Light Filters"
