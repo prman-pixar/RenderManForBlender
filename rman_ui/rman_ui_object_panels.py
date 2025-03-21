@@ -9,7 +9,7 @@ from ..rman_constants import NODE_LAYOUT_SPLIT
 from .. import rfb_icons
 from ..rfb_utils import object_utils
 from ..rfb_utils.prefs_utils import get_pref
-from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_node_pointer
+from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_solo_node
 from ..rman_cycles_convert import do_cycles_convert
 from bpy.types import Panel
 import bpy
@@ -181,8 +181,8 @@ class MATERIAL_PT_renderman_object_shader_surface(Panel, CollectionPanel):
             rman_output_node = is_renderman_nodetree(mat)
 
             if rman_output_node:
-                if rman_output_node.solo_node_pointer != '':
-                    solo_node, solo_nt = find_node_pointer(nt, rman_output_node.solo_node_pointer)
+                if rman_output_node.solo_node_on:
+                    solo_node, solo_nt = find_solo_node(nt)
                     if solo_node:
 
                         split = layout.split(factor=0.25)

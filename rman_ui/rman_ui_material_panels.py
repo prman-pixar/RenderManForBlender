@@ -1,5 +1,5 @@
 from .rman_ui_base import _RManPanelHeader,ShaderPanel,ShaderNodePanel, CollectionPanel 
-from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_node_pointer
+from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_solo_node
 from ..rfb_utils.draw_utils import panel_node_draw,draw_nodes_properties_ui,draw_node_properties_recursive
 from ..rfb_utils.draw_utils import show_node_sticky_params, show_node_match_params
 from ..rfb_utils.prefs_utils import get_pref
@@ -114,8 +114,8 @@ class MATERIAL_PT_renderman_shader_surface(ShaderPanel, Panel):
             rman_output_node = is_renderman_nodetree(mat)
 
             if rman_output_node:             
-                if rman_output_node.solo_node_pointer != '':
-                    solo_node, solo_nt = find_node_pointer(nt, rman_output_node.solo_node_pointer)
+                if rman_output_node.solo_node_on:
+                    solo_node, solo_nt = find_solo_node(nt)
                     if solo_node:
 
                         split = layout.split(factor=0.25)

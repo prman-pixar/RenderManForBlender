@@ -572,13 +572,11 @@ class NODE_OT_rman_node_set_solo_output(bpy.types.Operator):
     bl_description = "Select output for solo node"
 
     solo_node_output: StringProperty(default="")
-    solo_node_pointer: StringProperty(default="")
 
     def invoke(self, context, event):
         node = getattr(context, 'node', None) 
         if node:
             node.solo_node_output = self.solo_node_output
-            node.solo_node_pointer = self.solo_node_pointer
 
         return {'FINISHED'}         
 

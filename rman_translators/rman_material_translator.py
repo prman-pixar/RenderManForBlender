@@ -122,8 +122,8 @@ class RmanMaterialTranslator(RmanTranslator):
             if out:
                 nt = material.node_tree
 
-                if out.solo_node_pointer != '':
-                    solo_node, solo_nodetree = shadergraph_utils.find_node_pointer(nt, out.solo_node_pointer)
+                if out.solo_node_on:
+                    solo_node, solo_nodetree = shadergraph_utils.find_solo_node(nt)
                     if solo_node: 
                         has_solo_node = self.export_solo_shader(material, solo_nodetree, out, solo_node, rman_sg_material, handle)
                     else:

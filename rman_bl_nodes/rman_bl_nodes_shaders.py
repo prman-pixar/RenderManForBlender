@@ -28,6 +28,7 @@ NODE_LAYOUT_SPLIT = 0.5
 class RendermanShadingNode(bpy.types.ShaderNode):
     bl_label = 'Output'
     prev_hidden: BoolProperty(default=False, description="Whether or not this node was previously hidden.")
+    solo_node: BoolProperty(default=False)
     new_links = []
     num_links = -1
 
@@ -80,7 +81,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
             mat = bpy.context.material
             if shadergraph_utils.is_soloable_node(self):
                 out_node = shadergraph_utils.find_node(mat, 'RendermanOutputNode')
-                if out_node.solo_material and out_node.solo_material.node_tree == self.id_data and str(self.as_pointer()) == out_node.solo_node_pointer:
+                if self.solo_node and out_node.solo_node_on:
                     nm = "%s (SOLO)" % nm
         return nm
 
@@ -106,7 +107,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         if shadergraph_utils.is_soloable_node(self):
             self.draw_solo_button(nt, out_node, split)
             # draw solo output select menu         
-            if str(self.as_pointer()) == out_node.solo_node_pointer:
+            if out_node.solo_node_on and self.solo_node:
                 col = layout.column(align=True)
                 col.context_pointer_set("nodetree", nt)  
                 col.context_pointer_set("node", self) 
@@ -120,14 +121,14 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         layout.context_pointer_set("node", rman_output_node)
         layout.context_pointer_set("selected_node", self)                  
 
-        if rman_output_node.solo_node_pointer == '':
+        if not rman_output_node.solo_node_on:
             col = layout.column(align=True)
             rman_icon = rfb_icons.get_icon('rman_solo_off')
             op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
             op.refresh_solo = False       
         else:
             rman_icon = rfb_icons.get_icon('rman_solo_on')
-            if str(self.as_pointer()) == rman_output_node.solo_node_pointer:
+            if rman_output_node.solo_node_on and self.solo_node:
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = True
@@ -793,7 +794,7 @@ class RendermanOutputNode(RendermanShadingNode):
     bl_icon = 'MATERIAL'
     node_tree = None
 
-    def update_solo_node_pointer(self, context):
+    def update_solo_node(self, context):
         rr = rman_render.RmanRender.get_rman_render()        
         mat = getattr(bpy.context, 'material', None)
         if mat:
@@ -819,7 +820,7 @@ class RendermanOutputNode(RendermanShadingNode):
 
     solo_node_output: StringProperty(name='Solo Node Output')
     solo_material: PointerProperty(type=bpy.types.Material)
-    solo_node_pointer: StringProperty(default="", update=update_solo_node_pointer)
+    solo_node_on: BoolProperty(default=False, update=update_solo_node)
 
 
     bxdf_filter_method: EnumProperty(name="Filter Method",
@@ -896,15 +897,15 @@ class RendermanOutputNode(RendermanShadingNode):
         super().update()
 
         # check if the solo node still exists
-        if self.solo_node_pointer != "":
+        if self.solo_node_on:
             solo_material = self.solo_material
-            solo_node, nt = shadergraph_utils.find_node_pointer(solo_material.node_tree, self.solo_node_pointer)
+            solo_node, nt = shadergraph_utils.find_solo_node(solo_material.node_tree)
             if solo_node:
                 shadergraph_utils.set_solo_node(self, solo_node, solo_material, refresh_solo=True)
                 solo_material.node_tree.update_tag()
                 return     
             else:
-                shadergraph_utils.set_solo_node(self, None, None , refresh_solo=True)      
+                shadergraph_utils.set_solo_node(self, None, solo_material , refresh_solo=True)      
 
 class RendermanIntegratorsOutputNode(RendermanShadingNode):
     bl_label = 'RenderMan Integrators'

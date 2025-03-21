@@ -73,7 +73,7 @@ class NODE_MT_renderman_node_editor_menu(bpy.types.Menu):
                     op = layout.operator('node.rman_set_node_solo', text='Solo %s' % selected_node.name, icon_value=rman_icon.icon_id)
                     op.refresh_solo = False
 
-                if rman_output_node.solo_node_pointer != '':   
+                if rman_output_node.solo_node_on:
                     layout.context_pointer_set("selected_node", None)
                     op = layout.operator('node.rman_set_node_solo', text='Reset Solo', icon='FILE_REFRESH')
                     op.refresh_solo = True                                  

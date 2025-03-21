@@ -332,23 +332,40 @@ def set_solo_node(node, selected_node, material, refresh_solo=False, solo_node_o
                     hide = getattr(output, 'prev_hidden', False)
                     output.hide = hide
 
+    def reset_solo(nt):
+        '''
+        Loop through all of the nodes and set solo_node to False
+        '''
+        for n in nt.nodes:
+            if n.bl_idname == 'ShaderNodeGroup':
+                reset_solo(n.node_tree)
+            elif hasattr(n, 'solo_node'):
+                n.solo_node = False
+
     if refresh_solo:
         node.solo_material = None
         node.solo_node_output = ''
-        node.solo_node_pointer = ''
+        if node.solo_node_on:
+            reset_solo(nt)
         unhide_all(nt)
+        node.solo_node_on = False
         return
 
     if selected_node:
+        selected_node.solo_node = True
         node.solo_material = material
         node.solo_node_output = solo_node_output
-        node.solo_node_pointer = str(selected_node.as_pointer())
+        if node.solo_node_on:
+            reset_solo(nt)
         hide_all(nt, selected_node)
+        node.solo_node_on = True
     else:
         node.solo_material = None
         node.solo_node_output = ''
-        node.solo_node_pointer = ''
+        if node.solo_node_on:
+            reset_solo(nt)        
         unhide_all(nt)
+        node.solo_node_on = False
         return
 
 # do we need to convert this socket?
@@ -365,22 +382,25 @@ def find_node_input(node, name):
 
     return None
 
-def find_node_pointer(nt, pointer):
+def find_solo_node(nt):
     '''
-    Returns the node that matches the pointer in the given nodetree
+    Given a node tree, find the node that has "solo_node" set to True. We return
+    a node tree in the tuple because the solo node could be inside a group node
 
     Args:
         nt (bpy.types.ShaderNodeTree): the input nodetree we want to look in
-        pointer (str): string that represents the memory address of the node. This
-        should be the value returned from the call to as_pointer() and cast to a string
 
     Returns:
         (tuple): a bpy.types.Node and bpy.types.NodeTree
     '''
     for node in nt.nodes:
         if node.bl_idname == 'ShaderNodeGroup':
-            return find_node_pointer(node.node_tree, pointer)
-        elif str(node.as_pointer()) == pointer:
+            # for some reason, we can't seem to find the solo node during IPR
+            # if we don't use node_tree.original
+            (solo_node, solo_nodetree) = find_solo_node(node.node_tree.original)
+            if solo_node:
+                return (solo_node, solo_nodetree)
+        elif hasattr(node, 'solo_node') and node.solo_node:
             return (node, nt)
     return (None, None)
     

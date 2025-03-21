@@ -54,7 +54,7 @@ def get_open_close_icon(is_open=True):
 def draw_sticky_toggle(layout, node, prop_name, output_node=None):
     if not output_node:
         return
-    if output_node.solo_node_pointer != '':
+    if output_node.solo_node_on:
         return
     if not output_node.is_sticky_selected():
         return
