@@ -548,7 +548,7 @@ class RmanCameraTranslator(RmanTranslator):
         if cam_rm.rman_use_dof:
             rman_sg_camera.use_focus_object = cam_rm.rman_focus_object
             if cam_rm.rman_focus_object:
-                dof_focal_distance = (ob.location - cam_rm.rman_focus_object.location).length
+                dof_focal_distance = (ob.matrix_world.translation - cam_rm.rman_focus_object.matrix_world.translation).length
                 rman_sg_camera.bl_cam_props.dof_focal_length = dof_focal_distance
                 rman_sg_node = self.rman_scene.get_rman_prototype(object_utils.prototype_key(cam_rm.rman_focus_object))
                 if rman_sg_node:
