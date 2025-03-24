@@ -775,7 +775,8 @@ class PRMAN_OT_Renderman_Open_Light_Mixer_Editor(CollectionPanel, bpy.types.Oper
         else:
             self.check_light_mixer_links(context)
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None         
 
     def invoke(self, context, event):

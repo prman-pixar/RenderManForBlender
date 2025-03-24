@@ -488,9 +488,9 @@ class PRMAN_OT_Renderman_Presets_Editor(bpy.types.Operator):
         if self.event and self.event.type == 'LEFTMOUSE':
             bpy.ops.renderman.rman_open_presets_editor('INVOKE_DEFAULT')
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None            
-     
 
     def invoke(self, context, event):
         if rfb_qt:

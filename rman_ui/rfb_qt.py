@@ -207,9 +207,9 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
     _window = None
     _timer = None
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         from rman_utils.vendor.Qt import QtWidgets
-
+        super().__init__(*args, **kwargs)
         self._app = (QtWidgets.QApplication.instance()
                      or QtWidgets.QApplication(sys.argv))
         
