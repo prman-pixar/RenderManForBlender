@@ -639,7 +639,8 @@ class PRMAN_PT_Renderman_Open_Light_Linking(bpy.types.Operator):
         else:
             self.check_light_links(context)
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None     
 
     def check_light_links(self, context):

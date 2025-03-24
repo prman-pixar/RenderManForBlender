@@ -486,7 +486,8 @@ class PRMAN_OT_Renderman_Open_Groups_Editor(CollectionPanel, bpy.types.Operator)
         else:
             self.check_tracegroups(context)
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None
 
     def check_tracegroups(self, context):

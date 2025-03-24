@@ -752,7 +752,8 @@ class PRMAN_OT_Renderman_open_txmanager(Operator):
         if self.event and self.event.type == 'LEFTMOUSE':
             bpy.ops.rman_txmgr_list.open_txmanager('INVOKE_DEFAULT')
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None    
 
     def invoke(self, context, event):

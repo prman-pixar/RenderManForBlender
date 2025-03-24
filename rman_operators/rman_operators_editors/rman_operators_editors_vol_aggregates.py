@@ -509,7 +509,8 @@ class PRMAN_OT_Renderman_Open_Volume_Aggregates_Editor(CollectionPanel, bpy.type
         else:
             self.check_aggregates(context)
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None      
 
     def check_aggregates(self, context):

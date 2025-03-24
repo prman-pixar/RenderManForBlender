@@ -424,7 +424,8 @@ class PRMAN_OT_Viewport_Enhance(bpy.types.Operator):
     bl_description = "Enhance"
     bl_options = {"INTERNAL"}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.x = -1
         self.y = -1
 
@@ -532,7 +533,8 @@ class PRMAN_OT_Viewport_Cropwindow(bpy.types.Operator):
     bl_description = "Cropwindow"
     bl_options = {"INTERNAL"}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.crop_handler = get_crop_helper()
         self.mouse_prev_x = -1
         self.mouse_prev_y = -1
