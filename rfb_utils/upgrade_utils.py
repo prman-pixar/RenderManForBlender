@@ -10,7 +10,7 @@ def copy_param(nt, old_node, new_node, old_nm, new_nm):
     if socket and socket.is_linked:            
         connected_socket = socket.links[0].from_socket
         nt.links.new(connected_socket, new_node.inputs[new_nm])
-    else:
+    elif hasattr(old_node, old_nm) and hasattr(new_node, new_nm):
         setattr(new_node, new_nm, getattr(old_node, old_nm))
 
 def upgrade_242(scene):
