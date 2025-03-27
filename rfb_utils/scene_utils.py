@@ -582,16 +582,30 @@ def set_lightlinking_properties(ob, light_ob, illuminate, update_light=True):
 
     return changed
 
-def reset_workspace(scene):
+def reset_workspace(scene, replace_filename=False):
+    ''' 
+    Set all output paths in the workspace to default.
+
+    Arguments:
+        replace_filename (bool) - if True, also replace the tokenized filename to the
+        default, otherwise we leave the filename alone
+    '''
+    import os
     from .. import rman_config    
     
-    # Set all output paths to default.
     # There doesn't seem to be a way to set properties back to default, so do it manually
     rmcfg = rman_config.__RMAN_CONFIG__.get('rman_properties_scene', None)
     for param_name, ndp in rmcfg.params.items():
         if ndp.panel != 'RENDER_PT_renderman_workspace':
             continue
-        setattr(scene.renderman, param_name, ndp.default)    
+        if replace_filename:
+            setattr(scene.renderman, param_name, ndp.default)
+        else:
+            filename = os.path.basename(getattr(scene.renderman, param_name))
+            filepath = os.path.dirname(ndp.default)
+            if filepath == '':
+                filepath = '<OUT>'
+            setattr(scene.renderman, param_name, os.path.join(filepath, filename))                
 
 def use_renderman_textures(context, force_colorspace=True, blocking=True):
     '''
