@@ -698,10 +698,16 @@ class RmanRender(object):
     def start_render(self, depsgraph, for_background=False):
     
         self.reset()
-        if self._do_prman_render_begin():
-            return False
         self.bl_scene = depsgraph.scene_eval
-        rm = self.bl_scene.renderman
+        rm = self.bl_scene.renderman    
+        do_prman_render_begin = True
+        do_persistent_data = rm.do_persistent_data   
+        if do_persistent_data and self.sg_scene is not None:
+            do_prman_render_begin = False
+        
+        if do_prman_render_begin and self._do_prman_render_begin():
+            return False
+
         self.it_port = start_cmd_server()    
         rfb_log().info("Parsing scene...")
         time_start = time.time()
@@ -710,7 +716,6 @@ class RmanRender(object):
             return False        
 
         self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
-        do_persistent_data = rm.do_persistent_data
         use_compositor = scene_utils.should_use_bl_compositor(self.bl_scene)
         if for_background:
             self.rman_context.set_mode_append(RmanRenderContext.k_for_background)

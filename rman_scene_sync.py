@@ -612,6 +612,8 @@ class RmanSceneSync(object):
 
     @time_this
     def batch_update_scene(self, context, depsgraph):
+        from .rfb_utils import string_utils
+
         self.rman_scene.bl_frame_current = self.rman_scene.bl_scene.frame_current
 
         self.rman_updates = dict()
@@ -621,11 +623,13 @@ class RmanSceneSync(object):
         self.rman_scene.bl_scene = depsgraph.scene_eval
         self.rman_scene.context = context     
         self.rman_scene.bl_view_layer = depsgraph.view_layer_eval
+        self.rman_scene._find_renderman_layer()
 
         # update the frame number
         options = self.rman_scene.sg_scene.GetOptions()
         options.SetInteger(self.rman.Tokens.Rix.k_Ri_Frame, self.rman_scene.bl_frame_current) 
         self.rman_scene.sg_scene.SetOptions(options)     
+        string_utils.update_frame_token(self.rman_scene.bl_frame_current)
 
         # Check the number of instances. If we differ, an object may have been
         # added or deleted
@@ -672,7 +676,7 @@ class RmanSceneSync(object):
                 if rman_sg_material.is_frame_sensitive or id.original in self.rman_updates:
                     mat = id.evaluated_get(self.rman_scene.depsgraph)
                     self.material_updated(mat, rman_sg_material)    
-                                                    
+                                 
             self.rman_scene.export_integrator()
             self.rman_scene.export_samplefilters()
             self.rman_scene.export_displayfilters()
