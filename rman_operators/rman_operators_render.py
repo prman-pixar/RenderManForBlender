@@ -148,7 +148,7 @@ class PRMAN_OT_BatchRender(bpy.types.Operator):
             rr.rman_scene.bl_view_layer = depsgraph.view_layer
             rr.rman_scene.bl_frame_current = rr.rman_scene.bl_scene.frame_current
             rr.rman_scene._find_renderman_layer()
-            rr.rman_scene.external_render = True
+            rr.rman_scene.enable_external_rendering = True
             spooler = rman_spool.RmanSpool(rr, rr.rman_scene, depsgraph)
 
             pid = os.getpid()
