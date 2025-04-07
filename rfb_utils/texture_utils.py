@@ -288,6 +288,8 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
             # if this is coming from a library, replace <blend_dir> with the full path
             blend_file = filepath_utils.get_real_path(ob.library.filepath)
             fpath = fpath.replace('<blend_dir>', os.path.dirname(blend_file))
+            # also, replace any <udim> for <UDIM>
+            fpath = fpath.replace('<udim>', '<UDIM>')
 
         category = getattr(node, 'renderman_node_type', 'pattern') 
         get_txmanager().add_texture(node, ob, prop_name, fpath, node_type=node_type, category=category)        

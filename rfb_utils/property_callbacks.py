@@ -6,6 +6,9 @@ from .shadergraph_utils import has_lobe_enable_props
 from . import scenegraph_utils
 from ..rfb_logger import rfb_log
 import bpy
+import re
+
+TX_ATLAS_UDIM_EXPR = re.compile(r'([_\.])(1\d{3})([_\.])')
 
 def assetid_update_func(self, context, param_name):
     from . import texture_utils
@@ -17,6 +20,12 @@ def assetid_update_func(self, context, param_name):
     file_path = None
     if param_name in node:
         file_path = filepath_utils.get_token_blender_file_path(node[param_name])
+        if '<udim>' in file_path:
+            # replace <udim> with <UDIM>
+            file_path = file_path.replace('<udim>', '<UDIM>')
+        else:
+            # see if we can automatically detect a udim and subst with <UDIM>
+            file_path = re.sub(TX_ATLAS_UDIM_EXPR, '\\1<UDIM>\\3', file_path)
         node[param_name] = file_path
     else:
         file_path = getattr(node, param_name, '')

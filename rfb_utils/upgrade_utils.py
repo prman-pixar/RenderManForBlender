@@ -282,8 +282,11 @@ def upgrade_262_1(scene):
 
 def upgrade_270_0(scene):        
     '''
-    In 27.0, PxrDisney and PxrDisneyBsdf's subsurface parameter
+    In 27.0:
+    
+    * PxrDisney and PxrDisneyBsdf's subsurface parameter
     was renamed to subsurfaceMult.
+    * The <udim> token is no longer supported. Convert <udim> to <UDIM>
     '''
     nms = ['subsurface']
     for mat in bpy.data.materials:
@@ -317,7 +320,18 @@ def upgrade_270_0(scene):
                 node_name = n.name
                 nt.nodes.remove(n)
                 new_node.name = node_name   
-                new_node.select = False            
+                new_node.select = False     
+
+        # look for <udim> and replace with <UDIM>
+        for n in nodes:
+            has_textured_params = getattr(n, 'rman_has_textured_params', False)
+            if has_textured_params:
+                textured_params = getattr(n, 'rman_textured_params', list())
+                for prop_name in textured_params:
+                    val = getattr(n, prop_name)
+                    if '<udim>' in val:
+                        val = val.replace('<udim>', '<UDIM>')
+                        setattr(n, prop_name, val)
 
 __RMAN_SCENE_UPGRADE_FUNCTIONS__ = OrderedDict()
     
