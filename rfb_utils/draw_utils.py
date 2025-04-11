@@ -129,23 +129,25 @@ def draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, s
         draw_indented_label(row, None, level)           
         coll_idx_nm = '%s_collection_index' % prop_name
         row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
-        col = row.column(align=True)
-        row = col.row()
-        row.context_pointer_set("node", node)
-        op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
-        op.collection = coll_nm
-        op.collection_index = coll_idx_nm
-        op.param_name = prop_name
-        op.action = 'ADD'
-        op.elem_type = bl_prop_info.renderman_array_type
-        row = col.row()
-        row.context_pointer_set("node", node)
-        op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
-        op.collection = coll_nm
-        op.collection_index = coll_idx_nm
-        op.param_name = prop_name
-        op.action = 'REMOVE'
-        op.elem_type = bl_prop_info.renderman_array_type
+        # only draw the add and remove buttons if this is a variable length array
+        if bl_prop_info.arraySize is None or bl_prop_info.arraySize < 0:
+            col = row.column(align=True)
+            row = col.row()
+            row.context_pointer_set("node", node)
+            op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
+            op.collection = coll_nm
+            op.collection_index = coll_idx_nm
+            op.param_name = prop_name
+            op.action = 'ADD'
+            op.elem_type = bl_prop_info.renderman_array_type
+            row = col.row()
+            row.context_pointer_set("node", node)
+            op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
+            op.collection = coll_nm
+            op.collection_index = coll_idx_nm
+            op.param_name = prop_name
+            op.action = 'REMOVE'
+            op.elem_type = bl_prop_info.renderman_array_type
 
         coll_index = getattr(node, coll_idx_nm, None)
         if coll_idx_nm is None:
@@ -452,6 +454,7 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
             draw_props(node, sub_prop_names, layout, level=level + 1, nt=nt, context=context, draw_ui_structs=False, single_node_view=single_node_view)
         return
 
+    #elif bl_prop_info.renderman_type == 'array' and bl_prop_info.arraySize is None:
     elif bl_prop_info.renderman_type == 'array':
         draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, single_node_view=single_node_view)
         return

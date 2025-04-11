@@ -132,6 +132,7 @@ class BlPropVal:
         self.type = kwargs.get('type', '')
         self.value = None
         self.is_reference = False
+        self.is_array = False
 
     def set_value(self, value):
         self.value = value
@@ -141,6 +142,9 @@ class BlPropVal:
             return
         self.value = value
         self.is_reference = True
+
+    def set_is_array(self, is_array):
+        self.is_array = is_array
 
 
 def get_property_default(node, prop_name):
@@ -177,6 +181,11 @@ def get_linked_val(bl_prop_info, rman_sg_node, mat_name=None, group_node=None):
     else:
         val = get_output_param_str(rman_sg_node,
                 bl_prop_info.from_node, mat_name, bl_prop_info.from_socket, bl_prop_info.socket, param_type)   
+        
+        if bl_prop_info.arraySize:
+            if not bl_prop_info.from_socket.is_array:
+                val = [val] * bl_prop_info.arraySize
+                bl_prop_val.is_array = True
         bl_prop_val.set_value_reference(val)         
 
     return bl_prop_val 
@@ -867,6 +876,7 @@ def set_array_rixparams(node, rman_sg_node, mat_name, bl_prop_info, prop_name, p
     any_connections = False
     inputs = getattr(node, 'inputs', dict())
     input_array_size = len(collection)    
+            
     for i in range(input_array_size):
         elem = collection[i]
         nm = '%s[%d]' % (prop_name, i)
@@ -880,15 +890,13 @@ def set_array_rixparams(node, rman_sg_node, mat_name, bl_prop_info, prop_name, p
                 from_node, mat_name, from_socket, to_socket, param_type)
             if val:
                 if getattr(from_socket, 'is_array', False):      
-                    # the socket from the incoming connection is an array
-                    # clear val_ref_array so far and resize it to this
-                    # socket's array size                    
+                    # the socket from the incoming connection is an array   
+                    # check the array size            
                     array_size = from_socket.array_size
-                    val_ref_array.clear()
-                    for i in range(array_size):        
-                        cnx_val = '%s[%d]' % (val, i)
-                        val_ref_array.append(cnx_val)
-                    break
+                    if i > array_size:
+                        val_ref_array.append("")
+                        continue
+                    val = '%s[%d]' % (val, i)
                 val_ref_array.append(val)            
             else:
                 val_ref_array.append("")            
@@ -971,6 +979,11 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
         param_name = bl_prop_info.renderman_name      
         is_linked = bl_prop_info.is_linked
         prop = bl_prop_info.prop
+        is_array = False 
+        array_len = -1
+        if bl_prop_info.arraySize:
+            is_array = True
+            array_len = int(bl_prop_info.arraySize)        
 
         if not bl_prop_info.do_export:
             continue
@@ -1000,7 +1013,10 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
         if is_linked:
             bl_prop_val = get_linked_val(bl_prop_info, rman_sg_node, mat_name=mat_name, group_node=group_node)
             if bl_prop_val.value: 
-                set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
+                if bl_prop_val.is_array:
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, is_array=True, array_len=array_len, node=node)
+                else:
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
             else:
                 rfb_log().debug("Could not find connection for: %s.%s" % (node.name, param_name))                                 
 
@@ -1012,12 +1028,6 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
         # else export just the property's value
         else:
             bl_prop_val = get_prop_value(node, ob, rman_sg_node, bl_prop_info)
-            is_array = False 
-            array_len = -1
-            if bl_prop_info.arraySize:
-                is_array = True
-                array_len = int(bl_prop_info.arraySize)
-
             set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=False, is_array=is_array, array_len=array_len, node=node)
             
     return params      

@@ -51,6 +51,7 @@ def node_add_inputs(node, node_name, prop_names, first_level=True, label_prefix=
     for name in prop_names:
         meta = node.prop_meta[name]
         param_type = meta['renderman_type']
+        arraySize = meta.get('arraySize', None)
         ui_struct = meta.get('ui_struct', '')
         is_ui_struct = meta.get('is_ui_struct', False)
 
@@ -103,7 +104,8 @@ def node_add_inputs(node, node_name, prop_names, first_level=True, label_prefix=
             param_array_type = meta.get('renderman_array_type')
 
             collection = getattr(node, coll_nm)
-            for i in range(len(collection)):
+            array_props = node.__annotations__.get('__ARRAYS__', [])
+            if len(collection) > 0:
                 param_array_name = '%s[%d]' % (name, i)
                 param_array_label = '%s[%d]' % (name, i)
                 param_array_label = label_prefix + meta.get('label', name) + '[%d]' % i
@@ -111,9 +113,41 @@ def node_add_inputs(node, node_name, prop_names, first_level=True, label_prefix=
                     if remove:
                         node.inputs.remove(node.inputs[param_array_name])   
                     continue          
-                node_add_input(node, param_array_type, param_array_name, meta, param_array_label)
+                node_add_input(node, param_array_type, param_array_name, meta, param_array_label)                
+            elif name in array_props:
+                dflt = meta['default']
+                arraySize = meta.get('arraySize', None)
+                if arraySize is None or arraySize < 0:
+                    arraySize = len(dflt)
+                param_type = meta['renderman_array_type']
+                for i in range(arraySize):
+                    coll_nm = '%s_collection' % name
+                    coll_idx_nm = '%s_collection_index' % name
+                    collection = getattr(node, coll_nm)
+                    index = getattr(node, coll_idx_nm)        
+                    connectable = True
+                    if '__noconnection' in meta and meta['__noconnection']:
+                        connectable = False
+                    param_array_name = '%s[%d]' % (name, i)
+                    param_array_label = '%s[%d]' % (name, i)
+                    if param_array_name in node.inputs.keys():
+                        if remove:
+                            node.inputs.remove(node.inputs[param_array_name])   
+                        continue                                             
+                    elem = collection.add()
+                    index = len(collection)-1
+                    setattr(node, coll_idx_nm, index)
+                    elem.name = '%s[%d]' % (name, len(collection)-1)  
+                    elem.type = param_array_type
+                    if connectable:
+                        param_array_label = '%s[%d]' % (meta.get('label', name), len(collection)-1)
+                        node_add_input(node, param_array_type, elem.name, meta, param_array_label)                        
+                    item = collection[-1]
+                    item.type = param_type
+                    setattr(node, 'value_%s' % item.type, dflt[i])                
 
             continue
+        
 
         if remove or notconnectable:
             continue
@@ -129,23 +163,24 @@ def node_add_outputs(node):
     for name, meta in node.output_meta.items():
         rman_type = meta['renderman_type']
         is_vstruct = meta.get('vstruct', False)
+        arraySize = meta.get('arraySize', -1)
         if rman_type in __RMAN_SOCKET_MAP__ and 'vstructmember' not in meta:
             if is_vstruct:
                 rman_type = 'vstruct'
-            socket = node.outputs.new(__RMAN_SOCKET_MAP__[rman_type], name)
-            socket.renderman_type = rman_type
-            if rman_type == 'struct':
-                struct_name = meta.get('struct_name', 'Manifold')
-                socket.struct_name = struct_name
+            
+            if arraySize == -1:
+                socket = node.outputs.new(__RMAN_SOCKET_MAP__[rman_type], name)
+                socket.renderman_type = rman_type
+                if rman_type == 'struct':
+                    struct_name = meta.get('struct_name', 'Manifold')
+                    socket.struct_name = struct_name
 
-            arraySize = meta['arraySize']
             if arraySize > 0:
                 # this is an array
-                # add separate scokets for each element
-                socket.is_array = True
-                socket.array_size = arraySize
+                # add separate scokets for each element            
                 for i in range(0, arraySize):
                     elem_nm = '%s[%d]' % (name, i)
                     elem_socket = node.outputs.new(__RMAN_SOCKET_MAP__[rman_type], elem_nm)
                     elem_socket.renderman_type = rman_type
                     elem_socket.array_elem = i
+            

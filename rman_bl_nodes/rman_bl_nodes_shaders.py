@@ -144,7 +144,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
     def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0, is_side=False, bl_prop_info=None):
         node = self
         prop_meta = node.prop_meta[prop_name]
-        if bl_prop_info is False:
+        if bl_prop_info is False or bl_prop_info is None:
             bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
         ui_structs = getattr(node, 'ui_structs', dict())
         if not bl_prop_info.is_ui_struct and bl_prop_info.prop is None:
@@ -311,47 +311,51 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 return
 
             elif bl_prop_info.renderman_type == 'array':
-                row = layout.row(align=True)
-                col = row.column()
-                row = col.row()                
-                row.enabled = not bl_prop_info.prop_disabled
-                prop_label = bl_prop_info.label
-                coll_nm = '%s_collection' % prop_name
-                collection = getattr(node, coll_nm)
-                array_len = len(collection)
-                array_label = prop_label + ' [%d]:' % array_len
-                row.label(text=array_label)         
-                coll_idx_nm = '%s_collection_index' % prop_name
-                row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
-                col = row.column(align=True)
-                row = col.row()
-                row.context_pointer_set("node", node)
-                op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
-                op.collection = coll_nm
-                op.collection_index = coll_idx_nm
-                op.param_name = prop_name
-                op.action = 'ADD'
-                op.elem_type = bl_prop_info.renderman_array_type
-                row = col.row()
-                row.context_pointer_set("node", node)
-                op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
-                op.collection = coll_nm
-                op.collection_index = coll_idx_nm
-                op.param_name = prop_name
-                op.action = 'REMOVE'
-                op.elem_type = bl_prop_info.renderman_array_type
-
-                coll_index = getattr(node, coll_idx_nm, None)
-                if coll_idx_nm is None:
-                    return
-
-                if coll_index > -1 and coll_index < len(collection):
-                    item = collection[coll_index]
+                arraySize = prop_meta.get('arraySize', None)
+                if prop_meta.get('__noconnection', False) or arraySize is None or arraySize < 0:
                     row = layout.row(align=True)
-                    socket_name = '%s[%d]' % (prop_name, coll_index)
-                    socket = node.inputs.get(socket_name, None)
-                    if not socket:
-                        row.prop(item, 'value_%s' % item.type, slider=True)                
+                    col = row.column()
+                    row = col.row()                
+                    row.enabled = not bl_prop_info.prop_disabled
+                    prop_label = bl_prop_info.label
+                    coll_nm = '%s_collection' % prop_name
+                    coll_idx_nm = '%s_collection_index' % prop_name
+                    collection = getattr(node, coll_nm)
+                    array_len = len(collection)
+                    array_label = prop_label + ' [%d]:' % array_len
+                    row.label(text=array_label)                             
+                    row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
+                    # only draw the add and remove buttons if this is a variable length array
+                    if arraySize and arraySize < 0:
+                        col = row.column(align=True)
+                        row = col.row()
+                        row.context_pointer_set("node", node)
+                        op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
+                        op.collection = coll_nm
+                        op.collection_index = coll_idx_nm
+                        op.param_name = prop_name
+                        op.action = 'ADD'
+                        op.elem_type = bl_prop_info.renderman_array_type
+                        row = col.row()
+                        row.context_pointer_set("node", node)
+                        op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
+                        op.collection = coll_nm
+                        op.collection_index = coll_idx_nm
+                        op.param_name = prop_name
+                        op.action = 'REMOVE'
+                        op.elem_type = bl_prop_info.renderman_array_type
+
+                    coll_index = getattr(node, coll_idx_nm, None)
+                    if coll_idx_nm is None:
+                        return
+
+                    if coll_index > -1 and coll_index < len(collection):
+                        item = collection[coll_index]
+                        row = layout.row(align=True)
+                        socket_name = '%s[%d]' % (prop_name, coll_index)
+                        socket = node.inputs.get(socket_name, None)
+                        if not socket:
+                            row.prop(item, 'value_%s' % item.type, slider=True, text=socket_name)                
 
                 return
 

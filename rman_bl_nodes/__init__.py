@@ -113,7 +113,7 @@ def get_cycles_node_desc(node):
 
     return (mapping, node_desc)
 
-def class_generate_properties(node, parent_name, node_desc):
+def class_generate_properties(node, parent_name, node_desc, generate_array_ui=True):
     prop_names = []
     prop_meta = {}
     ui_structs = {}
@@ -216,7 +216,7 @@ def class_generate_properties(node, parent_name, node_desc):
             setattr(node, param_name, sub_prop_names)   
             continue            
            
-        if node_desc_param.is_array():
+        if node_desc_param.is_array() and generate_array_ui:
             # this is an array 
             if generate_property_utils.generate_array_property(node, prop_names, prop_meta, node_desc_param, update_function=update_function):
                 continue
@@ -366,6 +366,8 @@ def generate_node_type(node_desc, is_oso=False):
         ntype.bl_height_max = bl_height_max    
 
     def init(self, context):
+        from ..rfb_utils import collection_utils
+
         # add input/output sockets to nodes, based on type
         if self.renderman_node_type == 'bxdf':
             self.outputs.new('RendermanNodeSocketBxdf', "bxdf_out", identifier="Bxdf")
@@ -398,6 +400,34 @@ def generate_node_type(node_desc, is_oso=False):
         else:
             node_add_inputs(self, name, self.prop_names)
             node_add_outputs(self)
+
+        # deal with non-connectable arrays
+        array_props = self.__annotations__.get('__ARRAYS__', [])
+        for prop_name in array_props:
+            meta = self.prop_meta[prop_name]
+            if not meta.get('__noconnection', False):
+                continue            
+            dflt = meta['default']
+            arraySize = meta.get('arraySize', None)
+            if arraySize is None or arraySize < 0:
+                arraySize = len(dflt)
+            param_type = meta['renderman_array_type']
+            for i in range(arraySize):
+                coll_nm = '%s_collection' % prop_name
+                coll_idx_nm = '%s_collection_index' % prop_name
+                collection = getattr(self, coll_nm)
+                index = getattr(self, coll_idx_nm)        
+                param_array_name = '%s[%d]' % (prop_name, i)
+                param_array_label = '%s[%d]' % (prop_name, i)                                       
+                elem = collection.add()
+                index = len(collection)-1
+                setattr(self, coll_idx_nm, index)
+                elem.name = '%s[%d]' % (prop_name, len(collection)-1)  
+                elem.type = param_type
+                item = collection[-1]
+                item.type = param_type
+                setattr(self, 'value_%s' % item.type, dflt[i])               
+
         
         # deal with any ramps necessary
         color_rman_ramps = self.__annotations__.get('__COLOR_RAMPS__', [])
@@ -576,7 +606,7 @@ def generate_node_type(node_desc, is_oso=False):
 
 def register_plugin_to_parent(ntype, name, node_desc, plugin_type, parent):
 
-    class_generate_properties(ntype, name, node_desc)
+    class_generate_properties(ntype, name, node_desc, generate_array_ui=False)
     setattr(ntype, 'renderman_node_type', plugin_type)
     
     if "__annotations__" not in parent.__dict__:
