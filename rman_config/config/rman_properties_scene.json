@@ -640,7 +640,17 @@
             "default": 1,
             "widget": "checkbox",
             "help": "This option toggles the jitter (variation) in camera samples. By default, this hider option is enabled (set to 1), meaning that camera samples will be placed randomly in a pixel location. When it is turned off, camera rays are placed in the center of the pixel. When turned off, surface edges will appear aliased and jagged."
-        },        
+        },      
+        {
+            "panel": "RENDER_PT_renderman_sampling",
+            "name": "hider_adaptall",
+            "riopt": "hider:adaptall",
+            "label": "Adapt All",
+            "type": "int",
+            "default": 0,
+            "widget": "checkbox",
+            "help": "Makes all display channels influence the adaptive sampler equally and potentially increase your render time.<br>By default, the adaptive sampler computes the selected metric on channels with relativepixelvariance > 0. In practice, Ci defaults to 1 and all other AOVs to 0, which means that some of the AOVs could be under-sampled, i.e. more noisy."
+        },           
         {
             "panel": "RENDER_PT_renderman_sampling",
             "page": "Global Trace Settings",
