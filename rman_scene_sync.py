@@ -905,6 +905,12 @@ class RmanSceneSync(object):
                                 self.rman_scene.attach_material(ob_eval, rman_sg_node, sg_node=rman_sg_node.sg_attributes)
                                 self.update_particle_emitters(ob_eval)
                             
+                        if rman_type == "MESH" and rman_update.is_updated_geometry and not is_instance:
+                            # if this is a mesh, and not an instance, check if we generated geometry
+                            # if not, don't append to already_updated, instances of this prototype
+                            # may generate mesh -- this is the case for geometry node instances
+                            if rman_sg_node.npoints == 0:
+                                continue 
                         already_udpated.append(proto_key)   
 
                 if rman_type in object_utils._RMAN_NO_INSTANCES_:

@@ -47,7 +47,8 @@ def get_group_db_name(ob_inst):
             ob = ob_inst.instance_object
             parent = ob_inst.parent
             psys = ob_inst.particle_system
-            persistent_id = "%d%d" % (ob_inst.persistent_id[1], ob_inst.persistent_id[0])            
+            #persistent_id = "%d%d" % (ob_inst.persistent_id[1], ob_inst.persistent_id[0])
+            persistent_id = ''.join(str(x) for x in ob_inst.persistent_id)
             if psys:
                 group_db_name = "%s|%s|%s|%s" % (parent.name_full, ob.name_full, psys.name, persistent_id)
             else:
@@ -187,7 +188,16 @@ def prototype_key(ob):
     if isinstance(ob, bpy.types.DepsgraphObjectInstance):
         if ob.is_instance:
             if ob.object.data:
-                return '%s-%s-DATA' % (ob.object.type, ob.object.data.name_full)
+                if isinstance(ob.object.data, bpy.types.Mesh): 
+                    # see below about gpu_acceleration bug
+                    data_ob = bpy.data.objects[ob.object.name]
+                    return '%s-MESH-DATA' % data_ob.original.data.name_full
+                elif BLENDER_HAS_CURVES_NODE and isinstance(ob.object.data, bpy.types.Curves):
+                    # see below about gpu_acceleration bug
+                    data_ob = bpy.data.objects[ob.object.name]
+                    return '%s-CURVES-DATA' % data_ob.original.data.name_full
+                else:
+                    return '%s-%s-DATA' % (ob.object.type, ob.object.data.name_full)
             else:
                 return '%s-%s-OBJECT' % (ob.object.type, ob.object.name_full)
         if ob.object.data:
