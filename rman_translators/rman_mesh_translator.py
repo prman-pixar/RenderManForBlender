@@ -385,6 +385,8 @@ class RmanMeshTranslator(RmanTranslator):
         primvar.SetStringArray(self.rman_scene.rman.Tokens.Rix.k_Ri_subdivtagstringtags, stringargs, len(stringargs))        
 
     def export(self, ob, db_name):
+        if len(ob.data.polygons) < 1:
+            return None
         
         sg_node = self.rman_scene.sg_scene.CreateGroup('')
         rman_sg_mesh = RmanSgMesh(self.rman_scene, sg_node, db_name)
@@ -540,17 +542,19 @@ class RmanMeshTranslator(RmanTranslator):
                 # If the face has a mat index that is higher than the number of
                 # material slots, use the last material. This is what
                 # Eevee/Cycles does.
+                mat = None
                 if mat_id >= len(ob.data.materials):
                     mat = ob.data.materials[-1]
                 else:
                     mat = ob.data.materials[mat_id]
-                if not mat:
-                    continue
-                sg_material = self.rman_scene.rman_materials.get(mat.original, None)
+                    
+                if mat:
+                    sg_material = self.rman_scene.rman_materials.get(mat.original, None)
 
                 if mat_id == min_idx:
                     primvar.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_shade_faceset, faces, len(faces))
-                    scenegraph_utils.set_material(sg_node, sg_material.sg_node, sg_material, mat=mat, ob=ob)
+                    if mat:
+                        scenegraph_utils.set_material(sg_node, sg_material.sg_node, sg_material, mat=mat, ob=ob)
                 else:                
                     sg_sub_mesh =  self.rman_scene.sg_scene.CreateMesh("%s-%d" % (rman_sg_mesh.db_name, i))
                     i += 1
@@ -563,7 +567,8 @@ class RmanMeshTranslator(RmanTranslator):
                     pvars.Inherit(primvar)
                     pvars.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_shade_faceset, faces, len(faces))                    
                     sg_sub_mesh.SetPrimVars(pvars)
-                    scenegraph_utils.set_material(sg_sub_mesh, sg_material.sg_node, sg_material, mat=mat, ob=ob)
+                    if mat:
+                        scenegraph_utils.set_material(sg_sub_mesh, sg_material.sg_node, sg_material, mat=mat, ob=ob)
                     sg_node.AddChild(sg_sub_mesh)
                     rman_sg_mesh.multi_material_children.append(sg_sub_mesh)
         else:
