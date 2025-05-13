@@ -597,28 +597,15 @@ class RmanScene(object):
 
     def get_rman_sg_instance(self, ob_inst, rman_sg_node, instance_parent, psys, create=True):  
         group_db_name = object_utils.get_group_db_name(ob_inst) 
-        rman_parent_node = None
-        if psys and instance_parent:
-            rman_parent_node = self.get_rman_prototype(object_utils.prototype_key(instance_parent), ob=instance_parent, create=True)
-            if rman_parent_node:
-                if group_db_name in rman_parent_node.instances:
-                    return rman_parent_node.instances[group_db_name]
-        else:
-            if group_db_name in rman_sg_node.instances:
-                return rman_sg_node.instances[group_db_name]
+        if group_db_name in rman_sg_node.instances:
+            return rman_sg_node.instances[group_db_name]
 
         rman_sg_group = None
         if create:
             rman_group_translator = self.rman_translators['GROUP']
             rman_sg_group = rman_group_translator.export(None, group_db_name)
             rman_sg_group.sg_node.AddChild(rman_sg_node.sg_node)       
-
-            if rman_parent_node:
-                # this is an instance that comes from a particle system
-                # add this instance to the rman_sg_node that owns the particle system        
-                rman_parent_node.instances[group_db_name] = rman_sg_group
-            else:       
-                rman_sg_node.instances[group_db_name] = rman_sg_group                   
+            rman_sg_node.instances[group_db_name] = rman_sg_group
 
         return rman_sg_group       
 

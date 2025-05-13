@@ -354,6 +354,7 @@ class RmanSceneSync(object):
         collection = getattr(psys.settings, 'instance_collection', None)
         if inst_ob:
             if inst_ob.original not in self.rman_updates:
+                rfb_log().debug("\tParticle Instancer Updated. Update Object: %s" % inst_ob.original.name)
                 rman_update = RmanUpdate()                
                 rman_update.is_updated_shading = ob_update.is_updated_shading
                 rman_update.is_updated_transform = ob_update.is_updated_transform
@@ -364,6 +365,7 @@ class RmanSceneSync(object):
                     continue
                 if col_obj.original in self.rman_updates:
                     continue
+                rfb_log().debug("\tParticle Instancer Updated. Update Object: %s" % col_obj.original.name)
                 rman_update = RmanUpdate()
                 rman_update.is_updated_shading = ob_update.is_updated_shading
                 rman_update.is_updated_transform = ob_update.is_updated_transform
@@ -463,8 +465,8 @@ class RmanSceneSync(object):
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):    
             proto_key = object_utils.prototype_key(ob)     
             rman_sg_node = self.rman_scene.get_rman_prototype(proto_key, ob=ob, create=True)
-            rman_type = object_utils._detect_primitive_(ob) 
-            self.rman_scene.rman_translators[rman_type].clear_children(rman_sg_node)
+            # rman_type = object_utils._detect_primitive_(ob) 
+            # self.rman_scene.rman_translators[rman_type].clear_children(rman_sg_node)
             self.rman_scene.attach_material(ob, rman_sg_node, sg_node=rman_sg_node.sg_attributes)
             
         # mark all objects in the instance collection
@@ -910,6 +912,7 @@ class RmanSceneSync(object):
                             # if not, don't append to already_updated, instances of this prototype
                             # may generate mesh -- this is the case for geometry node instances
                             if rman_sg_node.npoints == 0:
+                                rfb_log().debug("\tMesh: %s has no" % proto_key)
                                 continue 
                         already_udpated.append(proto_key)   
 
