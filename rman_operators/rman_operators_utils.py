@@ -520,14 +520,83 @@ class PRMAN_OT_Renderman_Run_Unit_Tests(bpy.types.Operator):
         else:
             self.report({'ERROR'}, msg)
 
-        return {"FINISHED"}        
+        return {"FINISHED"}     
+
+class PRMAN_OT_Find_String_And_Replace(Operator):
+    """An operator for finding and replacing strings."""
+
+    bl_idname = "renderman.find_and_replace"
+    bl_label = "Find and Replace"
+    bl_description = "Find and replace strings in RenderMan nodes."   
+    bl_options = {'INTERNAL'}
+
+    src_str: StringProperty(default="", name="Source String", description="The source string you want to replace")
+    replace_str: StringProperty(default="", name="Replace String", description="The string you want to use to replace the source string")
+    do_materials: BoolProperty(default=True, name="Materials", description="If true, apply to nodes in materials")
+    do_lights: BoolProperty(default=True, name="Lightss", description="If true, apply to nodes in lights")
+       
+
+    @classmethod
+    def poll(cls, context):
+        return context.engine == "PRMAN_RENDER"
+
+    def execute(self, context):
+        if self.src_str == "" or self.replace_str == "":
+            self.report({'ERROR'}, "Either source or replace strings are empty")
+            return {'FINISHED'}
+
+        if self.properties.do_materials:
+            for mat in bpy.data.materials:       
+                if mat.node_tree is None:
+                    continue
+                nt = mat.node_tree
+                nodes = [n for n in nt.nodes]    
+                for n in nodes:
+                    if not hasattr(n, "prop_meta"):
+                        continue
+                    for prop_name, meta in n.prop_meta.items():
+                        param_type = meta['renderman_type']
+                        if param_type != 'string':
+                            continue
+                        val = getattr(n, prop_name)
+                        if val == "":
+                            continue
+                        val = val.replace(self.properties.src_str, self.properties.replace_str)
+                        setattr(n, prop_name, val)
+
+        if self.properties.do_lights:
+            for light in bpy.data.lights:
+                if light.node_tree is None:
+                    continue
+                nt = light.node_tree
+                nodes = [n for n in nt.nodes]    
+                for n in nodes:
+                    if not hasattr(n, "prop_meta"):
+                        continue
+                    for prop_name, meta in n.prop_meta.items():
+                        param_type = meta['renderman_type']
+                        if param_type != 'string':
+                            continue
+                        val = getattr(n, prop_name)
+                        if val == "":
+                            continue
+                        val = val.replace(self.properties.src_str, self.properties.replace_str)
+                        setattr(n, prop_name, val)                
+
+  
+        return {'FINISHED'}
+
+    def invoke(self, context, event=None):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)     
 
 classes = [
    PRMAN_OT_Renderman_Upgrade_Scene,
    PRMAN_OT_Renderman_Package,
    PRMAN_OT_Renderman_Start_Debug_Server,
    PRMAN_OT_Renderman_Run_Unit_Tests,
-   PRMAN_OT_Renderman_Zip_Addon
+   PRMAN_OT_Renderman_Zip_Addon,
+   PRMAN_OT_Find_String_And_Replace
 ]
 
 def register():

@@ -323,6 +323,7 @@ def upgrade_270_0(scene):
                 new_node.select = False     
 
         # look for <udim> and replace with <UDIM>
+        nodes = [n for n in nt.nodes]
         for n in nodes:
             has_textured_params = getattr(n, 'rman_has_textured_params', False)
             if has_textured_params:
