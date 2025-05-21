@@ -1,6 +1,5 @@
 import bpy
 from .prefs_utils import get_pref
-from ..rman_constants import BLENDER_HAS_CURVES_NODE
 from . import string_utils
 
 # These types don't create instances
@@ -192,7 +191,7 @@ def prototype_key(ob):
                     # see below about gpu_acceleration bug
                     data_ob = bpy.data.objects[ob.object.name]
                     return '%s-MESH-DATA' % data_ob.original.data.name_full
-                elif BLENDER_HAS_CURVES_NODE and isinstance(ob.object.data, bpy.types.Curves):
+                elif isinstance(ob.object.data, bpy.types.Curves):
                     # see below about gpu_acceleration bug
                     data_ob = bpy.data.objects[ob.object.name]
                     return '%s-CURVES-DATA' % data_ob.original.data.name_full
@@ -217,7 +216,7 @@ def prototype_key(ob):
                 data_ob = bpy.data.objects[ob.object.name]
                 return '%s-MESH-DATA' % data_ob.original.data.name_full
 
-            elif BLENDER_HAS_CURVES_NODE and isinstance(ob.object.data, bpy.types.Curves):
+            elif isinstance(ob.object.data, bpy.types.Curves):
                 '''
                 Looks like a similar problem as above happens with Curves as well. The data block
                 name is not unique when you have multiple Curves object.
@@ -243,7 +242,7 @@ def prototype_key(ob):
             data_ob = bpy.data.objects[ob.name]
             return '%s-MESH-DATA' % data_ob.original.data.name_full
 
-        elif BLENDER_HAS_CURVES_NODE and isinstance(ob.data, bpy.types.Curves):
+        elif isinstance(ob.data, bpy.types.Curves):
             '''
             Looks like a similar problem as above happens with Curves as well. The data block
             name is not unique when you have multiple Curves object.

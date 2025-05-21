@@ -741,11 +741,7 @@ class RmanScene(object):
         rman_type = object_utils._detect_primitive_(ob)
 
         if rman_type == "META":
-            if rman_constants.META_AS_MESH:
-                return None
-            # only add the meta instance that matches the family name
-            if ob.name_full != object_utils.get_meta_family(ob):
-                return None
+            return None
 
         if proto_key in self.rman_prototypes:
             return self.rman_prototypes[proto_key]

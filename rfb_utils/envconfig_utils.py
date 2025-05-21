@@ -2,7 +2,7 @@ from .prefs_utils import get_pref
 from ..rfb_logger import rfb_log
 from .. import rfb_logger
 from .. import rman_constants
-from ..rman_constants import RFB_ADDON_PATH, BLENDER_44, RFB_PLATFORM
+from ..rman_constants import RFB_ADDON_PATH, RFB_PLATFORM
 import os
 import bpy
 import json

@@ -31,9 +31,9 @@ bl_info = {
     "name": "RenderMan For Blender",
     "author": "Pixar",
     "version": (27, 0, 0),
-    "blender": (2, 93, 0),
+    "blender": (3, 6, 0),
     "location": "Render Properties > Render Engine > RenderMan",
-    "description": "RenderMan 26 integration",
+    "description": "RenderMan 27 integration",
     "doc_url": "https://rmanwiki.pixar.com/display/RFB",
     'warning': 'BETA',
     "category": "Render"}

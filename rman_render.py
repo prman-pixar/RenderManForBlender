@@ -7,7 +7,6 @@ import sys
 from .rman_constants import (
         RFB_VIEWPORT_MAX_BUCKETS, 
         RMAN_RENDERMAN_BLUE, 
-        USE_GPU_MODULE, 
         BLENDER_41,
         RFB_PLATFORM)
 from .rman_scene import RmanScene
@@ -1484,21 +1483,17 @@ class RmanRender(object):
                  
         dspy_plugin = self.get_blender_dspy_plugin()
 
-        if USE_GPU_MODULE:
-            res_mult = self.rman_scene.viewport_render_res_mult
-            width = int(self.viewport_res_x * res_mult)
-            height = int(self.viewport_res_y * res_mult)
-            buffer = self._get_buffer(width, height, num_channels=4)
-            if buffer is None:
-                rfb_log().debug("Buffer is None")
-                return
-            pixels = gpu.types.Buffer('FLOAT', width * height * 4, buffer)
+        res_mult = self.rman_scene.viewport_render_res_mult
+        width = int(self.viewport_res_x * res_mult)
+        height = int(self.viewport_res_y * res_mult)
+        buffer = self._get_buffer(width, height, num_channels=4)
+        if buffer is None:
+            rfb_log().debug("Buffer is None")
+            return
+        pixels = gpu.types.Buffer('FLOAT', width * height * 4, buffer)
 
-            texture = gpu.types.GPUTexture((width, height), format='RGBA32F', data=pixels)
-            draw_texture_2d(texture, (0, 0), self.viewport_res_x, self.viewport_res_y)
-        else:
-            # (the driver will handle pixel scaling to the given viewport size)
-            dspy_plugin.DrawBufferToBlender(ctypes.c_int(width), ctypes.c_int(height))            
+        texture = gpu.types.GPUTexture((width, height), format='RGBA32F', data=pixels)
+        draw_texture_2d(texture, (0, 0), self.viewport_res_x, self.viewport_res_y)          
 
         if BLENDER_41:
             uniform_color = 'UNIFORM_COLOR'

@@ -5,7 +5,7 @@ from ...rfb_utils import string_utils
 from ...rfb_utils import prefs_utils
 from ...rfb_utils import transform_utils
 from ...rfb_logger import rfb_log
-from ...rman_constants import RMAN_AREA_LIGHT_TYPES, USE_GPU_MODULE, BLENDER_41
+from ...rman_constants import RMAN_AREA_LIGHT_TYPES, BLENDER_41
 from .barn_light_filter_draw_helper import BarnLightFilterDrawHelper
 from .frustrum_draw_helper import FrustumDrawHelper
 from mathutils import Vector, Matrix, Quaternion
@@ -16,11 +16,7 @@ import bpy
 import gpu
 
 if not bpy.app.background:
-    if USE_GPU_MODULE:
-        bgl = None
-        from gpu_extras.batch import batch_for_shader
-    else:    
-        import bgl
+    from gpu_extras.batch import batch_for_shader
 
 _DRAW_HANDLER_ = None
 _FRUSTUM_DRAW_HELPER_ = None
@@ -464,7 +460,7 @@ __MTX_ENVDAYLIGHT_ORIENT__ = transform_utils.convert_to_blmatrix([
             -0.0000,  1.0000, -0.0000, 0.0000,
             0.0000,  0.0000,  0.0000, 1.0000])
 
-if USE_GPU_MODULE and not bpy.app.background:
+if not bpy.app.background:
     # Code reference: https://projects.blender.org/blender/blender/src/branch/main/doc/python_api/examples/gpu.7.py
 
     vert_out = gpu.types.GPUStageInterfaceInfo("image_interface")
@@ -517,59 +513,7 @@ if USE_GPU_MODULE and not bpy.app.background:
         }
 
         ''') 
-else:
-    _VERTEX_SHADER_UV_ = '''
-        uniform mat4 modelMatrix;
-        uniform mat4 viewProjectionMatrix;
-
-        in vec3 position;
-        in vec2 uv;
-
-        out vec2 uvInterp;
-
-        void main()
-        {
-            uvInterp = uv;
-            gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 1.0);
-        }
-    '''
-
-    _VERTEX_SHADER_ = '''
-        uniform mat4 modelMatrix;
-        uniform mat4 viewProjectionMatrix;
-
-        in vec3 position;
-
-        void main()
-        {
-            gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 1.0f);
-        }
-    '''
-
-    _FRAGMENT_SHADER_TEX_ = '''
-        uniform sampler2D image;
-
-        in vec2 uvInterp;       
-        out vec4 FragColor;
-
-        void main()
-        {
-            FragColor = texture(image, uvInterp);
-        }
-    '''
-
-    _FRAGMENT_SHADER_COL_ = '''
-        uniform vec4 lightColor;
-
-        in vec2 uvInterp;       
-        out vec4 FragColor;
-
-        void main()
-        {
-            FragColor = lightColor;
-        }
-    '''
-
+    
 _SHADER_ = None
 if not bpy.app.background:
     uniform_color =  '3D_UNIFORM_COLOR'
@@ -658,11 +602,7 @@ def load_gl_texture(tex):
 
     ice._registry.Mark() 
     iceimg = ice.Load(real_path)
-    if USE_GPU_MODULE:
-        iceimg = iceimg.TypeConvert(ice.constants.FLOAT)
-    else:
-        # quantize to 8 bits
-        iceimg = iceimg.TypeConvert(ice.constants.FRACTIONAL)
+    iceimg = iceimg.TypeConvert(ice.constants.FLOAT)
 
     x1, x2, y1, y2 = iceimg.DataBox()
     width = (x2 - x1) + 1
@@ -685,49 +625,19 @@ def load_gl_texture(tex):
         width = (x2 - x1) + 1
         height = (y2 - y1) + 1 
 
-    numChannels = iceimg.Ply()
-    if USE_GPU_MODULE:       
-        iFormat = 'RGBA32F'
-        if numChannels != 4:
-            # if this is not a 4-channel image, we create a card with an alpha
-            # and composite the image over the card
-            bg = ice.Card(ice.constants.FLOAT, [0,0,0,1])
-            iceimg = bg.Over(iceimg)
+    numChannels = iceimg.Ply() 
+    iFormat = 'RGBA32F'
+    if numChannels != 4:
+        # if this is not a 4-channel image, we create a card with an alpha
+        # and composite the image over the card
+        bg = ice.Card(ice.constants.FLOAT, [0,0,0,1])
+        iceimg = bg.Over(iceimg)
 
-        # Generate texture
-        buffer = iceimg.AsByteArray()
-        pixels = gpu.types.Buffer('FLOAT', len(buffer), buffer)
-        texture = gpu.types.GPUTexture((width, height), format=iFormat, data=pixels)
-        _PRMAN_TEX_CACHE_[tex] = texture
-    else:
-        buffer = iceimg.AsByteArray()
-        pixels = bgl.Buffer(bgl.GL_BYTE, len(buffer), buffer)
-        texture = bgl.Buffer(bgl.GL_INT, 1)
-        _PRMAN_TEX_CACHE_[tex] = texture
-
-        iFormat = bgl.GL_RGBA
-        texFormat = bgl.GL_RGBA
-        if numChannels == 1:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_LUMINANCE
-        elif numChannels == 2:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_LUMINANCE_ALPHA
-        elif numChannels == 3:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_RGB
-                    
-        elif numChannels == 4:
-            iFormat = bgl.GL_RGBA
-            texFormat = bgl.GL_RGBA
-            
-        bgl.glGenTextures(1, texture)    
-        bgl.glActiveTexture(bgl.GL_TEXTURE0)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture[0])
-        bgl.glTexImage2D(bgl.GL_TEXTURE_2D, 0, iFormat, width, height, 0, texFormat, bgl.GL_UNSIGNED_BYTE, pixels)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_LINEAR)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_LINEAR)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, 0)   
+    # Generate texture
+    buffer = iceimg.AsByteArray()
+    pixels = gpu.types.Buffer('FLOAT', len(buffer), buffer)
+    texture = gpu.types.GPUTexture((width, height), format=iFormat, data=pixels)
+    _PRMAN_TEX_CACHE_[tex] = texture
 
     ice._registry.RemoveToMark()
     del iceimg   
@@ -857,10 +767,8 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
     
     real_path = string_utils.expand_string(tex)
     if os.path.exists(real_path):
-        if USE_GPU_MODULE:
-            shader = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
-        else:
-            shader = gpu.types.GPUShader(_VERTEX_SHADER_UV_, _FRAGMENT_SHADER_TEX_)
+        shader = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
+
         if indices:
             batch = batch_for_shader(shader, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)   
         elif uvs:
@@ -870,35 +778,19 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
         if not texture:
             texture = load_gl_texture(tex)
 
-        if USE_GPU_MODULE:
-            shader.bind()
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
-            shader.uniform_sampler("image", texture)
-            gpu.state.blend_set("ALPHA")
-            gpu.state.depth_test_set("LESS")
-            batch.draw(shader)           
-            gpu.state.depth_test_set("NONE")
-            gpu.state.blend_set("NONE")
-        else:
-
-            bgl.glActiveTexture(bgl.GL_TEXTURE0)
-            bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture[0])
-
-            shader.bind()
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("modelMatrix", mtx)    
-            shader.uniform_float("viewProjectionMatrix", matrix)
-            shader.uniform_float("image", texture[0])
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            batch.draw(shader)           
-            bgl.glDisable(bgl.GL_DEPTH_TEST)      
+        shader.bind()
+        matrix = bpy.context.region_data.perspective_matrix
+        shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        shader.uniform_sampler("image", texture)
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set("LESS")
+        batch.draw(shader)           
+        gpu.state.depth_test_set("NONE")
+        gpu.state.blend_set("NONE")
+    
 
     elif col:
-        if USE_GPU_MODULE:
-            shader = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
-        else:
-            shader = gpu.types.GPUShader(_VERTEX_SHADER_, _FRAGMENT_SHADER_COL_)
+        shader = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
 
         if indices:
             batch = batch_for_shader(shader, 'TRIS', {"position": pts}, indices=indices)  
@@ -908,38 +800,23 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
         lightColor = (col[0], col[1], col[2], 1.0)
         shader.bind()
         shader.uniform_float("lightColor", lightColor)
-        if USE_GPU_MODULE:
-            matrix = bpy.context.region_data.perspective_matrix   
-            shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
-            gpu.state.depth_test_set("LESS")
-            gpu.state.blend_set("ALPHA")
-            batch.draw(shader)
-            gpu.state.blend_set("NONE")
-            gpu.state.depth_test_set("NONE")            
-        else:
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("modelMatrix", mtx)
-            shader.uniform_float("viewProjectionMatrix", matrix)                            
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            batch.draw(shader)           
-            bgl.glDisable(bgl.GL_DEPTH_TEST)      
+        matrix = bpy.context.region_data.perspective_matrix   
+        shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        gpu.state.depth_test_set("LESS")
+        gpu.state.blend_set("ALPHA")
+        batch.draw(shader)
+        gpu.state.blend_set("NONE")
+        gpu.state.depth_test_set("NONE")            
 
 def draw_line_shape(ob, shader, pts, indices):  
     do_draw = ((ob in bpy.context.selected_objects) or (prefs_utils.get_pref('rman_viewport_lights_draw_wireframe')))
     if do_draw:
         batch = batch_for_shader(shader, 'LINES', {"pos": pts}, indices=indices)    
-        if USE_GPU_MODULE:
-            gpu.state.depth_test_set("LESS")
-            gpu.state.blend_set("ALPHA")
-            batch.draw(shader)
-            gpu.state.depth_test_set("NONE")
-            gpu.state.blend_set("NONE")
-        else:            
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            bgl.glEnable(bgl.GL_BLEND)
-            batch.draw(shader)
-            bgl.glDisable(bgl.GL_DEPTH_TEST)    
-            bgl.glDisable(bgl.GL_BLEND)
+        gpu.state.depth_test_set("LESS")
+        gpu.state.blend_set("ALPHA")
+        batch.draw(shader)
+        gpu.state.depth_test_set("NONE")
+        gpu.state.blend_set("NONE")
 
 def draw_rect_light(ob):
     global _FRUSTUM_DRAW_HELPER_
@@ -1299,13 +1176,12 @@ def draw_dome_light(ob):
     m = Matrix.Rotation(angle, 4, axis)
     m = m @ Matrix.Scale(scale, 4)
     m = m @ __MTX_X_90__ 
-    uv_offsets = [0.25, 0.0]
-    if USE_GPU_MODULE:
-        # the GPU module doesn't seem to do any texture wrapping
-        # when UVs go over the boundary. Reset the UV offsets
-        # and rotate 90 degrees on the Y-axis
-        uv_offsets = [0.0, 0.0]
-        m = m @ __MTX_Y_90__ 
+
+    # the GPU module doesn't seem to do any texture wrapping
+    # when UVs go over the boundary. Reset the UV offsets
+    # and rotate 90 degrees on the Y-axis
+    uv_offsets = [0.0, 0.0]
+    m = m @ __MTX_Y_90__ 
 
     sphere_pts = make_sphere()
     sphere = [m @ Vector(p) for p in sphere_pts]
@@ -1759,10 +1635,7 @@ def draw():
                 break
 
         if not still_exists:
-            if USE_GPU_MODULE:
-                del v
-            else:
-                bgl.glDeleteTextures(1, v)
+            del v
             remove_textures.append(k)            
 
     for k in remove_textures:
@@ -1774,10 +1647,8 @@ def clear_gl_tex_cache(bl_scene=None):
     if _PRMAN_TEX_CACHE_:
         rfb_log().debug("Clearing _PRMAN_TEX_CACHE_.")
         for k, v in _PRMAN_TEX_CACHE_.items():
-            if USE_GPU_MODULE:
-                del v
-            else:
-                bgl.glDeleteTextures(1, v)
+            del v
+
         _PRMAN_TEX_CACHE_.clear()    
 
 def register():
