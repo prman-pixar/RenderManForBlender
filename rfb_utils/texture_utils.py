@@ -286,7 +286,10 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
         fpath = bl_prop_info.prop
         if is_library:
             # if this is coming from a library, replace <blend_dir> with the full path
-            blend_file = filepath_utils.get_real_path(ob.library.filepath)
+            if ob.library:
+                blend_file = filepath_utils.get_real_path(ob.library.filepath)
+            elif ob.library_weak_reference:
+                blend_file = filepath_utils.get_real_path(ob.library_weak_reference.filepath)
             fpath = fpath.replace('<blend_dir>', os.path.dirname(blend_file))
 
         category = getattr(node, 'renderman_node_type', 'pattern') 
@@ -345,6 +348,8 @@ def get_textures(id, check_exists=False, mat=None):
     shadergraph_utils.gather_all_textured_nodes(ob, nodes_list)
     is_library = False
     if hasattr(id, 'library') and id.library:
+        is_library = True
+    elif hasattr(id, 'library_weak_reference') and id.library_weak_reference:
         is_library = True
     for node in nodes_list:
         update_texture(node, ob=ob, check_exists=check_exists, is_library=is_library)
@@ -454,11 +459,18 @@ def txmanager_pre_save_cb(bl_scene):
 def depsgraph_handler(depsgraph_update, depsgraph):
     id = depsgraph_update.id
     # check new linked in materials
-    if id.library:
+    if id.library or id.library_weak_reference:
         link_file_handler(id)
         return
+    elif id.original.library or id.original.library_weak_reference:
+        # we check id.original for library references
+        # this seems to be needed for assets coming in from the asset browser
+        id = id.original
+        link_file_handler(id)
+        return        
+
     # check if nodes were renamed
-    elif isinstance(id, bpy.types.Object):
+    if isinstance(id, bpy.types.Object):
         check_node_rename(id)
     elif isinstance(id, bpy.types.Material):
         check_node_rename(id)
