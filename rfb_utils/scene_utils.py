@@ -2,6 +2,7 @@ from . import shadergraph_utils
 from . import object_utils
 from . import string_utils
 from ..rman_constants import RMAN_GLOBAL_VOL_AGGREGATE
+from ..rfb_logger import rfb_log
 import bpy
 
 
@@ -56,6 +57,17 @@ class BlAttribute:
             attr.data.foreach_get('vector', values)
             values = np.reshape(values, (npoints, 2))
             rman_attr.values = values.tolist()
+
+        elif attr.data_type in ['INT32_2D', 'INT16_2D']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer2d'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*2, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            values = np.reshape(values, (npoints, 2))
+            rman_attr.values = values.tolist()       
 
         elif attr.data_type == 'FLOAT_VECTOR':
             rman_attr = BlAttribute()
@@ -167,6 +179,8 @@ class BlAttribute:
             primvar.SetColorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
         elif rman_attr.rman_type == 'integer':
             primvar.SetIntegerDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'integer2d':
+            primvar.SetIntegerArrayDetail(rman_attr.rman_name, rman_attr.values, 2, rman_attr.rman_detail)            
         elif rman_attr.rman_type == 'string':
             primvar.SetStringDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
 
