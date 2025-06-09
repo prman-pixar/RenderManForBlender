@@ -428,8 +428,6 @@ def load_scene_state():
     """Load the JSON serialization from scene.renderman.txmanagerData and use it
     to update the texture manager.
     """
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = '{}'
@@ -438,11 +436,10 @@ def load_scene_state():
     return state
 
 @persistent
-def txmanager_load_cb(bl_scene):
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return    
+def txmanager_load_cb(bl_scene): 
     get_txmanager().txmanager.reset()
     get_txmanager().txmanager.load_state()
+    get_txmanager().txmanager.update_ui_list()
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = None

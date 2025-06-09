@@ -2,7 +2,7 @@ import bpy
 import sys
 from ..rfb_logger import rfb_log
 from .. import rman_render
-from ..rman_constants import RFB_PLATFORM
+from ..rman_constants import RFB_PLATFORM, BLENDER_44
 
 STATS_WINDOW = None 
 
@@ -86,6 +86,8 @@ if not bpy.app.background:
                     return {'FINISHED'}
 
                 if RFB_PLATFORM == "macOS":
+                    STATS_WINDOW = rfb_qt.run_with_timer(STATS_WINDOW, RmanStatsWrapper)
+                elif BLENDER_44:
                     STATS_WINDOW = rfb_qt.run_with_timer(STATS_WINDOW, RmanStatsWrapper)
                 else:
                     bpy.ops.wm.live_stats_qt_app_timed()

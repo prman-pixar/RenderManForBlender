@@ -26,7 +26,7 @@
 from ..rfb_utils.prefs_utils import get_pref, get_addon_prefs, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
-from ..rman_constants import RFB_PLATFORM
+from ..rman_constants import RFB_PLATFORM, BLENDER_44
 
 try:
     from ..rman_ui import rfb_qt
@@ -53,7 +53,7 @@ from rman_utils.rman_assets.common.exceptions import RmanAssetError
 from bpy.props import StringProperty, IntProperty
 import os
 
-__PRESET_BROWSER_WINDOW__ = None 
+PRESET_BROWSER_WINDOW = None 
 PresetBrowserWrapperImpl = None
 if rfb_qt:
     class PresetBrowserQtAppTimed(rfb_qt.RfbBaseQtAppTimed):
@@ -65,9 +65,9 @@ if rfb_qt:
 
         def execute(self, context):
             global PresetBrowserWrapperImpl
-            global __PRESET_BROWSER_WINDOW__
-            __PRESET_BROWSER_WINDOW__ = PresetBrowserWrapperImpl()
-            self._window = __PRESET_BROWSER_WINDOW__
+            global PRESET_BROWSER_WINDOW
+            PRESET_BROWSER_WINDOW = PresetBrowserWrapperImpl()
+            self._window = PRESET_BROWSER_WINDOW
             return super(PresetBrowserQtAppTimed, self).execute(context)
 
     class PRMAN_OT_Renderman_PB_ImportDisplayFilters_Dlg(bpy.types.Operator):
@@ -518,12 +518,14 @@ class PRMAN_OT_Renderman_Presets_Editor(bpy.types.Operator):
                     self.hostPrefs.saveAllPrefs()
                     event.accept()         
             PresetBrowserWrapperImpl = PresetBrowserWrapper   
-            global __PRESET_BROWSER_WINDOW__
-            if __PRESET_BROWSER_WINDOW__ and __PRESET_BROWSER_WINDOW__.isVisible():
+            global PRESET_BROWSER_WINDOW
+            if PRESET_BROWSER_WINDOW and PRESET_BROWSER_WINDOW.isVisible():
                 return {'FINISHED'}
 
             if RFB_PLATFORM == "macOS":
-                __PRESET_BROWSER_WINDOW__ = rfb_qt.run_with_timer(__PRESET_BROWSER_WINDOW__, PresetBrowserWrapper)   
+                PRESET_BROWSER_WINDOW = rfb_qt.run_with_timer(PRESET_BROWSER_WINDOW, PresetBrowserWrapper)   
+            elif BLENDER_44:
+                PRESET_BROWSER_WINDOW = rfb_qt.run_with_timer(PRESET_BROWSER_WINDOW, PresetBrowserWrapper)   
             else:
                 bpy.ops.wm.rpb_qt_app_timed()
             

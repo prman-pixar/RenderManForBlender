@@ -10,7 +10,7 @@ from ..rfb_utils import object_utils
 from ..rfb_utils.prefs_utils import get_pref, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
-from ..rman_constants import RFB_HELP_URL, RFB_PLATFORM
+from ..rman_constants import RFB_HELP_URL, RFB_PLATFORM, BLENDER_44
 from .. import rman_render
 from rman_utils.txmanager import txparams
 from rman_utils import txmanager as txmngr
@@ -20,7 +20,7 @@ import hashlib
 import os
 import uuid
 
-__TXMANAGER_WINDOW__ = None 
+TXMANAGER_WINDOW = None 
 
 if not bpy.app.background:
     try:
@@ -46,6 +46,7 @@ if not bpy.app.background:
             mgr = texture_utils.get_txmanager().txmanager
             mgr.reset()
             texture_utils.parse_for_textures(bl_scene)
+            mgr.update_ui_list()
 
         def _append_to_tx_list(file_path_list):
             """Called by the txmanager when extra files are added to the scene list.
@@ -66,17 +67,17 @@ if not bpy.app.background:
             bpy.ops.wm.url_open(url = RFB_HELP_URL)
 
         def create_widget():
-            global __TXMANAGER_WINDOW__
-            if not __TXMANAGER_WINDOW__:
+            global TXMANAGER_WINDOW
+            if not TXMANAGER_WINDOW:
                 import rman_utils.txmanager.ui as rui    
                 from ..rfb_utils import texture_utils    
                 mgr = texture_utils.get_txmanager().txmanager
-                __TXMANAGER_WINDOW__ = rui.TxManagerUI(None, txmanager=mgr, 
+                TXMANAGER_WINDOW = rui.TxManagerUI(None, txmanager=mgr, 
                                                         parse_scene_func=parse_scene,
                                                         append_tx_func=_append_to_tx_list,
                                                         help_func=help_func)
-                mgr.ui = __TXMANAGER_WINDOW__
-            return __TXMANAGER_WINDOW__
+                mgr.ui = TXMANAGER_WINDOW
+            return TXMANAGER_WINDOW
     
 class TxFileItem(PropertyGroup):
     """UIList item representing a TxFile"""
@@ -758,12 +759,14 @@ class PRMAN_OT_Renderman_open_txmanager(Operator):
 
     def invoke(self, context, event):
         if using_qt():
-            global __TXMANAGER_WINDOW__
-            if __TXMANAGER_WINDOW__ and __TXMANAGER_WINDOW__.isVisible():
+            global TXMANAGER_WINDOW
+            if TXMANAGER_WINDOW and TXMANAGER_WINDOW.isVisible():
                 return {'FINISHED'}
 
             if RFB_PLATFORM == "macOS":
-                rfb_qt.run_with_timer(__TXMANAGER_WINDOW__, create_widget)   
+                rfb_qt.run_with_timer(TXMANAGER_WINDOW, create_widget)  
+            elif BLENDER_44: 
+                rfb_qt.run_with_timer(TXMANAGER_WINDOW, create_widget)
             else:
                 bpy.ops.wm.txm_qt_app_timed()
             mgr = texture_utils.get_txmanager().txmanager
