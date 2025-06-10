@@ -243,6 +243,22 @@ class PRMAN_OT_StartInteractive(bpy.types.Operator):
                 view.shading.type = 'RENDERED'
 
         return {'FINISHED'}
+    
+class PRMAN_OT_RefreshInteractive(bpy.types.Operator):
+
+    ''''''
+    bl_idname = "renderman.refresh_ipr"
+    bl_label = "Refresh Interactive Rendering"
+    bl_description = "Stop and then restart IPR"
+    bl_options = {'INTERNAL'}    
+
+    def invoke(self, context, event=None):
+        rr = RmanRender.get_rman_render()
+        render_to_it = rr.rman_scene.ipr_render_into == 'it'
+        bpy.ops.renderman.stop_ipr('INVOKE_DEFAULT')
+        time.sleep(2.0) # add a little bit of a delay before we start IPR again
+        bpy.ops.renderman.start_ipr('INVOKE_DEFAULT', render_to_it=render_to_it)
+        return {'FINISHED'}    
 
 class PRMAN_OT_StopInteractive(bpy.types.Operator):
 
@@ -354,6 +370,7 @@ classes = [
     PRMAN_OT_StartInteractive,
     PRMAN_OT_StopInteractive,
     PRMAN_OT_StopRender,
+    PRMAN_OT_RefreshInteractive,
     PRMAN_OT_AttachStatsRender,
     PRMAN_OT_DisconnectStatsRender,
     PRMAN_OT_UpdateStatsConfig,

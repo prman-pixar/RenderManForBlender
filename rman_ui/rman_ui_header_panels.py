@@ -75,7 +75,8 @@ class NODE_MT_renderman_node_editor_menu(bpy.types.Menu):
 
                 if rman_output_node.solo_node_on:
                     layout.context_pointer_set("selected_node", None)
-                    op = layout.operator('node.rman_set_node_solo', text='Reset Solo', icon='FILE_REFRESH')
+                    rman_icon = rfb_icons.get_icon('rman_refresh')
+                    op = layout.operator('node.rman_set_node_solo', text='Reset Solo', icon_value=rman_icon.icon_id)
                     op.refresh_solo = True                                  
 
         elif type(context.space_data.id) == bpy.types.World:

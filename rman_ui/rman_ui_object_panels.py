@@ -193,7 +193,8 @@ class MATERIAL_PT_renderman_object_shader_surface(Panel, CollectionPanel):
                         
                         split = split.split(factor=0.95)
                         split.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
-                        op = split.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH')
+                        rman_icon = rfb_icons.get_icon('rman_refresh')   
+                        op = split.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id)  
                         op.refresh_solo = True 
                         layout.separator()
                         

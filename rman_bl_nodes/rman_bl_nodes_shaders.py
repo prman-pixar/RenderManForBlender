@@ -138,7 +138,8 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = False
                 col = layout.column(align=True)
-                op = col.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH', emboss=False)
+                rman_icon = rfb_icons.get_icon('rman_refresh')
+                op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = True                          
 
     def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0, is_side=False, bl_prop_info=None):

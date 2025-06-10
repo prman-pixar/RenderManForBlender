@@ -426,6 +426,9 @@ class VIEW3D_MT_RM_Add_Render_Menu(bpy.types.Menu):
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")
             layout.operator('renderman.stop_ipr', text="Stop IPR",
                             icon_value=rman_rerender_controls.icon_id) 
+            rman_icon = rfb_icons.get_icon('rman_refresh')    
+            layout.operator('renderman.refresh_ipr', text="Refresh IPR",
+                            icon_value=rman_icon.icon_id)              
             layout.separator()
             rman_icon = rfb_icons.get_icon('rman_vp_viz')
             layout.menu('PRMAN_MT_Viewport_Integrator_Menu', icon_value=rman_icon.icon_id)
