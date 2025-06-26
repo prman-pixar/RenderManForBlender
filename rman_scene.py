@@ -571,7 +571,7 @@ class RmanScene(object):
             ob_eval = instance.instance_object
             ob_eval_visible = ob_eval.visible_in_viewport_get(viewport)
             parent_visible = instance.parent.visible_in_viewport_get(viewport)
-            return (ob_eval_visible or parent_visible)
+            return (ob_eval_visible and parent_visible)
 
         if ob_eval is None:
             ob_eval = instance.object.evaluated_get(self.depsgraph)

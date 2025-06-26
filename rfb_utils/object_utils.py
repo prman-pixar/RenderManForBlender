@@ -190,11 +190,15 @@ def prototype_key(ob):
                 if isinstance(ob.object.data, bpy.types.Mesh): 
                     # see below about gpu_acceleration bug
                     data_ob = bpy.data.objects[ob.object.name]
-                    return '%s-MESH-DATA' % data_ob.original.data.name_full
+                    if data_ob.original.data:
+                        return '%s-MESH-DATA' % data_ob.original.data.name_full
+                    return '%s-MESH-DATA' % ob.object.data.name_full
                 elif isinstance(ob.object.data, bpy.types.Curves):
                     # see below about gpu_acceleration bug
                     data_ob = bpy.data.objects[ob.object.name]
-                    return '%s-CURVES-DATA' % data_ob.original.data.name_full
+                    if data_ob.original.data:
+                        return '%s-CURVES-DATA' % data_ob.original.data.name_full
+                    return '%s-CURVES-DATA' % ob.object.data.name_full
                 else:
                     return '%s-%s-DATA' % (ob.object.type, ob.object.data.name_full)
             else:

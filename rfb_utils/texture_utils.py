@@ -382,16 +382,21 @@ def parse_scene_for_textures(bl_scene=None):
 
     if bl_scene:
         for o in scene_utils.renderable_objects(bl_scene):
+            is_library = False
+            if hasattr(o, 'library') and o.library:
+                is_library = True
+            elif hasattr(o, 'library_weak_reference') and o.library_weak_reference:
+                is_library = True            
             if o.type == 'EMPTY':
                 continue
             elif o.type == 'CAMERA':
                 node = shadergraph_utils.find_projection_node(o) 
                 if node:
-                    update_texture(node, ob=o)
+                    update_texture(node, ob=o, is_library=is_library)
             elif o.type == 'LIGHT':
                 node = o.data.renderman.get_light_node()
                 if node:
-                    update_texture(node, ob=o)
+                    update_texture(node, ob=o, is_library=is_library)
    
     for world in bpy.data.worlds:
         if not world.use_nodes:
@@ -504,17 +509,23 @@ def link_file_handler(id):
         get_textures(id, check_exists=True)
 
     elif isinstance(id, bpy.types.Object):
+        is_library = False
+        if hasattr(id, 'library') and id.library:
+            is_library = True
+        elif hasattr(id, 'library_weak_reference') and id.library_weak_reference:
+            is_library = True        
+            
         if id.type == 'CAMERA':
             node = shadergraph_utils.find_projection_node(id) 
             if node:
-                update_texture(node, ob=id, check_exists=True)
+                update_texture(node, ob=id, check_exists=True, is_library=is_library)
 
         elif id.type == 'LIGHT':
             nodes_list = list()
             ob = id.original
             shadergraph_utils.gather_all_textured_nodes(ob, nodes_list)
             for node in nodes_list:
-                update_texture(node, ob=ob, check_exists=True)
+                update_texture(node, ob=ob, check_exists=True, is_library=is_library)
 
 def txmake_all(blocking=True):
     get_txmanager().txmake_all(blocking=blocking)        
