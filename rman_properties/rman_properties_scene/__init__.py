@@ -127,6 +127,10 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
         rman_render = RmanRender.get_rman_render()
         is_shading = scene_utils.any_areas_shading()
         return (rman_render.rman_context.is_viewport_rendering() or is_shading)        
+    
+    def get_blender_version(self):
+        vers = bpy.app.version
+        return "%s.%s" % (vers[0], vers[1])
 
     current_platform: StringProperty(get=get_platform)
     is_ncr_license: BoolProperty(get=get_is_ncr_license)
@@ -135,7 +139,8 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     is_rman_running: BoolProperty(get=get_is_rman_running)
     is_rman_interactive_running: BoolProperty(get=get_is_rman_interactive_running)         
     is_rman_swatch_render_running: BoolProperty(get=get_is_rman_swatch_render_running)  
-    is_rman_viewport_rendering:  BoolProperty(get=get_is_rman_viewport_rendering)  
+    is_rman_viewport_rendering:  BoolProperty(get=get_is_rman_viewport_rendering) 
+    blender_version: StringProperty(get=get_blender_version) 
 
     # Roz Stats Properties
     def get_roz_stats_progress(self):

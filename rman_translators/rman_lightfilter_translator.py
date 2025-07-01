@@ -2,6 +2,7 @@ from .rman_translator import RmanTranslator
 from ..rfb_utils import property_utils
 from ..rfb_utils import scenegraph_utils
 from ..rfb_utils import object_utils
+from ..rfb_utils import string_utils
 from ..rman_sg_nodes.rman_sg_lightfilter import RmanSgLightFilter
 from mathutils import Matrix
 import bpy                    
@@ -149,7 +150,10 @@ class RmanLightFilterTranslator(RmanTranslator):
         rixparams.SetString("coordsys", rman_sg_lightfilter.coord_sys)
             
         # check if this light filter belongs to a light link
-        if ob.original.data.renderman.linkingGroups != "":
-            rixparams.SetString("linkingGroups", ob.original.data.renderman.linkingGroups)
+        if self.rman_scene.use_blender_light_link:
+            rixparams.SetString("linkingGroups", string_utils.sanitize_node_name(ob.name))            
         else:
-            rixparams.Remove("linkingGroups")
+            if ob.original.data.renderman.linkingGroups != "":
+                rixparams.SetString("linkingGroups", ob.original.data.renderman.linkingGroups)
+            else:
+                rixparams.Remove("linkingGroups")

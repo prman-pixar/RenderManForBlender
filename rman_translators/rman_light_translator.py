@@ -142,12 +142,14 @@ class RmanLightTranslator(RmanTranslator):
             names = {'POINT': 'PxrSphereLight', 'SUN': 'PxrDistantLight',
                     'SPOT': 'PxrDiskLight', 'HEMI': 'PxrDomeLight', 'AREA': 'PxrRectLight'}
             light_shader_name = names[light.type]
-            exposure = light.energy / 200.0
+            sg_node = self.rman_scene.rman.SGManager.RixSGShader("Light", light_shader_name , "light")
+            rixparams = sg_node.params            
             if light.type == 'SUN':
                 exposure = 0
-            sg_node = self.rman_scene.rman.SGManager.RixSGShader("Light", light_shader_name , "light")
-            rixparams = sg_node.params
-            rixparams.SetFloat("exposure", exposure)
+                rixparams.SetFloat("exposure", 0.0)
+            else:
+                exposure = light.energy  # / 200.0
+                rixparams.SetFloat("intensity", exposure)
             rixparams.SetColor("lightColor", string_utils.convert_val(light.color))
             if light.type not in ['HEMI', 'SUN']:
                 rixparams.SetInteger('areaNormalize', 1)
@@ -178,3 +180,27 @@ class RmanLightTranslator(RmanTranslator):
                 rman_sg_light.sg_node.SetOrientTransform(transform_utils.convert_matrix4x4(m))    
         elif light_shader_name == 'PxrDomeLight':
             rman_sg_light.sg_node.SetOrientTransform(s_orientPxrDomeLight)
+
+        if self.rman_scene.use_blender_light_link:
+            # check for shadow light linking
+            if ob.original.light_linking.blocker_collection:
+                shadow_subset = []
+                shadow_exclude = []                
+                for i, o in enumerate(ob.light_linking.blocker_collection.objects):             
+                    if ob.light_linking.blocker_collection.collection_objects[i].light_linking.link_state == 'EXCLUDE':
+                        shadow_exclude.append(string_utils.sanitize_node_name(ob.name)+"_shadowExcludeSubset" )
+                    else:
+                        shadow_subset.append(string_utils.sanitize_node_name(ob.name)+"_shadowSubset" )
+        
+                if shadow_subset:
+                    sg_node.params.SetString("shadowSubset", ob.original.name+"_shadowSubset")
+                else:
+                    sg_node.params.Remove("shadowSubset")
+                if shadow_exclude:
+                    sg_node.params.SetString("shadowExcludeSubset", ob.original.name+"_shadowExcludeSubset")
+                else:
+                    sg_node.params.Remove("shadowExcludeSubset")                
+            else:
+                sg_node.params.Remove("shadowSubset")
+                sg_node.params.Remove("shadowExcludeSubset")
+            rman_sg_light.sg_node.SetLight(sg_node)
