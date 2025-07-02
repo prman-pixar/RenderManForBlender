@@ -551,9 +551,13 @@ def generate_node_type(node_desc, is_oso=False):
             description="Camera visibility for this light",
             default=True)
     elif nodeType in ['samplefilter', 'displayfilter']:
+        callback_fn = update_samplefilters_func
+        if nodeType == 'displayfilter':
+            callback_fn = update_displayfilters_func
         ntype.__annotations__['is_active'] = BoolProperty(
             name="Active",
             description="Enable or disable this filter",
+            update=callback_fn,
             default=True)        
 
     register_utils.rman_register_class(ntype)

@@ -1314,14 +1314,20 @@ class RmanScene(object):
         for bl_df_node in shadergraph_utils.find_displayfilter_nodes(world):
             if not bl_df_node.is_active:
                 continue
-
+            shader_name = bl_df_node.bl_label
+            
             # don't emit stylized filters, if render_rman_stylized is false
-            if bl_df_node.bl_label in rman_constants.RMAN_STYLIZED_FILTERS and not rm.render_rman_stylized:
-                continue
+            if not rm.render_rman_stylized:               
+                if self.is_xpu and shader_name in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                    continue
+                elif shader_name in rman_constants.RMAN_STYLIZED_FILTER:
+                    continue
 
             df_name = bl_df_node.name.replace('.', '_')
+            if shader_name == "PxrStylizedHatchingSampleXPU" and self.is_xpu:            
+                continue
 
-            rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", bl_df_node.bl_label, df_name)
+            rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", shader_name, df_name)
             rman_sg_node = RmanSgNode(self, rman_df_node, "")
             property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_df_node, ob=world)
             display_filter_names.append(df_name)
@@ -1366,6 +1372,22 @@ class RmanScene(object):
             property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world)
             sample_filter_names.append(sf_name)
             samplefilters_list.append(rman_sf_node)
+
+        if self.is_xpu:
+            # check for PxrStylizedHatching
+            for bl_df_node in shadergraph_utils.find_displayfilter_nodes(world):
+                if not bl_df_node.is_active:
+                    continue
+                shader_name = bl_df_node.bl_label                
+                if shader_name == "PxrStylizedHatchingSampleXPU":
+                    sf_name = bl_df_node.name.replace('.', '_')
+
+                    rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", shader_name, sf_name)
+                    rman_sg_node = RmanSgNode(self, rman_sf_node, "")
+                    property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_sf_node, ob=world)
+                    sample_filter_names.append(sf_name)
+                    samplefilters_list.append(rman_sf_node)   
+                    break                 
 
         if sel_chan_name:
             sf_name = '__RMAN_VIEWPORT_CHANNEL_SELECT__'

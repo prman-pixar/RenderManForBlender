@@ -5,6 +5,7 @@ from . import object_utils
 from .prefs_utils import get_pref
 from ..rman_constants import (
     RMAN_STYLIZED_FILTERS, 
+    RMAN_STYLIZED_XPU_FILTERS,
     RMAN_STYLIZED_PATTERNS, 
     RMAN_UTILITY_PATTERN_NAMES, 
     RFB_FLOAT3,
@@ -945,8 +946,19 @@ def find_all_stylized_filters(world):
         if socket.is_linked:
             link = socket.links[0]
             node = link.from_node    
-            if node.bl_label in RMAN_STYLIZED_FILTERS:
+            if node.bl_label in RMAN_STYLIZED_FILTERS+RMAN_STYLIZED_XPU_FILTERS:
                 nodes.append(node)
+
+    output = find_node(world, 'RendermanSamplefiltersOutputNode')
+    if not output:
+        return nodes   
+
+    for i, socket in enumerate(output.inputs):
+        if socket.is_linked:
+            link = socket.links[0]
+            node = link.from_node    
+            if node.bl_label in RMAN_STYLIZED_FILTERS+RMAN_STYLIZED_XPU_FILTERS:
+                nodes.append(node)                
 
     return nodes
                           

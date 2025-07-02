@@ -84,10 +84,18 @@ RFB_ASSET_VERSION_KEY = '__rman_asset_version__'
 RFB_ASSET_VERSION = 2.0
 
 RMAN_STYLIZED_FILTERS = [
+    "PxrStylizedCanvas",
     "PxrStylizedHatching",
     "PxrStylizedLines",
     "PxrStylizedToon"
 ]    
+
+RMAN_STYLIZED_XPU_FILTERS= [
+    "PxrStylizedHatchingSampleXPU",
+    "PxrStylizedLinesXPU",
+    "PxrStylizedCanvasXPU",
+    "PxrStylizedPainterlyBrushXPU"
+]
 
 # These lights should be set as Blender AREA light type.
 # This allows for target aiming using Shift + T.

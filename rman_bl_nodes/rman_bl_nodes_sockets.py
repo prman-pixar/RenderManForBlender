@@ -452,7 +452,7 @@ class RendermanNodeSocketInt(NodeSocketFloat, RendermanSocket):
     bl_idname = 'RendermanNodeSocketInt'
     bl_label = "Renderman Int"
 
-    renderman_type: StringProperty(default='float')
+    renderman_type: StringProperty(default='int')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
     array_size: IntProperty(default=-1)
@@ -469,7 +469,7 @@ class RendermanNodeSocketString(NodeSocketString, RendermanSocket):
     bl_idname = 'RendermanNodeSocketString'
     bl_label = "Renderman String"
 
-    renderman_type: StringProperty(default='float')
+    renderman_type: StringProperty(default='string')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
     array_size: IntProperty(default=-1)

@@ -5,7 +5,7 @@ from ..rfb_utils import object_utils
 from ..rfb_logger import rfb_log
 from .. import rman_bl_nodes
 from ..rman_constants import RMAN_STYLIZED_FILTERS, RMAN_STYLIZED_PATTERNS, RMAN_UTILITY_PATTERN_NAMES 
-from ..rman_constants import BLENDER_VERSION_MAJOR, BLENDER_VERSION_MINOR 
+from ..rman_constants import RMAN_STYLIZED_XPU_FILTERS, BLENDER_VERSION_MAJOR, BLENDER_VERSION_MINOR 
 
 class PRMAN_OT_Enable_Sylized_Looks(bpy.types.Operator):
     bl_idname = "scene.rman_enable_stylized_looks"
@@ -212,9 +212,15 @@ class PRMAN_OT_Add_Stylized_Filter(bpy.types.Operator):
         items = []
         scene = context.scene
         world = scene.world        
-        for f in RMAN_STYLIZED_FILTERS:
+        if scene.renderman.renderVariant == "xpu":
+            filters = RMAN_STYLIZED_XPU_FILTERS
+        else:
+            filters = RMAN_STYLIZED_FILTERS
+        for f in filters:
             found = False
-            for n in shadergraph_utils.find_displayfilter_nodes(world):
+            filter_nodes = shadergraph_utils.find_displayfilter_nodes(world) +  shadergraph_utils.find_samplefilter_nodes(world)
+                
+            for n in filter_nodes:
                 if n.bl_label == f:
                     found = True
                     break
@@ -235,13 +241,20 @@ class PRMAN_OT_Add_Stylized_Filter(bpy.types.Operator):
         world = scene.world
         rm = world.renderman
         nt = world.node_tree
-
-        output = shadergraph_utils.find_node(world, 'RendermanDisplayfiltersOutputNode')
-        if not output:
-            bpy.ops.material.rman_add_rman_nodetree('EXEC_DEFAULT', idtype='world')
-            output = shadergraph_utils.find_node(world, 'RendermanDisplayfiltersOutputNode')           
-
+        is_xpu = scene.renderman.renderVariant == "xpu"
         filter_name = self.properties.filter_name
+        if is_xpu and filter_name == "PxrStylizedHatchingSampleXPU":
+            output = shadergraph_utils.find_node(world, 'RendermanSamplefiltersOutputNode')
+            if not output:
+                bpy.ops.material.rman_add_rman_nodetree('EXEC_DEFAULT', idtype='world')
+                output = shadergraph_utils.find_node(world, 'RendermanSamplefiltersOutputNode')    
+        else:            
+            output = shadergraph_utils.find_node(world, 'RendermanDisplayfiltersOutputNode')
+            if not output:
+                bpy.ops.material.rman_add_rman_nodetree('EXEC_DEFAULT', idtype='world')
+                output = shadergraph_utils.find_node(world, 'RendermanDisplayfiltersOutputNode')           
+
+
         filter_node_name = rman_bl_nodes.__BL_NODES_MAP__[filter_name]
         filter_node = nt.nodes.new(filter_node_name) 
 

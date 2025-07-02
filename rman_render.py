@@ -868,6 +868,9 @@ class RmanRender(object):
             rib_options += " -indent"
 
         self.rman_context.set_mode_append(RmanRenderContext.k_render_running | RmanRenderContext.k_is_external | RmanRenderContext.k_is_rib_mode)
+        rendervariant = render_utils.get_render_variant(bl_scene)
+        if rendervariant == 'xpu':
+            self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu)        
         if rm.external_animation:
             original_frame = bl_scene.frame_current
             do_persistent_data = rm.do_persistent_data
