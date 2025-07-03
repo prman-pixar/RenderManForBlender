@@ -1,7 +1,7 @@
 from .rman_ui_base import _RManPanelHeader
 from .rman_ui_base import CollectionPanel
 from .rman_ui_base import PRManButtonsPanel
-from ..rfb_utils.draw_utils import _draw_ui_from_rman_config, draw_nodes_properties_ui, draw_node_properties_recursive
+from ..rfb_utils.draw_utils import _draw_ui_from_rman_config, draw_nodes_properties_ui, draw_node_properties_recursive, get_open_close_icon
 from ..rman_constants import NODE_LAYOUT_SPLIT
 from ..rfb_utils import prefs_utils
 from ..rfb_utils.shadergraph_utils import find_node
@@ -186,12 +186,13 @@ class RENDER_PT_renderman_world_display_filters(PRManButtonsPanel, Panel):
         for i, socket in enumerate(output.inputs):
             split = layout.split()
             row = split.row()
-            col = row.column()
-            col.context_pointer_set("node", output)
-            col.context_pointer_set("nodetree", nt)
-            col.context_pointer_set("socket", socket)                 
-            op = col.operator("node.rman_remove_displayfilter_node_socket", text="", icon="REMOVE")
-            op.index = i                      
+            if socket.is_linked:
+                col = row.column()
+                link = socket.links[0]
+                node = link.from_node                   
+                icon = get_open_close_icon(not node.hide)           
+                col.prop(node, "hide", icon=icon, icon_only=True, invert_checkbox=True, emboss=False)             
+                                     
             col = row.column()
             col.label(text=socket.identifier)
 
@@ -210,6 +211,12 @@ class RENDER_PT_renderman_world_display_filters(PRManButtonsPanel, Panel):
                 col.enabled = (i != len(output.inputs)-1)
                 op = col.operator("node.rman_move_displayfilter_node_down", text="", icon="TRIA_DOWN")
                 op.index = i
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)                 
+                op = col.operator("node.rman_remove_displayfilter_node_socket", text="", icon="REMOVE")
+                op.index = i                           
                         
             layout.context_pointer_set("node", output)
             layout.context_pointer_set("nodetree", nt)
@@ -217,11 +224,12 @@ class RENDER_PT_renderman_world_display_filters(PRManButtonsPanel, Panel):
             if socket.is_linked:
                 link = socket.links[0]
                 node = link.from_node                 
-                rman_icon = rfb_icons.get_displayfilter_icon(node.bl_label)
-                layout.menu('NODE_MT_renderman_connection_menu', text='%s (%s)' % (node.name, node.bl_label), icon_value=rman_icon.icon_id)    
-                layout.prop(node, "is_active")
-                if node.is_active:                          
-                    draw_node_properties_recursive(layout, context, nt, node, level=1)                    
+                if node.hide is False:
+                    rman_icon = rfb_icons.get_displayfilter_icon(node.bl_label)
+                    layout.menu('NODE_MT_renderman_connection_menu', text='%s (%s)' % (node.name, node.bl_label), icon_value=rman_icon.icon_id)    
+                    layout.prop(node, "is_active")
+                    if node.is_active:                          
+                        draw_node_properties_recursive(layout, context, nt, node, level=1)                    
             else:
                 layout.menu('NODE_MT_renderman_connection_menu', text='None', icon='NODE_MATERIAL')         
 
@@ -258,13 +266,13 @@ class RENDER_PT_renderman_world_sample_filters(PRManButtonsPanel, Panel):
         layout.separator()
 
         for i, socket in enumerate(output.inputs):
-            row = layout.row()
-            col = row.column()
-            col.context_pointer_set("node", output)
-            col.context_pointer_set("nodetree", nt)
-            col.context_pointer_set("socket", socket)                 
-            op = col.operator("node.rman_remove_samplefilter_node_socket", text="", icon="REMOVE")
-            op.index = i               
+            row = layout.row()       
+            if socket.is_linked:
+                col = row.column()
+                link = socket.links[0]
+                node = link.from_node                   
+                icon = get_open_close_icon(not node.hide)           
+                col.prop(node, "hide", icon=icon, icon_only=True, invert_checkbox=True, emboss=False)                   
             col = row.column()
             col.label(text=socket.identifier)       
 
@@ -282,19 +290,26 @@ class RENDER_PT_renderman_world_sample_filters(PRManButtonsPanel, Panel):
                 col.context_pointer_set("socket", socket)             
                 col.enabled = (i != len(output.inputs)-1)
                 op = col.operator("node.rman_move_samplefilter_node_down", text="", icon="TRIA_DOWN")
-                op.index = i             
+                op.index = i        
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)                 
+                op = col.operator("node.rman_remove_samplefilter_node_socket", text="", icon="REMOVE")
+                op.index = i                        
 
             layout.context_pointer_set("socket", socket)
             layout.context_pointer_set("node", output)
             layout.context_pointer_set("nodetree", nt)            
             if socket.is_linked:
                 link = socket.links[0]
-                node = link.from_node                 
-                rman_icon = rfb_icons.get_samplefilter_icon(node.bl_label)
-                layout.menu('NODE_MT_renderman_connection_menu', text='%s (%s)' % (node.name, node.bl_label), icon_value=rman_icon.icon_id)
-                layout.prop(node, "is_active")
-                if node.is_active:                
-                    draw_node_properties_recursive(layout, context, nt, node, level=1)                    
+                node = link.from_node
+                if node.hide is False:                 
+                    rman_icon = rfb_icons.get_samplefilter_icon(node.bl_label)
+                    layout.menu('NODE_MT_renderman_connection_menu', text='%s (%s)' % (node.name, node.bl_label), icon_value=rman_icon.icon_id)
+                    layout.prop(node, "is_active")
+                    if node.is_active:                
+                        draw_node_properties_recursive(layout, context, nt, node, level=1)                    
             else:
                 layout.menu('NODE_MT_renderman_connection_menu', text='None', icon='NODE_MATERIAL')           
 

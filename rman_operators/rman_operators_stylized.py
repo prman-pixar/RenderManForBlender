@@ -88,16 +88,23 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
     def attach_pattern(self, context, ob):
         mat = object_utils.get_active_material(ob)
         if mat is None:
-            bpy.ops.object.rman_add_bxdf('EXEC_DEFAULT', bxdf_name='PxrSurface')
+            context_override = context.copy()
+            context_override["selected_object"] = ob
+            with bpy.context.temp_override(**context_override):
+                bpy.ops.object.rman_add_bxdf('EXEC_DEFAULT', bxdf_name='PxrSurface')
             mat = object_utils.get_active_material(ob)
 
         if mat is None:
             self.report({'ERROR'}, 'Cannot find a material for: %s' % ob.name)
+            return {"FINISHED"} 
         
         nt = mat.node_tree
         output = shadergraph_utils.is_renderman_nodetree(mat)
         if not output:
-            bpy.ops.object.rman_add_bxdf('EXEC_DEFAULT', bxdf_name='PxrSurface')
+            context_override = context.copy()
+            context_override["selected_object"] = ob
+            with bpy.context.temp_override(**context_override):            
+                bpy.ops.object.rman_add_bxdf('EXEC_DEFAULT', bxdf_name='PxrSurface')
             mat = object_utils.get_active_material(ob)
             nt = mat.node_tree
             output = shadergraph_utils.is_renderman_nodetree(mat)
@@ -182,7 +189,6 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
                 self.add_manifolds(nt, pattern_node)         
     
     def execute(self, context):
-        scene = context.scene
         selected_objects = context.selected_objects
 
         obj = getattr(context, "selected_obj", None)
@@ -191,14 +197,6 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
         else:
             for ob in selected_objects:
                 self.attach_pattern(context, ob)         
-
-        op = getattr(context, 'op_ptr', None)
-        if op:
-            op.selected_obj_name = '0'
-
-        if context.view_layer.objects.active:
-            context.view_layer.objects.active.select_set(False)
-        context.view_layer.objects.active = None               
 
         return {"FINISHED"}         
 
@@ -217,19 +215,7 @@ class PRMAN_OT_Add_Stylized_Filter(bpy.types.Operator):
         else:
             filters = RMAN_STYLIZED_FILTERS
         for f in filters:
-            found = False
-            filter_nodes = shadergraph_utils.find_displayfilter_nodes(world) +  shadergraph_utils.find_samplefilter_nodes(world)
-                
-            for n in filter_nodes:
-                if n.bl_label == f:
-                    found = True
-                    break
-            if found:
-                continue          
             items.append((f, f, ""))
-
-        if len(items) < 1:
-            items.append(('0', '', ''))
 
         return items
 
@@ -239,7 +225,6 @@ class PRMAN_OT_Add_Stylized_Filter(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         world = scene.world
-        rm = world.renderman
         nt = world.node_tree
         is_xpu = scene.renderman.renderVariant == "xpu"
         filter_name = self.properties.filter_name
@@ -271,10 +256,6 @@ class PRMAN_OT_Add_Stylized_Filter(bpy.types.Operator):
         nt.links.new(filter_node.outputs[0], free_socket)
         if self.properties.node_name != "":
             filter_node.name = self.properties.node_name
-
-        op = getattr(context, 'op_ptr', None)
-        if op:
-            op.stylized_filter = filter_node.name
 
         world.update_tag()
 

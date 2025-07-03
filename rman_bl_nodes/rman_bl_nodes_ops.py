@@ -96,11 +96,13 @@ class NODE_OT_remove_displayfilter_node_socket(bpy.types.Operator):
     bl_description = 'Remove this displayfilter socket.'
 
     index: IntProperty(default=-1)
+    do_delete: BoolProperty(default=False)
 
     def execute(self, context):
         if hasattr(context, 'node'):
             world = context.scene.world
             node = context.node
+            nt = world.node_tree
         else:
             world = context.scene.world
             rm = world.renderman
@@ -114,6 +116,10 @@ class NODE_OT_remove_displayfilter_node_socket(bpy.types.Operator):
             node.remove_input()
         else:
             socket = node.inputs[self.index]
+            if socket.is_linked and self.properties.do_delete:
+                link = socket.links[0]
+                input_node = link.from_node  
+                nt.nodes.remove(input_node)
             node.remove_input_index(socket)
             
         world.update_tag()            
