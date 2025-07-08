@@ -209,7 +209,7 @@
             "name": "blender_ipr_aidenoiser_minSamples",
             "label": "Min Samples",
             "type": "int",
-            "default": 2,
+            "default": 4,
             "bl_prop_options": "",
             "help": "The minimum number of average samples per bucket before interactive denoising runs for the first time. Changing this preference requires a render restart to be respected",
             "update_function_name": "update_blender_ipr_aidenoiser_minSamples",
