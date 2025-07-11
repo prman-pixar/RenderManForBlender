@@ -166,8 +166,8 @@ class RmanScene(object):
     def use_blender_light_link(self):
         if not rman_constants.BLENDER_41:
             return False
-        return self.bl_scene.renderman.use_blender_light_link
-
+        return self.bl_scene.renderman.use_blender_light_link == '1'
+        
     def create_translators(self):
         # Create our dictionary of translators. The object type is determined
         # by the "_detect_primitive_" function in rfb_utils/object_utils.py
