@@ -314,11 +314,11 @@ class RmanEnvConfig(object):
             self.is_valid_license = self.license_info.is_valid_license
             if self.is_valid_license:
                 self.feature_version = '%d.0' % self.build_info._version_major
-                status = self.license_info.is_feature_available(feature_name='RPS-Stylized', feature_version=self.feature_version)
+                status = self.license_info.is_feature_available(feature_name='RPS-Stylized')
                 self.has_stylized_license = status.found
-                status = self.license_info.is_feature_available(feature_name='RPS-XPU', feature_version=self.feature_version)
+                status = self.license_info.is_feature_available(feature_name='RPS-XPU')
                 self.has_xpu_license =  status.found    
-                status = self.license_info.is_feature_available(feature_name='RPS', feature_version=self.feature_version)
+                status = self.license_info.is_feature_available(feature_name='RPS')
                 self.has_rps_license =  status.found    
 
     def _is_prman_license_available(self):

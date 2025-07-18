@@ -6,6 +6,7 @@ from .rfb_utils import register_utils
 from .rfb_logger import rfb_log
 
 import gpu
+import blf
 
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
@@ -85,6 +86,20 @@ class PRManRender(bpy.types.RenderEngine):
                 
         if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:
             self.rman_render.update_scene(context, depsgraph)   
+
+    def draw_viewport_message(self, context, msg):
+        w = context.region.width     
+        h = context.region.height          
+        pos_x = w / 2 - 100
+        pos_y = 20
+        blf.enable(0, blf.SHADOW)
+        blf.shadow_offset(0, 1, -1)
+        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
+        blf.size(0, 20)
+        blf.position(0, pos_x, pos_y, 0)
+        blf.color(0, 1.0, 0.0, 0.0, 1.0)
+        blf.draw(0, "%s" % (msg))
+        blf.disable(0, blf.SHADOW)               
 
     def view_draw(self, context, depsgraph):
         '''
