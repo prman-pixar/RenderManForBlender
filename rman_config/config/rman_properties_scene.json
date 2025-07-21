@@ -585,7 +585,22 @@
                 "conditionalVisPath": "rman_bake_mode",
                 "conditionalVisValue": "pattern"
             } 
-        },         
+        },    
+        {
+            "panel": "RENDER_PT_renderman_baking",
+            "page": "Illumination",
+            "name": "rman_bake_illum_raytracebaketesselation",
+            "label": "Raytrace Bake Tesselation",
+            "type": "int",
+            "default": 0,  
+            "widget": "checkbox",
+            "help": "Force the tesselation to be the same as the baking tesselation when raytracing (for example when using a PxrOcclusion or PxrDirt shader). This can reduce self intersections and give cleaner results but may increase the density of polygons when raytracing. If you have multiple pattern bakes at different resolutions, the highest resolution will be chosen. Don't attempt to use this option alongside interactive rendering.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "rman_bake_mode",
+                "conditionalVisValue": "pattern"
+            } 
+        },      
         {
             "panel": "RENDER_PT_renderman_baking",
             "page": "Illumination",
@@ -657,10 +672,10 @@
             "type": "string",
             "default": "variance",
             "widget": "popup",
-            "options": "contrast|variance|halfbuffer",
-            "help": "Selects the metric used by the adaptive sampler. contrast: New version of the original metric used before RenderMan 24. variance: New perceptual variance metric (default). halfbuffer: Half-buffer metric introduced in RenderMan 22. When changing from variance to contrast, it is recommended that the PixelVariance be lowered.  eg. The default production level PixelVariance for the variance metric is 0.015, but for contrast it should be 0.005",
+            "options": "contrast|variance|relativevariance|halfbuffer",
+            "help": "Specifies the metric used to drive adaptive sampling. 'contrast' measures the contrast between samples in a pixel. 'variance' measures the variance of the samples in a pixel. 'relativevariance' uses the variance of the samples divided by the intensity. (Previously called variance-v22.) 'halfbuffer' splits the samples into two classes and measures the difference between the average of each of the two sample classes. Not implemented in XPU.",
             "update_function_name": "update_adaptiveMetric",
-            "update_function": "def update_adaptiveMetric(self, context):\n    if self.adaptiveMetric=='contrast':\n        self.ri_pixelVariance=0.005\n    elif self.adaptiveMetric=='variance':\n        self.ri_pixelVariance=0.015\n    elif self.adaptiveMetric=='halfbuffer':\n        self.ri_pixelVariance=0.02"
+            "update_function": "def update_adaptiveMetric(self, context):\n    if self.adaptiveMetric=='contrast':\n        self.ri_pixelVariance=0.1\n    elif self.adaptiveMetric=='variance':\n        self.ri_pixelVariance=0.05\n    elif self.adaptiveMetric=='relativevariance':\n        self.ri_pixelVariance=0.18\n    elif self.adaptiveMetric=='halfbuffer':\n        self.ri_pixelVariance=0.1"
         },              
         {
             "panel": "RENDER_PT_renderman_sampling",
@@ -668,13 +683,13 @@
             "riopt": "Ri:PixelVariance",
             "label": "Pixel Variance",
             "type": "float",
-            "default": 0.015,
+            "default": 0.05,
             "min": 0.0,
             "max": 0.5,
             "digits": 5,
             "connectable": false,
             "presets": {
-                "Test": 0.15,
+                "Test": 0.1,
                 "Denoising": 0.05,
                 "High Quality": 0.01
             },
@@ -1153,6 +1168,15 @@
         },
         {
             "panel": "RENDER_PT_renderman_advanced_settings",
+            "name": "deep_maxsamples",
+            "label": "Max Deep Samples",
+            "riopt": "deep:maxsamples",
+            "type": "int",
+            "default": 1,
+            "help": "The maximum number of deep samples to retain per subpixel location. Note that this is a hard limit that applies regardless of the compression setting. Increasing this value and decreasing the deep shadow error limit will increase the number of samples in deep output, which may help with accuracy in deep compositing. However, this will increase the RAM requirements of the render. This option currently only applies to XPU."
+        },
+        {
+            "panel": "RENDER_PT_renderman_advanced_settings",
             "name": "volume_aggregatespace",
             "label": "Volume Aggregate Space",
             "riopt": "volume:aggregatespace",
@@ -1562,23 +1586,46 @@
         {
             "panel": "RENDER_PT_renderman_workspace",
             "page": "",
-            "name": "statistics_jsonFilename",
-            "riopt": "statistics:jsonFilename",
-            "label": "Stats JSON Filename",
-            "type": "string",
-            "widget": "fileinput",
-            "default": "",
-            "help": "File name for raw statistics JSON report. Setting this file name will trigger the creation of a default JSON Report listener to write out all diagnostic data from the stats system to a JSON file. When left blank, fall back to JSON report listener in the configuration file if specified otherwise JSON report is disabled."               
+            "name": "statistics_jsonEnabled",
+            "riopt": "statistics:jsonEnabled",
+            "label": "Enable JSON Report",
+            "type": "int",
+            "widget": "checkbox",
+            "default": "1",
+            "help": "Enable end-of-render JSON report containing render diagnostics. Changes to this parameter will not take effect until the next render."               
         },
         {
             "panel": "RENDER_PT_renderman_workspace",
+            "page": "",
+            "name": "statistics_jsonFilename",
+            "riopt": "statistics:jsonFilename",
+            "label": "JSON Report Filename",
+            "type": "string",
+            "widget": "fileinput",
+            "default": "",
+            "help": "Output file name for a statistics JSON report. Setting this file name will trigger the creation of an end-of render JSON-format report containing diagnostic data from the stats system. By default only the standard set of metrics will be gathered (see jsonMetrics)."               
+        },
+        {
+            "panel": "RENDER_PT_renderman_workspace",
+            "page": "",
+            "name": "statistics_jsonMetrics",
+            "riopt": "statistics:jsonMetrics",
+            "label": "Stats JSON Metric Preset",
+            "type": "string",
+            "default": "standard",
+            "widget": "popup",
+            "options": "standard|detailed",
+            "help": "The preset string defines the metrics included in the JSON diagnostic report. There are two supported options: 'standard' or 'detailed'. The default setting, 'standard', includes nearly all available metrics in the report. Choose the 'detailed' option to capture every available metric. Keep in mind that capturing all metrics may impact render performance."
+        },
+        {
+            "panel": "",
             "page": "",
             "name": "statistics_jsonMetricsRegexp",
             "riopt": "statistics:jsonMetricsRegexp",
             "label": "Stats JSON Metrics Regexp",
             "type": "string",
-            "default": ".*",
-            "help": "A regular expression specifying which stats metrics the default JSON report listener should gather. Defaults to all metrics. If left blank, no metrics will be gathered."
+            "default": "",
+            "help": "(hidden) Optional regular expression listing the metrics which should be gathered and output in the JSON report. A single regexp string is passed, so if you wish to specify multiple metrics use a | delimeter. For example: /rman/scenegraph@sceneBuildingBegin|/rman/scenegraph@sceneBuildingEnd Note: this setting is deprecated and will be removed in a future version. Use jsonMetrics instead."
         },
         {
             "panel": "RENDER_PT_renderman_workspace",
