@@ -31,7 +31,8 @@ class RmanLightFilterTranslator(RmanTranslator):
             rman_sg_node.sg_lightfilters.clear()
         else:
             for c in [ rman_sg_node.sg_node.GetChild(i) for i in range(0, rman_sg_node.sg_node.GetNumChildren())]:
-                rman_sg_node.sg_node.RemoveCoordinateSystem(c)
+                # This RemoveCoordinateSystem call seems to cause issues with editing. See RMAN-23355.
+                # rman_sg_node.sg_node.RemoveCoordinateSystem(c)
                 rman_sg_node.sg_node.RemoveChild(c)
                 self.rman_scene.sg_scene.DeleteDagNode(c)         
 
