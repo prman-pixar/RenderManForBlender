@@ -142,7 +142,7 @@ class TxFileItem(PropertyGroup):
            name="Texture Type",
            items=items,
            description="Texture Type",
-           default=txparams.TX_TYPE_REGULAR)           
+           default=txparams.TX_TYPES.REGULAR)           
 
     items = []
     for item in txparams.TX_WRAP_MODES:
@@ -151,12 +151,12 @@ class TxFileItem(PropertyGroup):
     s_mode: EnumProperty(
         name="S Wrap",
         items=items,
-        default=txparams.TX_WRAP_MODE_PERIODIC)
+        default=txparams.TX_WRAP_MODES.PERIODIC)
 
     t_mode: EnumProperty(
         name="T Wrap",
         items=items,
-        default=txparams.TX_WRAP_MODE_PERIODIC)       
+        default=txparams.TX_WRAP_MODES.PERIODIC)       
 
     items = []
     for item in txparams.TX_FORMATS:
@@ -164,19 +164,20 @@ class TxFileItem(PropertyGroup):
 
     texture_format: EnumProperty(
               name="Format", 
-              default=txparams.TX_FORMAT_PIXAR,
+              default=txparams.TX_FORMATS.OPENEXR,
               items=items,
               description="Texture format")
 
-    items = []
-    items.append(('default', 'default', ''))
-    for item in txparams.TX_DATATYPES:
-        items.append((item, item, ''))
+    items = set()
+    items.add(('default', 'default', ''))
+    items.update(
+        (i, i, '') for i in [*txparams.TX_DATATYPES, *txparams.TX_EXR_DATATYPES]
+    )
 
     data_type: EnumProperty(
             name="Data Type",
-            default=txparams.TX_DATATYPE_FLOAT,
-            items=items,
+            default=txparams.TX_DATATYPES.FLOAT,
+            items=list(items),
             description="The data storage txmake uses")
 
     items = []
@@ -185,7 +186,7 @@ class TxFileItem(PropertyGroup):
 
     resize: EnumProperty(
             name="Resize",
-            default=txparams.TX_RESIZE_UP_DASH,
+            default=txparams.TX_RESIZES.UP_DASH,
             items=items,
             description="The type of resizing flag to pass to txmake")
 
@@ -545,7 +546,7 @@ class PRMAN_OT_Renderman_txmanager_add_texture(Operator):
             item.bumpRough_invertV = bool(bumprough['invertV'])
             item.bumpRough_refit = bool(bumprough['refit'])
         else:
-            params.bumpRough = "-1"
+            item.bumpRough = "-1"
 
         item.tooltip = '\nNode ID: ' + item.nodeID + "\n" + str(txfile)
         # FIXME: should also add the nodes that this texture is referenced in     
@@ -593,7 +594,7 @@ class PRMAN_OT_Renderman_txmanager_refresh(Operator):
                 item.bumpRough_invertV = bool(int(bumprough['invertV']))
                 item.bumpRough_refit = bool(int(bumprough['refit']))
             else:
-                params.bumpRough = "-1"                
+                item.bumpRough = "-1"                
     
             try:
                 item.tooltip = '\n' + item.nodeID + "\n" + str(txfile)
@@ -828,7 +829,7 @@ def index_updated(self, context):
             item.bumpRough_invertV = bool(int(bumprough['invertV']))
             item.bumpRough_refit = bool(int(bumprough['refit']))
         else:
-            params.bumpRough = "-1"  
+            item.bumpRough = "-1"  
 
         item.tooltip = '\nNode ID: ' + item.nodeID + "\n" + str(txfile)                      
 

@@ -83,6 +83,7 @@ class RfBTxManager(object):
 
     def get_prefs(self):
         prefs = dict()
+        prefs['backend'] = get_pref('rman_txmanager_backend')
         prefs['num_workers'] = get_pref('rman_txmanager_workers')
         prefs['fallback_path'] = string_utils.expand_string(get_pref('path_fallback_textures_path'), 
                                                   asFilePath=True)

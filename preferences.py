@@ -45,7 +45,8 @@ __DEFAULTS__ = {
     'rman_xpu_cpu_devices': [],
     'draw_panel_icon': True,
     'path_fallback_textures_path': os.path.join('<OUT>', 'textures'),        
-    'path_fallback_textures_path_always': False,            
+    'path_fallback_textures_path_always': False,
+    'rman_txmanager_backend': 'OpenImageIO',
     'rman_txmanager_keep_extension': True,
     'rman_txmanager_workers': 2,       
     'rman_txmanager_tex_extensions': 'tex tx txr ptx ptex ies',
@@ -304,6 +305,16 @@ class RendermanPreferences(AddonPreferences):
         description="Always use the fallback texture path regardless",
         default=False)            
 
+    rman_txmanager_backend: EnumProperty(
+        name="Backend",
+        description="Backend executable called by the texture manager. Select oiiotool to use OpenImageIO, select txmake for legacy backend.",
+        items=[
+            ("OpenImageIO", "OpenImageIO", ""),
+            ("Legacy", "Legacy", ""),
+        ],
+        default="OpenImageIO",
+    )
+
     rman_txmanager_keep_extension: BoolProperty(
         name='Keep original extension',
         default=True,
@@ -318,7 +329,7 @@ class RendermanPreferences(AddonPreferences):
     )  
 
     rman_txmanager_tex_extensions: StringProperty(
-        name='Texture Extensions',
+        name='Ignore Texture Extensions',
         description="Any file with one of these extensions will not be converted by the texture manager and used as-is. Entries should be space-delimited.",
         default='tex tx txr ptx ptex ies',
     )      
@@ -814,6 +825,7 @@ class RendermanPreferences(AddonPreferences):
         col = row.column()
         col.prop(self, 'path_fallback_textures_path')
         col.prop(self, 'path_fallback_textures_path_always')
+        col.prop(self, "rman_txmanager_backend")
         col.prop(self, "rman_txmanager_workers")
         col.prop(self, "rman_txmanager_keep_extension")
         col.prop(self, "rman_txmanager_tex_extensions")
