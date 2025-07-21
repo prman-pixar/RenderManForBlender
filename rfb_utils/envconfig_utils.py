@@ -483,18 +483,6 @@ def _guess_rmantree():
             rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)
             return None   
 
-        if not __RMAN_ENV_CONFIG__.is_valid_license:
-            __RMAN_ENV_CONFIG__.set_error_message("Cannot find a valid license", load_error=False)   
-            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)                 
-
-        elif not __RMAN_ENV_CONFIG__.has_rps_license:
-            __RMAN_ENV_CONFIG__.set_error_message("Cannot find render license", load_error=False)   
-            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
-
-        elif  __RMAN_ENV_CONFIG__.has_license_expired:
-            __RMAN_ENV_CONFIG__.set_error_message("License has expired", load_error=False)   
-            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
-
         rfb_log().debug("Guessed RMANTREE: %s" % rmantree)
 
     # Create an RmanEnvConfig object
@@ -508,6 +496,17 @@ def _guess_rmantree():
         return None   
 
     __RMAN_ENV_CONFIG__.config_environment()
+    if not __RMAN_ENV_CONFIG__.is_valid_license:
+        __RMAN_ENV_CONFIG__.set_error_message("Cannot find a valid license", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)                 
+
+    elif not __RMAN_ENV_CONFIG__.has_rps_license:
+        __RMAN_ENV_CONFIG__.set_error_message("Cannot find render license", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
+
+    elif  __RMAN_ENV_CONFIG__.has_license_expired:
+        __RMAN_ENV_CONFIG__.set_error_message("License has expired", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
 
     return __RMAN_ENV_CONFIG__
 
