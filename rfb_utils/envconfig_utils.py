@@ -70,6 +70,7 @@ class RmanEnvConfig(object):
         self.has_xpu_license = False
         self.has_stylized_license = False
         self.has_rps_license = False
+        self.has_license_expired = False
 
         self.load_error = False
         self.load_error_message = ""
@@ -208,13 +209,13 @@ class RmanEnvConfig(object):
 
         return True      
 
-    def set_error_message(self, msg=""):
+    def set_error_message(self, msg="", load_error=True):
         if msg == "" or msg is None:
             self.load_error_message = ""
             self.load_error = False
         else:
             self.load_error_message = msg
-            self.load_error = True                  
+            self.load_error = load_error                  
 
     def _append_to_path(self, path):        
         if path is not None:
@@ -320,6 +321,8 @@ class RmanEnvConfig(object):
                 self.has_xpu_license =  status.found    
                 status = self.license_info.is_feature_available(feature_name='RPS')
                 self.has_rps_license =  status.found    
+                if status.found:
+                    self.has_license_expired = status.is_expired()
 
     def _is_prman_license_available(self):
         # Return true if there is PhotoRealistic-RenderMan a feature
@@ -478,7 +481,19 @@ def _guess_rmantree():
         if buildinfo._version_major == rman_constants.RMAN_SUPPORTED_VERSION_MAJOR and buildinfo._version_minor < rman_constants.RMAN_SUPPORTED_VERSION_MINOR:
             __RMAN_ENV_CONFIG__.set_error_message("Error loading addon using RMANTREE=%s.  The minor version found (%s) is not supported. Minimum version supported is %s." % (rmantree, buildinfo._version_minor, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
             rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)
-            return None             
+            return None   
+
+        if not __RMAN_ENV_CONFIG__.is_valid_license:
+            __RMAN_ENV_CONFIG__.set_error_message("Cannot find a valid license", load_error=False)   
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)                 
+
+        elif not __RMAN_ENV_CONFIG__.has_rps_license:
+            __RMAN_ENV_CONFIG__.set_error_message("Cannot find render license", load_error=False)   
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
+
+        elif  __RMAN_ENV_CONFIG__.has_license_expired:
+            __RMAN_ENV_CONFIG__.set_error_message("License has expired", load_error=False)   
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
 
         rfb_log().debug("Guessed RMANTREE: %s" % rmantree)
 

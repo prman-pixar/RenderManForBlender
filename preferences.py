@@ -770,11 +770,12 @@ class RendermanPreferences(AddonPreferences):
         else:
             if self.rmantree_method == 'DETECT':  
                 col.prop(self, 'rmantree_choice')
-            if rman_env.load_error: # is None:
+            if rman_env.load_error_message !="" :
                 row = layout.row()
                 row.alert = True
                 row.label(text=rman_env.load_error_message, icon='ERROR')
-                return                
+                if rman_env.load_error:
+                    return                
             col.label(text="RMANTREE: %s" % rman_env.rmantree)    
 
         # Behavior Prefs

@@ -878,6 +878,7 @@ def draw_rman_viewport_props(self, context):
                 rman_render.del_bl_engine()
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_on")
             row.menu('PRMAN_MT_Viewport_Render_Menu', text='', icon_value=rman_rerender_controls.icon_id)
+            row.enabled = scene.renderman.can_render
         row.popover(panel="PRMAN_PT_Viewport_Options", text="")
 
 

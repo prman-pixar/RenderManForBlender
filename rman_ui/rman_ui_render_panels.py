@@ -33,6 +33,24 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
             op = col.operator('renderman.launch_webbrowser', text='Upgrade/Buy Now')
             op.url = 'https://renderman.pixar.com/store'
 
+        if not rm.has_license:
+            row = layout.row(align=True)
+            row.label(text="Cannot find valid license", icon='ERROR')
+            return
+        
+        if not rm.has_render_license:
+            row = layout.row(align=True)
+            row.label(text="Cannot find a render license", icon='ERROR')
+            return            
+        
+        if rm.has_license_expired:
+            row = layout.row(align=True)
+            row.label(text="License has expired.", icon='ERROR')
+            if rm.is_ncr_license:
+                op = row.operator('renderman.launch_webbrowser', text='Renew NCR')
+                op.url = 'https://renderman.pixar.com/renew-ncr'
+            return            
+
         if rm.is_rman_interactive_running:
             row = layout.row(align=True)
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")

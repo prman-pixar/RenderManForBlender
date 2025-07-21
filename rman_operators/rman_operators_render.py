@@ -24,6 +24,10 @@ class PRMAN_OT_RendermanBake(bpy.types.Operator):
     bl_label = "Baking"
     bl_description = "Bake pattern nodes and/or illumination to 2D and 3D formats."
     bl_options = {'INTERNAL'}    
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.renderman.can_render    
             
     def execute(self, context):
 
@@ -61,7 +65,7 @@ class PRMAN_OT_RendermanBakeSelectedBrickmap(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.object is not None and context.scene.renderman.can_render
             
     def execute(self, context):
 
@@ -223,7 +227,14 @@ class PRMAN_OT_StartInteractive(bpy.types.Operator):
     render_to_it: bpy.props.BoolProperty(default=False)
 
     @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        return scene.renderman.can_render    
+
+    @classmethod
     def description(cls, context, properties): 
+        if not context.scene.renderman.can_render:
+            return "License error. Cannot render."
         if properties.render_to_it:
             return "Start IPR and render to 'it'"
         return cls.bl_description

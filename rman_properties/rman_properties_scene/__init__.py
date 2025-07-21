@@ -103,6 +103,18 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
 
     def get_has_stylized_license(self):
         return envconfig().has_stylized_license
+    
+    def get_has_license(self):
+        return envconfig().is_valid_license   
+
+    def get_has_render_license(self):
+        return envconfig().has_rps_license
+    
+    def get_has_license_expired(self):
+        return envconfig().has_license_expired
+    
+    def get_can_render(self):
+        return self.get_has_license() and self.get_has_render_license() and not self.get_has_license_expired()
 
     def get_is_rman_running(self):
         from ...rman_render import RmanRender
@@ -136,6 +148,10 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     is_ncr_license: BoolProperty(get=get_is_ncr_license)
     has_xpu_license: BoolProperty(get=get_has_xpu_license)
     has_stylized_license: BoolProperty(get=get_has_stylized_license)
+    has_render_license: BoolProperty(get=get_has_render_license)
+    has_license: BoolProperty(get=get_has_license)
+    has_license_expired: BoolProperty(get=get_has_license_expired)
+    can_render: BoolProperty(get=get_can_render)
     is_rman_running: BoolProperty(get=get_is_rman_running)
     is_rman_interactive_running: BoolProperty(get=get_is_rman_interactive_running)         
     is_rman_swatch_render_running: BoolProperty(get=get_is_rman_swatch_render_running)  
