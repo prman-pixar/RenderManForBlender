@@ -84,6 +84,18 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
         pxr_to_float3_2.inputs['inputR'].ui_open = False
         pxr_to_float3_2.inputs['inputG'].ui_open = False
         pattern_node.inputs['inputTextureCoords'].ui_open = False
+        
+    def add_utility_slot(self, node, prop_name, coll_nm, coll_idx_nm, param_array_type):
+        context_override = bpy.context.copy()
+        context_override["node"] = node
+        with bpy.context.temp_override(**context_override):
+            bpy.ops.renderman.add_remove_array_elem(
+                                                    'EXEC_DEFAULT', 
+                                                    action='ADD',
+                                                    param_name=prop_name,
+                                                    collection=coll_nm,
+                                                    collection_index=coll_idx_nm,
+                                                    elem_type=param_array_type)  
 
     def attach_pattern(self, context, ob):
         mat = object_utils.get_active_material(ob)
@@ -137,26 +149,11 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
                 coll_nm = '%s_collection' % prop_name  
                 coll_idx_nm = '%s_collection_index' % prop_name
                 param_array_type = prop_meta['renderman_array_type'] 
-                if BLENDER_VERSION_MAJOR <=3 and BLENDER_VERSION_MINOR < 2:
-                    override = {'node': node}           
-                    bpy.ops.renderman.add_remove_array_elem(override,
-                                                            'EXEC_DEFAULT', 
-                                                            action='ADD',
-                                                            param_name=prop_name,
-                                                            collection=coll_nm,
-                                                            collection_index=coll_idx_nm,
-                                                            elem_type=param_array_type)
-                else:
-                    context_override = bpy.context.copy()
-                    context_override["node"] = node
-                    with bpy.context.temp_override(**context_override):
-                        bpy.ops.renderman.add_remove_array_elem(
-                                                                'EXEC_DEFAULT', 
-                                                                action='ADD',
-                                                                param_name=prop_name,
-                                                                collection=coll_nm,
-                                                                collection_index=coll_idx_nm,
-                                                                elem_type=param_array_type)                       
+
+                attr = getattr(node, coll_nm)
+                
+                if len(attr) < 1:
+                    self.add_utility_slot(node, prop_name, coll_nm, coll_idx_nm, param_array_type)                
 
                 pattern_node = nt.nodes.new(pattern_node_name)   
 
@@ -165,12 +162,26 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
                         val = param_settings['value']
                         setattr(pattern_node, param_name, val)
 
-                idx = getattr(node, coll_idx_nm)            
-                sub_prop_nm = '%s[%d]' % (prop_name, idx)     
+                sub_prop_nm = '%s[0]' % (prop_name)     
+                socket = node.inputs[sub_prop_nm]
+                # check if the first element has something connected
+                if socket.is_linked:
+                    # if there is something connected, shift everything over one
+                    self.add_utility_slot(node, prop_name, coll_nm, coll_idx_nm, param_array_type)
+                    for i in range(len(attr)-1, 0, -1):
+                        prev_socket = node.inputs['%s[%d]' % (prop_name, i-1)]
+                        cur_socket = node.inputs['%s[%d]' % (prop_name, i)]
+                        if prev_socket.is_linked:
+                            from_socket = prev_socket.links[0].from_socket
+                            nt.links.new(from_socket, cur_socket) 
+                            nt.links.remove(prev_socket.links[0])
+
+                # now, link stylized pattern to the first element
                 nt.links.new(pattern_node.outputs['resultAOV'], node.inputs[sub_prop_nm]) 
                 
                 # Add manifolds
-                self.add_manifolds(nt, pattern_node)                   
+                if self.properties.stylized_pattern == "PxrStylizedControl":
+                    self.add_manifolds(nt, pattern_node)                   
 
             else:
                 if node.inputs[prop_name].is_linked:
@@ -186,7 +197,8 @@ class PRMAN_OT_Attach_Stylized_Pattern(bpy.types.Operator):
                 nt.links.new(pattern_node.outputs['resultAOV'], node.inputs[prop_name])
 
                 # Add manifolds      
-                self.add_manifolds(nt, pattern_node)         
+                if self.properties.stylized_pattern == "PxrStylizedControl":
+                    self.add_manifolds(nt, pattern_node)         
     
     def execute(self, context):
         selected_objects = context.selected_objects

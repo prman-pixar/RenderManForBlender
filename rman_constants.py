@@ -94,7 +94,8 @@ RMAN_STYLIZED_XPU_FILTERS= [
     "PxrStylizedHatchingSampleXPU",
     "PxrStylizedLinesXPU",
     "PxrStylizedCanvasXPU",
-    "PxrStylizedPainterlyBrushXPU"
+    "PxrStylizedPainterlyBrushXPU",
+    "PxrStylizedToonXPU"
 ]
 
 # These lights should be set as Blender AREA light type.
@@ -106,7 +107,7 @@ RMAN_AREA_LIGHT_TYPES = [
     "PxrDistantLight"
 ]
 
-RMAN_STYLIZED_PATTERNS = ["PxrStylizedControl"]
+RMAN_STYLIZED_PATTERNS = ["PxrStylizedControl", "PxrStylizedPainterlyBrushControl"]
 RMAN_UTILITY_PATTERN_NAMES = [
                             "utilityPattern",
                             "userColor",

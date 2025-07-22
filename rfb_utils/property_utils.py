@@ -329,7 +329,7 @@ def set_rix_param(params, param_type, param_name, val, is_reference=False, is_ar
                 params.SetBxdfReference(param_name, val)       
     else:
         # check if we need to emit this parameter.
-        if node != None and not prefs_utils.get_pref('rman_emit_default_params', False):
+        if node != None and not force_write and not prefs_utils.get_pref('rman_emit_default_params', False):
             pname = param_name
             if prop_name != '':
                 pname = prop_name
@@ -966,7 +966,7 @@ def set_ui_struct_rixparams(node, rman_sg_node, ui_struct_name, params, ob=None,
             set_rix_param(params, param_type, member, vals, is_reference=False, is_array=True, array_len=len(vals), node=node, force_write=True)
 
 
-def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group_node=None):
+def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group_node=None, force_write=False):
     # If node is OSL node get properties from dynamic location.
     if node.bl_label == "PxrOSL":
         set_pxrosl_params(node, rman_sg_node, params, ob=ob, mat_name=mat_name)
@@ -1014,28 +1014,28 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
             bl_prop_val = get_linked_val(bl_prop_info, rman_sg_node, mat_name=mat_name, group_node=group_node)
             if bl_prop_val.value: 
                 if bl_prop_val.is_array:
-                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, is_array=True, array_len=array_len, node=node)
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, is_array=True, array_len=array_len, node=node, force_write=force_write)
                 else:
-                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, force_write=force_write)
             else:
                 rfb_log().debug("Could not find connection for: %s.%s" % (node.name, param_name))                                 
 
         # see if vstruct linked
         elif bl_prop_info.is_vstruct_and_linked:
             bl_prop_val = get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=mat_name)
-            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
+            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, force_write=force_write)
 
         # else export just the property's value
         else:
             bl_prop_val = get_prop_value(node, ob, rman_sg_node, bl_prop_info)
-            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=False, is_array=is_array, array_len=array_len, node=node)
+            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=False, is_array=is_array, array_len=array_len, node=node, force_write=force_write)
             
     return params      
 
-def property_group_to_rixparams(node, rman_sg_node, sg_node, ob=None, mat_name=None, group_node=None):
+def property_group_to_rixparams(node, rman_sg_node, sg_node, ob=None, mat_name=None, group_node=None, force_write=False):
 
     params = sg_node.params
-    set_node_rixparams(node, rman_sg_node, params, ob=ob, mat_name=mat_name, group_node=group_node)
+    set_node_rixparams(node, rman_sg_node, params, ob=ob, mat_name=mat_name, group_node=group_node, force_write=force_write)
 
 def portal_inherit_dome_params(portal_node, dome, dome_node, rixparams):
     '''

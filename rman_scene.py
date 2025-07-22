@@ -1329,7 +1329,7 @@ class RmanScene(object):
 
             rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", shader_name, df_name)
             rman_sg_node = RmanSgNode(self, rman_df_node, "")
-            property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_df_node, ob=world)
+            property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_df_node, ob=world, force_write=self.is_xpu)
             display_filter_names.append(df_name)
             displayfilters_list.append(rman_df_node)
 
@@ -1369,7 +1369,7 @@ class RmanScene(object):
 
             rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", bl_sf_node.bl_label, sf_name)
             rman_sg_node = RmanSgNode(self, rman_sf_node, "")
-            property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world)
+            property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world, force_write=self.is_xpu)
             sample_filter_names.append(sf_name)
             samplefilters_list.append(rman_sf_node)
 
@@ -1384,7 +1384,7 @@ class RmanScene(object):
 
                     rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", shader_name, sf_name)
                     rman_sg_node = RmanSgNode(self, rman_sf_node, "")
-                    property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_sf_node, ob=world)
+                    property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_sf_node, ob=world, force_write=True)
                     sample_filter_names.append(sf_name)
                     samplefilters_list.append(rman_sf_node)   
                     break                 

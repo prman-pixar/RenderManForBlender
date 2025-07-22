@@ -505,6 +505,18 @@
             "channelSource": "incidentRaySpread",
             "group": "Data AOVs"
          },
+         "motionFore": {
+            "description": "Forward 2D raster-space motion vector",
+            "channelType": "vector",
+            "channelSource": "motionFore",
+            "group": "Data AOVs"
+         }, 
+         "motionBack": {
+            "description": "Backward 2D raster-space motion vector",
+            "channelType": "vector",
+            "channelSource": "motionBack",
+            "group": "Data AOVs"
+         },                 
         "mpSize": {
             "description": "Size of the micropolygon that the ray hit",
             "channelType": "float",
@@ -705,9 +717,9 @@
             "channelSource": "NPRcurvature",
             "group": "Stylized"
         },
-        "NPRcurvatureThinLine": {
+        "NPRnormals": {
             "channelType": "color",
-            "channelSource": "NPRcurvatureThinLine",
+            "channelSource": "NPRnormals",
             "group": "Stylized"
         },        
         "NPRoutline": {
@@ -784,7 +796,12 @@
             "channelType": "color",
             "channelSource": "NPRdistort",
             "group": "Stylized"
-        }
+        },
+        "NPRpainterly": {
+            "channelType": "color",
+            "channelSource": "NPRpainterly",
+            "group": "Stylized"
+        }        
     },
     "displays": {
         "Default": {
@@ -844,8 +861,10 @@
                 "albedo",
                 "P",
                 "Nn",
+                "Tn",
                 "sampleCount",
                 "directSpecular",
+                "motionFore",
                 "NPRshadow",
                 "NPRtoonOut",
                 "NPRhatchOut",
@@ -862,14 +881,15 @@
                 "NPRlineWidth",
                 "NPRmask",
                 "NPRcurvature",                
-                "NPRcurvatureThinLine",
+                "NPRnormals",
                 "NPRalbedo",
                 "NPRalbedo2",
                 "NPRalbedo3",
                 "NPRtextureCoords",
                 "NPRPtriplanar",
                 "NPRNtriplanar",
-                "NPRdistort"
+                "NPRdistort",
+                "NPRpainterly"
             ]
         }        
     }

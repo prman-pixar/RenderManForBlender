@@ -285,6 +285,11 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
                 continue
 
         fpath = bl_prop_info.prop
+
+        ## FIXME: remove once PxrStylized shaders can handle this
+        if fpath.startswith('!!! Full path to'):
+            continue
+        
         if is_library:
             # if this is coming from a library, replace <blend_dir> with the full path
             if ob.library:

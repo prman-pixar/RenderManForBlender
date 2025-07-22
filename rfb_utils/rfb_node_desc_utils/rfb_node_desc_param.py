@@ -36,6 +36,11 @@ def blender_finalize(obj):
             obj.size = None
         '''
 
+        # temporary, remove this once PxrStylize shaders can reference RMANTREE path themselves
+        if obj.type == "string" and hasattr(obj, "default") and type(obj.default) is str:
+            obj.default = obj.default.replace("!!! Full path to RenderManProServer-XX.X", "$RMANTREE")
+            obj.default = obj.default.replace("!!! Full path to your RenderManProServer-XX.X", "$RMANTREE")
+
 
     if hasattr(obj, 'help') and obj.help is not None:
         obj.help = obj.help.replace('\\"', '"')

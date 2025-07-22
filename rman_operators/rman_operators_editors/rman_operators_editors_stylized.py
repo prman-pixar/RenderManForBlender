@@ -133,6 +133,7 @@ def draw_filters_tab(context, layout):
     world = scene.world
     nt = world.node_tree             
     rm_stylized = scene.renderman_stylized       
+    is_xpu = scene.renderman.renderVariant == "xpu"
     
     row = layout.row(align=True)
     col = row.column()
@@ -140,60 +141,117 @@ def draw_filters_tab(context, layout):
 
     layout.separator()  
     output = shadergraph_utils.find_node(world, 'RendermanDisplayfiltersOutputNode')
-    if not output:
-        row = layout.row()
-        row.label(text="No Stylized Filters")
-        return 
-
     layout.separator()        
     rm = world.renderman
     nt = world.node_tree      
     row = layout.row(align=True)
+    row.label(text="Display Filters")
+    if not output:
+        split = layout.split()
+        row = split.row()           
+        row.label(text="No Stylized Display Filters", icon="ERROR")
+    col = row.column()
+    if output:
+        for i, socket in enumerate(output.inputs):
+            if not socket.is_linked:
+                continue
+            link = socket.links[0]
+            node = link.from_node       
+            if node.bl_label not in  RMAN_STYLIZED_FILTERS + RMAN_STYLIZED_XPU_FILTERS:
+                continue
+            split = layout.split()
+            row = split.row()
+            col = row.column()                 
+            icon = get_open_close_icon(not node.hide)           
+            col.prop(node, "hide", icon=icon, icon_only=True, invert_checkbox=True, emboss=False)         
+            col = row.column()
+            col.label(text=node.name)
+
+            if socket.is_linked:
+                col = row.column()
+                col.enabled = (i != 0)
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)             
+                op = col.operator("node.rman_move_displayfilter_node_up", text="", icon="TRIA_UP")
+                op.index = i
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)             
+                col.enabled = (i != len(output.inputs)-1)
+                op = col.operator("node.rman_move_displayfilter_node_down", text="", icon="TRIA_DOWN")
+                op.index = i
+
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)                 
+                op = col.operator("node.rman_remove_displayfilter_node_socket", text="", icon="REMOVE")
+                op.index = i     
+                op.do_delete = True                
+                        
+            if node.hide is False:
+                layout.prop(node, "is_active")
+                if node.is_active:             
+                    draw_node_properties_recursive(layout, context, nt, node, level=1)         
+
+    if not is_xpu:
+        return        
+
+    output = shadergraph_utils.find_node(world, 'RendermanSamplefiltersOutputNode')
+    layout.separator()         
+    row = layout.row(align=True)
+    row.label(text="Sample Filters")
+    if not output:
+        split = layout.split()
+        row = split.row()    
+        row.label(text="No Stylized Sample Filters", icon="ERROR")    
     col = row.column()
 
-    for i, socket in enumerate(output.inputs):
-        if not socket.is_linked:
-            continue
-        link = socket.links[0]
-        node = link.from_node       
-        if node.bl_label not in  RMAN_STYLIZED_FILTERS + RMAN_STYLIZED_XPU_FILTERS:
-            continue
-        split = layout.split()
-        row = split.row()
-        col = row.column()                 
-        icon = get_open_close_icon(not node.hide)           
-        col.prop(node, "hide", icon=icon, icon_only=True, invert_checkbox=True, emboss=False)         
-        col = row.column()
-        col.label(text=node.name)
+    if output:
+        for i, socket in enumerate(output.inputs):
+            if not socket.is_linked:
+                continue
+            link = socket.links[0]
+            node = link.from_node       
+            if node.bl_label not in  RMAN_STYLIZED_FILTERS + RMAN_STYLIZED_XPU_FILTERS:
+                continue
+            split = layout.split()
+            row = split.row()
+            col = row.column()                 
+            icon = get_open_close_icon(not node.hide)           
+            col.prop(node, "hide", icon=icon, icon_only=True, invert_checkbox=True, emboss=False)         
+            col = row.column()
+            col.label(text=node.name)
 
-        if socket.is_linked:
-            col = row.column()
-            col.enabled = (i != 0)
-            col.context_pointer_set("node", output)
-            col.context_pointer_set("nodetree", nt)
-            col.context_pointer_set("socket", socket)             
-            op = col.operator("node.rman_move_displayfilter_node_up", text="", icon="TRIA_UP")
-            op.index = i
-            col = row.column()
-            col.context_pointer_set("node", output)
-            col.context_pointer_set("nodetree", nt)
-            col.context_pointer_set("socket", socket)             
-            col.enabled = (i != len(output.inputs)-1)
-            op = col.operator("node.rman_move_displayfilter_node_down", text="", icon="TRIA_DOWN")
-            op.index = i
+            if socket.is_linked:
+                col = row.column()
+                col.enabled = (i != 0)
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)             
+                op = col.operator("node.rman_move_samplefilter_node_up", text="", icon="TRIA_UP")
+                op.index = i
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)             
+                col.enabled = (i != len(output.inputs)-1)
+                op = col.operator("node.rman_move_samplefilter_node_down", text="", icon="TRIA_DOWN")
+                op.index = i
 
-            col = row.column()
-            col.context_pointer_set("node", output)
-            col.context_pointer_set("nodetree", nt)
-            col.context_pointer_set("socket", socket)                 
-            op = col.operator("node.rman_remove_displayfilter_node_socket", text="", icon="REMOVE")
-            op.index = i     
-            op.do_delete = True                
-                     
-        if node.hide is False:
-            layout.prop(node, "is_active")
-            if node.is_active:             
-                draw_node_properties_recursive(layout, context, nt, node, level=1)                    
+                col = row.column()
+                col.context_pointer_set("node", output)
+                col.context_pointer_set("nodetree", nt)
+                col.context_pointer_set("socket", socket)                 
+                op = col.operator("node.rman_remove_samplefilter_node_socket", text="", icon="REMOVE")
+                op.index = i                   
+                        
+            if node.hide is False:
+                layout.prop(node, "is_active")
+                if node.is_active:             
+                    draw_node_properties_recursive(layout, context, nt, node, level=1)                         
 
 
 def draw_stylized(context, layout, use_selected_objects=False):
