@@ -612,14 +612,18 @@ def reset_workspace(scene, replace_filename=False):
     for param_name, ndp in rmcfg.params.items():
         if ndp.panel != 'RENDER_PT_renderman_workspace':
             continue
-        if replace_filename:
-            setattr(scene.renderman, param_name, ndp.default)
+        if ndp.widget in ["dirinput", "fileinput"]:
+            if replace_filename:
+                setattr(scene.renderman, param_name, ndp.default)
+            else:
+                filename = os.path.basename(getattr(scene.renderman, param_name))
+                filepath = os.path.dirname(ndp.default)
+                setattr(scene.renderman, param_name, os.path.join(filepath, filename))     
         else:
-            filename = os.path.basename(getattr(scene.renderman, param_name))
-            filepath = os.path.dirname(ndp.default)
-            if filepath == '':
-                filepath = '<OUT>'
-            setattr(scene.renderman, param_name, os.path.join(filepath, filename))                
+            dflt = ndp.default
+            if ndp.widget in ['checkbox', 'switch']:
+                dflt = bool(dflt)
+            setattr(scene.renderman, param_name, dflt)
 
 def use_renderman_textures(context, force_colorspace=True, blocking=True):
     '''

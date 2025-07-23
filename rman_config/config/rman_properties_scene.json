@@ -1603,7 +1603,12 @@
             "type": "string",
             "widget": "fileinput",
             "default": "",
-            "help": "Output file name for a statistics JSON report. Setting this file name will trigger the creation of an end-of render JSON-format report containing diagnostic data from the stats system. By default only the standard set of metrics will be gathered (see jsonMetrics)."               
+            "help": "Output file name for a statistics JSON report. Setting this file name will trigger the creation of an end-of render JSON-format report containing diagnostic data from the stats system. By default only the standard set of metrics will be gathered (see jsonMetrics).",
+            "conditionalLockOps": {
+                "conditionalVisOp": "equalTo",
+                "conditionalVisPath": "statistics_jsonEnabled",
+                "conditionalVisValue": "1"
+            }  
         },
         {
             "panel": "RENDER_PT_renderman_workspace",
