@@ -156,9 +156,13 @@ def draw_filters_tab(context, layout):
             if not socket.is_linked:
                 continue
             link = socket.links[0]
-            node = link.from_node       
-            if node.bl_label not in  RMAN_STYLIZED_FILTERS + RMAN_STYLIZED_XPU_FILTERS:
-                continue
+            node = link.from_node    
+            if is_xpu:
+                if node.bl_label not in RMAN_STYLIZED_XPU_FILTERS:
+                    continue
+            else:
+                if node.bl_label not in RMAN_STYLIZED_FILTERS:
+                    continue
             split = layout.split()
             row = split.row()
             col = row.column()                 
@@ -215,7 +219,7 @@ def draw_filters_tab(context, layout):
                 continue
             link = socket.links[0]
             node = link.from_node       
-            if node.bl_label not in  RMAN_STYLIZED_FILTERS + RMAN_STYLIZED_XPU_FILTERS:
+            if node.bl_label not in RMAN_STYLIZED_XPU_FILTERS:
                 continue
             split = layout.split()
             row = split.row()

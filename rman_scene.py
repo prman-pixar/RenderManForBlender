@@ -1316,16 +1316,20 @@ class RmanScene(object):
                 continue
             shader_name = bl_df_node.bl_label
             
-            # don't emit stylized filters, if render_rman_stylized is false
             if not rm.render_rman_stylized:               
+                # don't emit stylized filters, if render_rman_stylized is false
                 if self.is_xpu and shader_name in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
                     continue
-                elif shader_name in rman_constants.RMAN_STYLIZED_FILTER:
+                elif shader_name in rman_constants.RMAN_STYLIZED_FILTERS:
+                    continue
+
+            elif self.is_xpu:
+                if shader_name not in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                    continue
+                elif shader_name in rman_constants.RMAN_STYLIZED_FILTERS:
                     continue
 
             df_name = bl_df_node.name.replace('.', '_')
-            if shader_name == "PxrStylizedHatchingSampleXPU" and self.is_xpu:            
-                continue
 
             rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", shader_name, df_name)
             rman_sg_node = RmanSgNode(self, rman_df_node, "")
@@ -1366,28 +1370,16 @@ class RmanScene(object):
             if not bl_sf_node.is_active:
                 continue
             sf_name = bl_sf_node.name.replace('.', '_')
+            shader_name =  bl_sf_node.bl_label
 
-            rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", bl_sf_node.bl_label, sf_name)
+            if not self.is_xpu and shader_name in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                continue
+                
+            rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", shader_name, sf_name)
             rman_sg_node = RmanSgNode(self, rman_sf_node, "")
             property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world, force_write=self.is_xpu)
             sample_filter_names.append(sf_name)
             samplefilters_list.append(rman_sf_node)
-
-        if self.is_xpu:
-            # check for PxrStylizedHatching
-            for bl_df_node in shadergraph_utils.find_displayfilter_nodes(world):
-                if not bl_df_node.is_active:
-                    continue
-                shader_name = bl_df_node.bl_label                
-                if shader_name == "PxrStylizedHatchingSampleXPU":
-                    sf_name = bl_df_node.name.replace('.', '_')
-
-                    rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", shader_name, sf_name)
-                    rman_sg_node = RmanSgNode(self, rman_sf_node, "")
-                    property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_sf_node, ob=world, force_write=True)
-                    sample_filter_names.append(sf_name)
-                    samplefilters_list.append(rman_sf_node)   
-                    break                 
 
         if sel_chan_name:
             sf_name = '__RMAN_VIEWPORT_CHANNEL_SELECT__'
