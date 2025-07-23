@@ -1,3 +1,42 @@
+v26.3, December 17, 2024
+
+New Features:
+* RfB should support the latest Blender 4.3 release
+
+Changes:
+* Invert light linking is now a scene option rather than a user preference. The setting can be found under the RenderMan Advanced section
+on the scene properties tab.
+* Blender's indirect_only attribute will now take precedence over the visibility:camera, visibility:indirect and visibility:transmission attributes.
+* Blender's holdout attribute will now take precedence over the RenderMan Ri:Matte and trace:holdout attributes
+* Expose the --tiles option for the denoiser
+
+Bug Fixes:
+* A bug that caused the primvars collection to draw too widely, when Output All Attributes was turned off has been addressed.
+* Multiple bugs that prevented multiple view layers in a scene to not render properly have been addressed
+* A bug that caused a crash with XPU when characters like '[' and ']' in asset names has been addressed.
+* A missing AOV that cause stylized looks to fail has been addressed.
+* A bug that caused batch rendering to crash when using blender_batch has been addressed.
+* A bug that caused IPR renders to "it" to overwrite the current image in the catalog has been addressed.
+* A bug that caused a couple of PxrCamera parameters to not work (ex: distortionCtr) has been fixed
+* Fixed a bug that would cause errors to be printed when reloading an OSL shader using the PxrOSL node. The errors were due to parameters not having a default value.
+* A bug that caused objects that were parented underneath a lattice to not render has been addressed.
+
+v26.2, August 20, 2024
+
+New Features:
+* Blender 4.2 is now supported.
+
+Changes:
+* The material override property is now exposed for all objects (was only exposed on Empty). This should allow a user to override the material on an instance.
+* We now export all of the attributes on a mesh as primitive variables. You can turn this off per mesh, and use the primitive variables UI to specify which attributes you want to export as primitive variables instead.
+* You can now turn off the launching of the denoiser when batch rendering. This is useful if you still want to generate the necessary variance files, but want to manually launch the denoiser later.
+* When using the Optix denoiser, we now include albedo and normal passes. This should result in slightly better denoised results.
+
+Bug Fixes:
+* Fixed a bug when a mesh's data node name conflicted with another object's data node, causing the mesh to not be exported.
+* Fixed a bug where importing presets from the preset browser that contained ramp nodes did not match other DCCs.
+* Fixed a bug where soloing a shader node did not seem to have the right connections.
+
 v26.1, April 24, 2024
 
 Bug Fixes:
