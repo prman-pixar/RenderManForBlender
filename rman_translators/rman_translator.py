@@ -297,9 +297,17 @@ class RmanTranslator(object):
         for prop_name, meta in rm.prop_meta.items():
             property_utils.set_riattr_bl_prop(attrs, prop_name, meta, rm, check_inherit=True, remove=remove)
 
-        if hasattr(ob, 'color'):
-            attrs.SetColor('user:Cs', ob.color[:3])   
+        if self.rman_scene.use_blender_light_link: 
+            # these need to removed, if we're using
+            # blender's light linking. will be set by export_light_linking_attributes
+            # above
+            attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset)
+            attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_subset)
+            attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lightfilter_subset)
 
+        if hasattr(ob, 'color'):
+            attrs.SetColor('user:Cs', ob.color[:3]) 
+              
         if self.rman_scene.rman_bake and self.rman_scene.bl_scene.renderman.rman_bake_illum_filename == 'BAKEFILEATTR':
             filePath = ob.renderman.bake_filename_attr
             if filePath != '':
