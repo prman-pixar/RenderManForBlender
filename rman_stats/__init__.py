@@ -340,7 +340,8 @@ class RfBStatsManager(object):
         self.update_session_config()     
 
     def stats_add_session(self):
-        self.rman_stats_session = rman.Stats.AddSession(self.rman_stats_session_config)  
+        self.rman_stats_session = rman.Stats.AddSession(self.rman_stats_session_config)
+        self.rman_stats_session_name = self.rman_stats_session.GetName()
 
     def stats_remove_session(self):
         rman.Stats.RemoveSession(self.rman_stats_session)  
