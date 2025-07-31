@@ -7,6 +7,7 @@ from .rfb_logger import rfb_log
 
 import gpu
 import blf
+import threading
 
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
@@ -116,6 +117,11 @@ class PRManRender(bpy.types.RenderEngine):
 
         if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:               
             self.rman_render.update_view(context, depsgraph)
+
+        if self.rman_render.rman_context.is_xpu() and self.rman_render.stats_mgr._progress < 1:
+            # sometimes, pixels can take a while to show up when in XPU
+            # write a message to the viewport to let user know we are indeed rendering 
+            self.draw_viewport_message(context, "Waiting for pixels...")
 
         self._draw_pixels(context, depsgraph)
 

@@ -689,10 +689,13 @@ class RmanRender(object):
     
     def configure_disgust(self):
         disgust_trace = string_utils.get_disgust_filename()
-        if self.bl_scene.renderman.rfb_disgust and disgust_trace:
-            envconfig().set_disgust_env(disgust_trace)
-        else:
-            envconfig().unset_disgust_env()
+        env_var = envconfig().getenv('RILEY_CAPTURE', default=disgust_trace)
+        if env_var == disgust_trace:
+            # only set, if RILEY_CAPTURE is not found in the environment
+            if self.bl_scene.renderman.rfb_disgust and disgust_trace:
+                envconfig().set_disgust_env(disgust_trace)
+            else:
+                envconfig().unset_disgust_env()
 
     def start_render(self, depsgraph, for_background=False):
     
