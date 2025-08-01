@@ -9,8 +9,8 @@ import bpy
 class RendermanMeshGeometrySettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     output_all_primvars: BoolProperty(
         name="Output All Attributes",
-        default=True,
-        description="Output all attributes as primitive variables. If you don't need all of them, turn this off and use the UI below. This can help speed up exporting of the scene."
+        default=False,
+        description="If you like to output all attributes as primitive variables, click this on. Note, turning this on will slow down export time of the scene."
     )
     prim_vars: CollectionProperty(
         type=RendermanMeshPrimVar, name="Primitive Variables")
