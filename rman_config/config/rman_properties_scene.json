@@ -1623,16 +1623,6 @@
             "help": "The preset string defines the metrics included in the JSON diagnostic report. There are two supported options: 'standard' or 'detailed'. The default setting, 'standard', includes nearly all available metrics in the report. Choose the 'detailed' option to capture every available metric. Keep in mind that capturing all metrics may impact render performance."
         },
         {
-            "panel": "",
-            "page": "",
-            "name": "statistics_jsonMetricsRegexp",
-            "riopt": "statistics:jsonMetricsRegexp",
-            "label": "Stats JSON Metrics Regexp",
-            "type": "string",
-            "default": "",
-            "help": "(hidden) Optional regular expression listing the metrics which should be gathered and output in the JSON report. A single regexp string is passed, so if you wish to specify multiple metrics use a | delimeter. For example: /rman/scenegraph@sceneBuildingBegin|/rman/scenegraph@sceneBuildingEnd Note: this setting is deprecated and will be removed in a future version. Use jsonMetrics instead."
-        },
-        {
             "panel": "RENDER_PT_renderman_workspace",
             "page": "",
             "name": "path_bake_illum_ptc",
