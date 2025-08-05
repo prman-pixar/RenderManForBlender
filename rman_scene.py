@@ -1166,6 +1166,7 @@ class RmanScene(object):
         # Always turn off xml stats when in interactive
         if self.is_interactive:
             options.SetInteger(self.rman.Tokens.Rix.k_statistics_level, 0)
+            options.SetInteger(self.rman.Tokens.Rix.k_statistics_jsonEnabled, 0)
 
         # Set bucket shape
         bucket_order = rm.opt_bucket_order.lower()
