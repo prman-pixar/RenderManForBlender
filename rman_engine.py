@@ -3,11 +3,11 @@ import bpy
 from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils import string_utils
 from .rfb_utils import register_utils
+from .rman_constants import RMAN_RENDERMAN_BLUE as BLUE
 from .rfb_logger import rfb_log
 
 import gpu
 import blf
-import threading
 
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
@@ -98,7 +98,7 @@ class PRManRender(bpy.types.RenderEngine):
         blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
         blf.size(0, 20)
         blf.position(0, pos_x, pos_y, 0)
-        blf.color(0, 1.0, 0.0, 0.0, 1.0)
+        blf.color(0, BLUE[0], BLUE[1], BLUE[2], BLUE[3])
         blf.draw(0, "%s" % (msg))
         blf.disable(0, blf.SHADOW)               
 

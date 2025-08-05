@@ -12,7 +12,13 @@ def ipr_it_depsgraph_update_post(bl_scene, depsgraph):
     if rman_render.is_ipr_to_it():
         context = bpy.context
         rman_render.update_scene(context, depsgraph)
-        rman_render.update_view(context, depsgraph)  
+
+        '''
+        Not sure if we need this. This seems to cause camera
+        edits, as the camera matrices are slightly different in some
+        cases, when just selecting objects
+        '''
+        # rman_render.update_view(context, depsgraph)  
 
 
 @persistent
@@ -24,7 +30,7 @@ def ipr_frame_change_post(bl_scene):
         context = bpy.context
         depsgraph = context.evaluated_depsgraph_get()
         rman_render.update_scene(context, depsgraph)
-        rman_render.update_view(context, depsgraph)   
+        # rman_render.update_view(context, depsgraph)   
 
 
 def draw():
