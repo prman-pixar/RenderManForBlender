@@ -155,11 +155,12 @@ class PRMAN_PT_Renderman_UI_Panel(bpy.types.Panel, _RManPanelHeader):
                 row.label(text="Depth Of Field :")
 
                 row = box.row(align=True)
-                row.prop(context.object.data.dof, "focus_object", text="")
-                #row.prop(context.object.data.cycles, "aperture_type", text="")
+                row.prop(context.object.data.renderman, "rman_focus_object", text="")
 
                 row = box.row(align=True)
-                row.prop(context.object.data.dof, "focus_distance", text="Distance")
+                if not context.object.data.renderman.rman_focus_object:
+                    row.prop(context.object.data.renderman, "rman_focus_distance", text="")
+
 
             else:
                 row = layout.row(align=True)
