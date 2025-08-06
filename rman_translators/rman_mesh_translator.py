@@ -63,7 +63,7 @@ def _get_mesh_uv_(mesh, name="", ob=None):
     uv_count = len(uv_loop_layer.data)
     fastuvs = np.zeros(uv_count * 2)
     uv_loop_layer.data.foreach_get(data, fastuvs)   
-    uvs = fastuvs.tolist()
+    uvs = fastuvs
 
     return uvs
 
@@ -89,11 +89,10 @@ def _get_mesh_vcol_(mesh, name="", ob=None):
 
     vcol_count = len(vcol_layer.data)
     fastvcols = np.zeros(vcol_count * 4)
-    vcol_layer.data.foreach_get("color", fastvcols)
-    fastvcols = np.reshape(fastvcols, (vcol_count, 4))
-    pre_cols = fastvcols.tolist()     
-    
-    cols = [ [c[0], c[1], c[2]] for c in pre_cols ]
+    vcol_layer.data.foreach_get("color", fastvcols) 
+
+    delete_alpha = np.arange(3, fastvcols.size, 4)
+    cols = np.delete(fastvcols, delete_alpha)
 
     return cols    
 
@@ -110,11 +109,10 @@ def _get_mesh_vattr_(mesh, name=""):
     vcol_count = len(vattr_layer.data)
     fastvattrs = np.zeros(vcol_count * 4)
     vattr_layer.data.foreach_get("color", fastvattrs)
-    fastvattrs = np.reshape(fastvattrs, (vcol_count, 4))
-    pre_cols = fastvattrs.tolist()     
+ 
+    delete_alpha = np.arange(3, fastvattrs.size, 4)
+    attrs = np.delete(fastvattrs, delete_alpha)       
     
-    attrs = [ [a[0], a[1], a[2]] for a in pre_cols ]
-
     return attrs 
 
 def _get_mesh_vgroup_(ob, mesh, name=""):
@@ -136,60 +134,71 @@ def _get_mesh_vgroup_(ob, mesh, name=""):
 def _get_material_ids(ob, geo):        
     fast_material_ids = np.zeros(len(geo.polygons), dtype=np.int32)
     geo.polygons.foreach_get("material_index", fast_material_ids)
-    material_ids = fast_material_ids.tolist()
+    material_ids = fast_material_ids
     return material_ids
 
 def _export_reference_pose(ob, rman_sg_mesh, rm, rixparams):
-    rman__Pref = []
-    rman__WPref = []
-    rman__Nref = []
-    rman__WNref = []
+    rman__Pref = None
+    rman__WPref = None
+    rman__Nref = None
+    rman__WNref = None
 
     vertex_detail = rman_sg_mesh.npoints 
     facevarying_detail = rman_sg_mesh.nverts 
     uniform_detail = rman_sg_mesh.npolys
 
-    for rp in rm.reference_pose:
+    if rm.reference_pose:
+        rp = rm.reference_pose[0]
         if rp.has_Pref:
-            rman__Pref.append( rp.rman__Pref)
+            fastv = np.zeros(vertex_detail * 3, dtype=np.float32)
+            rm.reference_pose.foreach_get("rman__Pref", fastv)
+            rman__Pref = fastv
         if rp.has_WPref:
-            rman__WPref.append( rp.rman__WPref)
+            fastv = np.zeros(vertex_detail * 3, dtype=np.float32)
+            rm.reference_pose.foreach_get("rman__WPref", fastv)
+            rman__WPref = fastv            
 
-    for rp in rm.reference_pose_normals:
+    if rm.reference_pose_normals:
+        rp = rm.reference_pose_normals[0]
+        num_normals = len(rm.reference_pose_normals)
         if rp.has_Nref:
-            rman__Nref.append( rp.rman__Nref)
+            fastv = np.zeros(num_normals * 3, dtype=np.float32)
+            rm.reference_pose_normals.foreach_get("rman__Nref", fastv)            
+            rman__Nref = fastv
         if rp.has_WNref:
-            rman__WNref.append( rp.rman__WNref)
+            fastv = np.zeros(num_normals * 3, dtype=np.float32)
+            rm.reference_pose_normals.foreach_get("rman__WNref", fastv)            
+            rman__WNref = fastv
 
-    if rman__Pref:
-        if len(rman__Pref) == vertex_detail:
-            rixparams.SetPointDetail('__Pref', rman__Pref, 'vertex')
+    if rman__Pref is not None:
+        if int(len(rman__Pref) / 3) == vertex_detail:
+            rixparams.SetPointDetail('__Pref', rman__Pref.data, 'vertex')
         else:
             rfb_log().error("Number of Pref primvars do not match. Please re-freeze the reference position.")
 
-    if rman__WPref:
-        if len(rman__WPref) == vertex_detail:
-            rixparams.SetPointDetail('__WPref', rman__WPref, 'vertex')
+    if rman__WPref is not None:
+        if int(len(rman__WPref) / 3) == vertex_detail:
+            rixparams.SetPointDetail('__WPref', rman__WPref.data, 'vertex')
         else:
             rfb_log().error("Number of WPref primvars do not match. Please re-freeze the reference position.")
                 
-    if rman__Nref:
-        if len(rman__Nref) == vertex_detail:
-            rixparams.SetNormalDetail('__Nref', rman__Nref, 'vertex')
-        elif len(rman__Nref) == facevarying_detail:
-            rixparams.SetNormalDetail('__Nref', rman__Nref, 'facevarying')
-        elif len(rman__Nref) == uniform_detail:
-            rixparams.SetNormalDetail('__Nref', rman__Nref, 'uniform')            
+    if rman__Nref is not None:
+        if int(len(rman__Nref) / 3) == vertex_detail:
+            rixparams.SetNormalDetail('__Nref', rman__Nref.data, 'vertex')
+        elif int(len(rman__Nref) / 3) == facevarying_detail:
+            rixparams.SetNormalDetail('__Nref', rman__Nref.data, 'facevarying')
+        elif int(len(rman__Nref) / 3) == uniform_detail:
+            rixparams.SetNormalDetail('__Nref', rman__Nref.data, 'uniform')            
         else:
             rfb_log().error("Number of Nref primvars do not match. Please re-freeze the reference position.")
         
-    if rman__WNref:
-        if len(rman__WNref) == vertex_detail:
-            rixparams.SetNormalDetail('__Nref', rman__Nref, 'vertex')
-        elif len(rman__WNref) == facevarying_detail:
-            rixparams.SetNormalDetail('__WNref', rman__WNref, 'facevarying')
-        elif len(rman__WNref) == uniform_detail:
-            rixparams.SetNormalDetail('__WNref', rman__WNref, 'uniform')            
+    if rman__WNref is not None:
+        if int(len(rman__WNref) /3 ) == vertex_detail:
+            rixparams.SetNormalDetail('__Nref', rman__Nref.data, 'vertex')
+        elif int(len(rman__WNref) /3 ) == facevarying_detail:
+            rixparams.SetNormalDetail('__WNref', rman__WNref.data, 'facevarying')
+        elif int(len(rman__WNref) /3 ) == uniform_detail:
+            rixparams.SetNormalDetail('__WNref', rman__WNref.data, 'uniform')            
         else:
             rfb_log().error("Number of WNref primvars do not match. Please re-freeze the reference position.")
             print("%d vs %d vs %d" % (len(rman__Nref), vertex_detail, facevarying_detail))
@@ -204,20 +213,19 @@ def export_tangents(ob, geo, rixparams, uvmap="", name=""):
         loops = len(geo.loops)
         fasttangent = np.zeros(loops*3, dtype=np.float32)
         geo.loops.foreach_get('tangent', fasttangent)
-        fasttangent = np.reshape(fasttangent, (loops, 3))
-        tangents = fasttangent.tolist()    
+        tangents = fasttangent 
 
         fastbitangent = np.zeros(loops*3, dtype=np.float32)
         geo.loops.foreach_get('bitangent', fastbitangent)
-        bitangent = fastbitangent.tolist()      
+        bitangent = fastbitangent    
         geo.free_tangents()    
 
         if name == "":
-            rixparams.SetVectorDetail('Tn', tangents, 'facevarying')
-            rixparams.SetVectorDetail('Bn', bitangent, 'facevarying')    
+            rixparams.SetVectorDetail('Tn', tangents.data, 'facevarying')
+            rixparams.SetVectorDetail('Bn', bitangent.data, 'facevarying')    
         else:
-            rixparams.SetVectorDetail('%s_Tn' % name, tangents, 'facevarying')
-            rixparams.SetVectorDetail('%s_Bn' % name, bitangent, 'facevarying')                
+            rixparams.SetVectorDetail('%s_Tn' % name, tangents.data, 'facevarying')
+            rixparams.SetVectorDetail('%s_Bn' % name, bitangent.data, 'facevarying')                
     except RuntimeError as err:
         rfb_log().debug("Can't export tangent vectors: %s" % str(err))       
 
@@ -231,15 +239,15 @@ def _get_primvars_(ob, rman_sg_mesh, geo, rixparams):
 
     if rm.export_default_uv:
         uvs = _get_mesh_uv_(geo, ob=ob)
-        if uvs and len(uvs) > 0:
+        if uvs is not None and uvs.any():
             detail = "facevarying" if (facevarying_detail*2) == len(uvs) else "vertex"
-            rixparams.SetFloatArrayDetail("st", uvs, 2, detail)
+            rixparams.SetFloatArrayDetail("st", uvs.data, 2, detail)
             if rm.export_default_tangents:
                 export_tangents(ob, geo, rixparams)    
 
     if rm.export_default_vcol:
         vcols = _get_mesh_vcol_(geo, ob=ob)
-        if vcols and len(vcols) > 0:
+        if vcols is not None and vcols.any():
             detail = "facevarying" if facevarying_detail == len(vcols) else "vertex"
             rixparams.SetColorDetail("Cs", vcols, detail)
 
@@ -280,15 +288,15 @@ def _get_primvars_(ob, rman_sg_mesh, geo, rixparams):
             elif p.data_source == 'VERTEX_COLOR':
                 vcols = _get_mesh_vcol_(geo, p.data_name)
                 
-                if vcols and len(vcols) > 0:
+                if vcols is not None and vcols.any():
                     detail = "facevarying" if facevarying_detail == len(vcols) else "vertex"
-                    rixparams.SetColorDetail(p.name, vcols, detail)
+                    rixparams.SetColorDetail(p.name, vcols.data, detail)
                 
             elif p.data_source == 'UV_TEXTURE':
                 uvs = _get_mesh_uv_(geo, p.data_name)
-                if uvs and len(uvs) > 0:
+                if uvs is not None and uvs.any():
                     detail = "facevarying" if (facevarying_detail*2) == len(uvs) else "vertex"
-                    rixparams.SetFloatArrayDetail(p.name, uvs, 2, detail)
+                    rixparams.SetFloatArrayDetail(p.name, uvs.data, 2, detail)
                     if p.export_tangents:
                         export_tangents(ob, geo, rixparams, uvmap=p.data_name, name=p.name) 
 
@@ -349,34 +357,6 @@ class RmanMeshTranslator(RmanTranslator):
             nargs.extend([2, 1, 0] * edges_subset_len)
             intargs.extend(crease_edges.flatten().tolist())
             floatargs.extend(creases.tolist())   
-
-        '''
-        # Blender 4.0 removed face maps, also adding holes
-        # in subdivs won't work in XPU
-        holes_facemap = getattr(rm, 'rman_holesFaceMap', '')
-        if holes_facemap != '' and holes_facemap in ob.face_maps:
-            # use this facemap for face edit holes
-            holes_idx = ob.face_maps[holes_facemap].index
-            bm = bmesh.new()
-            bm.from_mesh(mesh)
-            fm = bm.faces.layers.face_map.verify()
-
-            holes = []
-            for face in bm.faces:
-                face_idx = face.index
-                map_idx = face[fm]  
-                if map_idx == holes_idx:
-                    holes.append(face_idx)
-            if holes:
-                tags.append('faceedit')
-                num_holes = len(holes)
-                for h in holes:
-                    intargs.extend([1, h])
-                nargs.extend([num_holes*2, 0, num_holes])
-                stringargs.extend(['hole'] * num_holes)
-
-            bm.free()
-        '''
 
         primvar.SetStringArray(self.rman_scene.rman.Tokens.Rix.k_Ri_subdivtags, tags, len(tags))
         primvar.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_subdivtagnargs, nargs, len(nargs))
@@ -467,7 +447,7 @@ class RmanMeshTranslator(RmanTranslator):
         N = rman_mesh.N
         
         # if this is empty continue:
-        if nverts == []:
+        if not nverts.any():
             if not input_mesh:
                 ob.to_mesh_clear()
             rman_sg_mesh.npoints = 0
@@ -483,9 +463,9 @@ class RmanMeshTranslator(RmanTranslator):
         if rman_sg_mesh.sg_node.GetNumChildren() < 1:
             rman_sg_mesh.sg_node.AddChild(rman_sg_mesh.sg_mesh)
 
-        npolys = len(nverts) 
-        npoints = len(P)
-        numnverts = len(verts)
+        npolys = rman_mesh.npolys 
+        npoints = rman_mesh.npoints 
+        numnverts = rman_mesh.numnverts 
 
         rman_sg_mesh.npoints = npoints
         rman_sg_mesh.npolys = npolys
@@ -500,11 +480,11 @@ class RmanMeshTranslator(RmanTranslator):
         if rman_sg_mesh.is_deforming and len(rman_sg_mesh.deform_motion_steps) > 1:
             super().set_primvar_times(rman_sg_mesh.deform_motion_steps, primvar)
         
-        primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P, "vertex")
+        primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P.data, "vertex")
         _get_primvars_(ob, rman_sg_mesh, mesh, primvar)   
 
-        primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_nvertices, nverts, "uniform")
-        primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_vertices, verts, "facevarying")                  
+        primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_nvertices, nverts.data, "uniform")
+        primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_vertices, verts.data, "facevarying")                  
 
         if rman_sg_mesh.is_subdiv:
             creases = self._get_subd_tags_(ob, mesh, primvar)
@@ -514,11 +494,11 @@ class RmanMeshTranslator(RmanTranslator):
             sg_node.SetScheme(None)
 
         if not rman_sg_mesh.is_subdiv:
-            if N:
-                if len(N) == numnverts:
-                    primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N, "facevarying")         
+            if N.any():
+                if rman_mesh.nnormals == numnverts:
+                    primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N.data, "facevarying")         
                 else:
-                    primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N, "uniform")         
+                    primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N.data, "uniform")         
         subdiv_scheme = getattr(rm, 'rman_subdiv_scheme', 'none')
         rman_sg_mesh.subdiv_scheme = subdiv_scheme
 

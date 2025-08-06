@@ -8,6 +8,11 @@ class RmanMesh:
         self.P = args[2]
         self.N = args[3]
 
+        self.npolys = len(self.nverts)
+        self.npoints = int(len(self.P) / 3)
+        self.numnverts = len(self.verts)
+        self.nnormals = int(len(self.N) / 3)
+
     def __eq__(self, other):
         if self.nverts != other.nverts or self.verts != other.verts or self.P != other.P or self.N != other.N:
             return False
@@ -22,14 +27,13 @@ def get_mesh_points_(mesh):
     mesh (bpy.types.Mesh) - Blender mesh
 
     Returns:
-    (list) - the points on the mesh
+    (numpy.ndarray) - the points on the mesh
     '''
 
     nvertices = len(mesh.vertices)
     P = np.zeros(nvertices*3, dtype=np.float32)
     mesh.vertices.foreach_get('co', P)
-    P = np.reshape(P, (nvertices, 3))
-    return P.tolist()
+    return P
 
 def get_mesh(mesh, get_normals=False):
     '''
@@ -50,12 +54,12 @@ def get_mesh(mesh, get_normals=False):
     npolygons = len(mesh.polygons)
     fastnvertices = np.zeros(npolygons, dtype=np.int32)
     mesh.polygons.foreach_get('loop_total', fastnvertices)
-    nverts = fastnvertices.tolist()
+    nverts = fastnvertices
 
     loops = len(mesh.loops)
     fastvertices = np.zeros(loops, dtype=np.int32)
     mesh.loops.foreach_get('vertex_index', fastvertices)
-    verts = fastvertices.tolist()
+    verts = fastvertices
 
     if get_normals:
         if BLENDER_41:
@@ -63,8 +67,7 @@ def get_mesh(mesh, get_normals=False):
             # It's recommended to always use the corner_normals collection
             fastnormals = np.zeros(loops*3, dtype=np.float32)
             mesh.corner_normals.foreach_get('vector', fastnormals)
-            fastnormals = np.reshape(fastnormals, (loops, 3))
-            N = fastnormals.tolist()                
+            N = fastnormals                
         else:
             fastsmooth = np.zeros(npolygons, dtype=np.int32)
             mesh.polygons.foreach_get('use_smooth', fastsmooth)
@@ -73,14 +76,13 @@ def get_mesh(mesh, get_normals=False):
                 mesh.calc_normals_split()
                 fastnormals = np.zeros(loops*3, dtype=np.float32)
                 mesh.loops.foreach_get('normal', fastnormals)
-                fastnormals = np.reshape(fastnormals, (loops, 3))
-                N = fastnormals.tolist()   
+                N = fastnormals
 
-        if not N:
+
+        if not N.any():            
             fastnormals = np.zeros(npolygons*3, dtype=np.float32)
             mesh.polygons.foreach_get('normal', fastnormals)
-            fastnormals = np.reshape(fastnormals, (npolygons, 3))
-            N = fastnormals.tolist()
+            N = fastnormals
 
     rman_mesh = RmanMesh(nverts, verts, P, N)
     return rman_mesh
