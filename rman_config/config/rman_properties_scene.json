@@ -372,7 +372,7 @@
             "min": 0.125,
             "max": 1.0,
             "widget": "mapper",
-            "options": "100%:1.0|50%:0.5|33%:0.33|25%:0.25|12.5%:0.125",
+            "options": "100%:1.0|75%:0.75|50%:0.5|33%:0.33|25%:0.25|12.5%:0.125",
             "help": "This value is only applied during IPR. This scales down the resolution during viewport renders.",
             "ipr_editable": true,
             "update_function_name": "update_viewport_res_mult",

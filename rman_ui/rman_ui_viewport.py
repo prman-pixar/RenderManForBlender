@@ -68,6 +68,7 @@ class PRMAN_MT_Viewport_Res_Mult_Menu(Menu):
     def get_items(self):
         items=[
             ("1.0", "100%"),
+            ("0.75", "75%"),
             ("0.5", "50%"),
             ("0.33", "33%"),
             ("0.25", "25%"),
