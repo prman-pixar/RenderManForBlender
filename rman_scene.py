@@ -710,7 +710,7 @@ class RmanScene(object):
         for i, ob_inst in enumerate(self.depsgraph.object_instances):
             ob = ob_inst.object
             rfb_log().debug("   Exported %d/%d instances... (%s)" % (i, total, ob.name))
-            self.rman_render.stats_mgr.set_export_stats("Exporting instances",i/total)
+            self.rman_render.stats_mgr.set_export_stats("Exporting (%s)" % ob.name,i/total)
             if ob.type in ('CAMERA'):
                 continue
 

@@ -264,7 +264,7 @@ class RfBStatsManager(object):
             if label:
                 self.render_live_stats[label] = '--'                
 
-        self.export_stat_label = ''
+        self.export_stat_label = 'Exporting'
         self.export_stat_progress = 0.0
 
         self._integrator = 'PxrPathTracer'

@@ -79,6 +79,85 @@ __ICE_EXT_MAP__ = {
     ice.constants.FMT_PNG: 'png'
 }
 
+RmanQtProgress = None
+
+try: 
+    from rman_utils.vendor.Qt.QtWidgets import QApplication, QWidget, QVBoxLayout, QProgressBar, QLabel
+    from rman_utils.vendor.Qt.QtGui import QIcon
+    import rman_utils.vendor.Qt.QtCore as QtCore
+    from .rman_constants import (
+            RFB_PLATFORM,
+            QT_RMAN_PLTF,
+            QT_RMAN_BASE_CSS,
+            RFB_ADDON_PATH)    
+
+    class RmanQtProgress(QWidget):
+        def __init__(self, parent):
+            super().__init__()
+            self.setWindowTitle("RenderMan Exporting...")
+            self.setGeometry(100, 100, 500, 80)
+            if RFB_PLATFORM == "macOS":
+                self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            else:
+                self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
+                self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            self.parent = parent
+
+            icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
+            self.parent.setWindowIcon(icon)   
+            self.time_start = None         
+
+            self.init_ui()
+
+        @property
+        def time_start(self):
+            return self.__time_start
+
+        @time_start.setter
+        def time_start(self, time_start):
+            self.__time_start = time_start
+
+        def init_ui(self):
+            lyt = QVBoxLayout()
+
+            self.progress_bar = QProgressBar(self)
+            self.progress_bar.setMinimum(0)
+            self.progress_bar.setMaximum(100)
+            self.progress_bar.setValue(0) 
+            self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+            self.progress_label = QLabel("")
+
+            lyt.addWidget(self.progress_label)
+            lyt.addWidget(self.progress_bar)
+            self.setLayout(lyt)
+
+            sh = self.styleSheet()
+            plt = dict(QT_RMAN_PLTF)
+            for nm, rgb in plt.items():
+                plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
+            css = QT_RMAN_BASE_CSS % plt
+            
+            # override the progress bar stylization
+            # we want white text
+            progressbar_css =  """
+            QProgressBar {
+                border: 1px solid %(bg)s;
+                color: rgb(255, 255, 255)
+            }
+            """ % plt
+            sh += css  + progressbar_css                 
+            self.parent.setStyleSheet(sh)
+
+        def update_progress(self, label, progress):
+            self.progress_bar.setValue(progress)
+            self.progress_label.setText(label)
+            self.progress_bar.setFormat("%p% (" + string_utils._format_time_(time.time() - self.time_start) + ")")
+
+except ModuleNotFoundError:
+    pass    
+except ImportError:
+    pass
+
 # map rman display to ice format
 __RMAN_TO_ICE_DSPY__ = {
     'tiff': ice.constants.FMT_TIFFFLOAT, 
@@ -215,6 +294,9 @@ def draw_threading_func(db):
 def call_stats_export_payloads(db):
     while db.rman_context.is_exporting_state():
         db.stats_mgr.update_payloads()
+        if db.progress_bar_app:
+            db.progress_bar_window.update_progress(db.stats_mgr.export_stat_label, db.stats_mgr.export_stat_progress * 100)
+            db.progress_bar_app.processEvents()
         time.sleep(0.1)  
 
 def call_stats_update_payloads(db):
@@ -498,6 +580,8 @@ class RmanRender(object):
         self.xpu_slow_mode = False
         self.use_qn = False
         self.rman_denoiser = RmanDenoiser(self.stats_mgr)
+        self.progress_bar_app = None
+        self.progress_bar_window = None
 
         # hold onto this or python will unload it
         self.preloaded_dsos = list()
@@ -1198,8 +1282,21 @@ class RmanRender(object):
                 envconfig().set_qn_dspy("socket", immediate_close=True)  
 
         if not self._check_prman_license():
-            return False
-        time_start = time.time()      
+            return False   
+
+        # start the progress bar UI
+        if RmanQtProgress is not None:
+            self.progress_bar_app = QApplication.instance()
+            if not self.progress_bar_app:
+                self.progress_bar_app = QApplication(sys.argv)
+            if self.progress_bar_window is None:
+                self.progress_bar_window = RmanQtProgress(self.progress_bar_app)
+            self.progress_bar_window.show()
+            t = threading.Thread(target=self.progress_bar_app.exec)
+            t.start()
+
+        time_start = time.time()   
+        self.progress_bar_window.time_start = time_start       
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
@@ -1230,12 +1327,22 @@ class RmanRender(object):
             self.rman_scene_sync.sg_scene = self.sg_scene
             rfb_log().info("Parsing scene...")        
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_exporting)
-            self.start_export_stats_thread()        
+            self.start_export_stats_thread()    
+
+            if self.progress_bar_app:
+                self.progress_bar_app.processEvents()    
+
             self.rman_scene.export_for_interactive_render(context, depsgraph, self.sg_scene)
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
             self._dump_rib_(self.bl_scene.frame_current)
             rfb_log().info("Finished parsing scene. Total time: %s" % string_utils._format_time_(time.time() - time_start))        
+
+            if self.progress_bar_app:
+                self.progress_bar_app.quit()
+                self.progress_bar_app = None
+                self.progress_bar_window = None 
+
             self.rman_context.set_mode_append(RmanRenderContext.k_is_live_rendering) 
             render_cmd = "prman -live"   
             render_cmd = self._append_render_cmd(render_cmd)
@@ -1264,6 +1371,10 @@ class RmanRender(object):
             rfb_log().error('Export Failed:\n%s' % traceback.format_exc())
             self.stop_render(stop_draw_thread=False)
             self.del_bl_engine()
+            if self.progress_bar_app:
+                self.progress_bar_app.quit()
+                self.progress_bar_app = None
+                self.progress_bar_window = None 
             return False
 
     def start_swatch_render(self, depsgraph):

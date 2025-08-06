@@ -343,3 +343,153 @@ RFB_SHADER_ALLOWED_CONNECTIONS = {
         }
     },        
 }
+
+## CSS copied from $RMANTREE/bin/rman_utils/rman_assets/common/ui_style.py
+QT_RMAN_PLTF = {'bg': (68, 68, 68),
+                'darkbg': (43, 43, 43),
+                'alternatebg': (53, 53, 53),
+                'lightbg': (78, 78, 78),
+                'tipbg': (58, 58, 58),
+                'tiptext': (192, 192, 192),
+                'text': (200, 200, 200),
+                'textselected': (225, 225, 225),
+                'orange': (229, 154, 0),
+                'blue': (118, 149, 229),
+                'bluehover': (81, 95, 125),
+                'handle': (93, 93, 93)}
+
+QT_RMAN_BASE_CSS = '''
+    QWidget {
+        background: %(bg)s;
+    } 
+    QPushButton {
+        border-radius: 2px;
+        color: %(text)s;
+        background-color: #5D5D5D;
+        min-height: 18px;
+        margin-left: 5px;
+        margin-right: 5px;
+        margin-top: 1px;
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+    QPushButton:hover {
+        background-color: #5D5D5D;
+        color: %(textselected)s;
+    }    
+    QPushButton:pressed {
+        background-color: rgba(32, 64, 128, 255);
+        color: %(textselected)s;
+    }     
+    QFrame {
+        background-color: %(darkbg)s;
+        border-width: 2px;
+        border-radius: 4px;
+        margin: 0px;
+    }    
+    QLabel {
+        background: %(bg)s;
+        color: %(text)s;
+    }    
+    QGroupBox {
+        background: %(bg)s;
+        color: %(text)s;
+    }        
+    QSplitter {
+        border-style: none;
+        background-color: %(bg)s;
+    }
+    QSplitter::handle {
+        background-color: %(bg)s;
+    }
+    QSplitter::handle:hover {
+        background-color: %(bluehover)s;
+    }    
+    QMenuBar {
+        border-width: 0px;
+        border-image: none;
+        color: %(text)s;
+    }
+    QMenuBar::item {
+        color: %(text)s;
+        background-color: %(bg)s;
+    }   
+    QMenuBar::item::selected {
+        background-color: %(bg)s;
+        color: %(textselected)s;
+    }
+    QMenu {
+        background-color: %(bg)s;
+        color: %(text)s;
+    }
+    QMenu::item::selected {
+        background-color: %(bg)s;
+        color: %(textselected)s;
+    }    
+    QToolTip {
+        background-color: %(tipbg)s;
+        color: %(tiptext)s;
+        border: 3px solid %(bluehover)s;
+        border-radius: 3px;
+        padding: 4px;
+    }
+    QProgressBar {
+        border: 1px solid %(bg)s;
+    }
+    QProgressBar::chunk {
+        background-color: %(blue)s;
+    }    
+    QLineEdit {
+        background-color: %(darkbg)s;
+        background-image: none;
+        color: %(text)s;
+    }    
+    QHeaderView {
+        background-color: %(darkbg)s;
+        border-color: %(darkbg)s;
+    }
+    QHeaderView::section {
+        background-color: %(darkbg)s;
+        background-image: none;
+        border-image: none;
+        border-color:  %(darkbg)s;
+        color: %(blue)s;
+        font-weight: bold;
+    }       
+    QTreeWidget {
+        margin: 0px;
+        padding: 0px;
+        border-width: 2px;
+        border-radius: 4px;
+        border-color: %(darkbg)s;
+        color: %(text)s;
+        background-color: %(darkbg)s;
+        alternate-background-color: %(alternatebg)s;        
+        min-width: 138px;
+    }
+    QTreeView {
+        margin: 0px;
+        padding: 0px;
+        border-width: 2px;
+        border-radius: 4px;
+        border-color: %(darkbg)s;
+        color: %(text)s;
+        background-color: %(darkbg)s;
+        alternate-background-color: %(alternatebg)s;
+        min-width: 138px;
+    }    
+    QListWidget {
+        margin: 0px;
+        padding: 0px;
+        border-width: 2px;
+        border-radius: 4px;
+        border-color: %(darkbg)s;
+        color: %(text)s;
+        background-color: %(darkbg)s;
+        alternate-background-color: %(alternatebg)s;        
+        min-width: 138px;
+    }     
+    QDoubleSpinBox {
+        color: %(text)s;   
+    }
+'''
