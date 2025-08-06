@@ -79,85 +79,6 @@ __ICE_EXT_MAP__ = {
     ice.constants.FMT_PNG: 'png'
 }
 
-RmanQtProgress = None
-
-try: 
-    from rman_utils.vendor.Qt.QtWidgets import QApplication, QWidget, QVBoxLayout, QProgressBar, QLabel
-    from rman_utils.vendor.Qt.QtGui import QIcon
-    import rman_utils.vendor.Qt.QtCore as QtCore
-    from .rman_constants import (
-            RFB_PLATFORM,
-            QT_RMAN_PLTF,
-            QT_RMAN_BASE_CSS,
-            RFB_ADDON_PATH)    
-
-    class RmanQtProgress(QWidget):
-        def __init__(self, parent):
-            super().__init__()
-            self.setWindowTitle("RenderMan Exporting...")
-            self.setGeometry(100, 100, 500, 80)
-            if RFB_PLATFORM == "macOS":
-                self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            else:
-                self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
-                self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            self.parent = parent
-
-            icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
-            self.parent.setWindowIcon(icon)   
-            self.time_start = None         
-
-            self.init_ui()
-
-        @property
-        def time_start(self):
-            return self.__time_start
-
-        @time_start.setter
-        def time_start(self, time_start):
-            self.__time_start = time_start
-
-        def init_ui(self):
-            lyt = QVBoxLayout()
-
-            self.progress_bar = QProgressBar(self)
-            self.progress_bar.setMinimum(0)
-            self.progress_bar.setMaximum(100)
-            self.progress_bar.setValue(0) 
-            self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
-            self.progress_label = QLabel("")
-
-            lyt.addWidget(self.progress_label)
-            lyt.addWidget(self.progress_bar)
-            self.setLayout(lyt)
-
-            sh = self.styleSheet()
-            plt = dict(QT_RMAN_PLTF)
-            for nm, rgb in plt.items():
-                plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
-            css = QT_RMAN_BASE_CSS % plt
-            
-            # override the progress bar stylization
-            # we want white text
-            progressbar_css =  """
-            QProgressBar {
-                border: 1px solid %(bg)s;
-                color: rgb(255, 255, 255)
-            }
-            """ % plt
-            sh += css  + progressbar_css                 
-            self.parent.setStyleSheet(sh)
-
-        def update_progress(self, label, progress):
-            self.progress_bar.setValue(progress)
-            self.progress_label.setText(label)
-            self.progress_bar.setFormat("%p% (" + string_utils._format_time_(time.time() - self.time_start) + ")")
-
-except ModuleNotFoundError:
-    pass    
-except ImportError:
-    pass
-
 # map rman display to ice format
 __RMAN_TO_ICE_DSPY__ = {
     'tiff': ice.constants.FMT_TIFFFLOAT, 
@@ -165,6 +86,123 @@ __RMAN_TO_ICE_DSPY__ = {
     'openexr': ice.constants.FMT_EXRFLOAT,    
     'png': ice.constants.FMT_PNG
 }
+
+RMAN_QT_PROGRESS = None
+
+def get_qt_progress_class():    
+    '''
+     we need to wrap the RmanQtProgress class in a function as
+     we want to delay importing PySide as long as possible
+     once PySide is imported, shiboken seems to screw up the Blender modules
+     which causes weird things like addon preferences not drawing correctly
+
+     Ex:
+     Traceback (most recent call last):
+        File "/pixar/ws/trees/ihsieh/OSS/blender-4.4-linux-x64/4.4/scripts/modules/addon_utils.py", line 432, in enable
+            mod = importlib.import_module(module_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/pixar/ws/trees/ihsieh/OSS/blender-4.4-linux-x64/4.4/python/lib/python3.11/importlib/__init__.py", line 126, in import_module
+            return _bootstrap._gcd_import(name[level:], package, level)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+        File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+        File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+        File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+        File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+        File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+        File "/home/ihsieh/BlenderScripts/scripts/addons/blender_visual_scripting_addon/__init__.py", line 50, in <module>
+            from . import handlers
+        File "/home/ihsieh/BlenderScripts/scripts/addons/blender_visual_scripting_addon/handlers.py", line 2, in <module>
+            from bpy.app.handlers import persistent
+        File "shibokensupport/signature/loader.py", line 61, in feature_imported
+        File "shibokensupport/feature.py", line 135, in feature_imported
+        AttributeError: 'bpy.app.handlers' object has no attribute '__name__'
+    '''
+
+    try: 
+        from rman_utils.vendor.Qt.QtWidgets import QApplication, QWidget, QVBoxLayout, QProgressBar, QLabel
+        from rman_utils.vendor.Qt.QtGui import QIcon
+        import rman_utils.vendor.Qt.QtCore as QtCore
+        from .rman_constants import (
+                RFB_PLATFORM,
+                QT_RMAN_PLTF,
+                QT_RMAN_BASE_CSS,
+                RFB_ADDON_PATH)    
+        
+        global RMAN_QT_PROGRESS
+
+        if RMAN_QT_PROGRESS is not None:
+            return (RMAN_QT_PROGRESS, QApplication)
+        class RmanQtProgress(QWidget):
+            def __init__(self, parent):
+                super().__init__()
+                self.setWindowTitle("RenderMan Exporting...")
+                self.setGeometry(100, 100, 500, 80)
+                if RFB_PLATFORM == "macOS":
+                    self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                else:
+                    self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
+                    self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                self.parent = parent
+
+                icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
+                self.parent.setWindowIcon(icon)   
+                self.time_start = None         
+
+                self.init_ui()
+
+            @property
+            def time_start(self):
+                return self.__time_start
+
+            @time_start.setter
+            def time_start(self, time_start):
+                self.__time_start = time_start
+
+            def init_ui(self):
+                lyt = QVBoxLayout()
+
+                self.progress_bar = QProgressBar(self)
+                self.progress_bar.setMinimum(0)
+                self.progress_bar.setMaximum(100)
+                self.progress_bar.setValue(0) 
+                self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+                self.progress_label = QLabel("")
+
+                lyt.addWidget(self.progress_label)
+                lyt.addWidget(self.progress_bar)
+                self.setLayout(lyt)
+
+                sh = self.styleSheet()
+                plt = dict(QT_RMAN_PLTF)
+                for nm, rgb in plt.items():
+                    plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
+                css = QT_RMAN_BASE_CSS % plt
+                
+                # override the progress bar stylization
+                # we want white text
+                progressbar_css =  """
+                QProgressBar {
+                    border: 1px solid %(bg)s;
+                    color: rgb(255, 255, 255)
+                }
+                """ % plt
+                sh += css  + progressbar_css                 
+                self.parent.setStyleSheet(sh)
+
+            def update_progress(self, label, progress):
+                self.progress_bar.setValue(progress)
+                self.progress_label.setText(label)
+                self.progress_bar.setFormat("%p% (" + string_utils._format_time_(time.time() - self.time_start) + ")")
+
+        RMAN_QT_PROGRESS = RmanQtProgress
+
+    except ModuleNotFoundError:
+        return(None, None)
+    except ImportError:
+        return(None, None)
+
+    return (RmanQtProgress, QApplication)
 
 def __update_areas__():
     for window in bpy.context.window_manager.windows:
@@ -1285,6 +1323,7 @@ class RmanRender(object):
             return False   
 
         # start the progress bar UI
+        RmanQtProgress, QApplication = get_qt_progress_class()
         if RmanQtProgress is not None:
             self.progress_bar_app = QApplication.instance()
             if not self.progress_bar_app:
