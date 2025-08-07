@@ -138,15 +138,14 @@ def get_qt_progress_class():
                 super().__init__()
                 self.setWindowTitle("RenderMan Exporting...")
                 self.setGeometry(100, 100, 500, 80)
+                self.parent = parent
                 if RFB_PLATFORM == "macOS":
                     self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                 else:
                     self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
                     self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-                self.parent = parent
-
-                icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
-                self.parent.setWindowIcon(icon)   
+                    icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
+                    self.parent.setWindowIcon(icon)   
                 self.time_start = None         
 
                 self.init_ui()
@@ -332,9 +331,6 @@ def draw_threading_func(db):
 def call_stats_export_payloads(db):
     while db.rman_context.is_exporting_state():
         db.stats_mgr.update_payloads()
-        if db.progress_bar_app:
-            db.progress_bar_window.update_progress(db.stats_mgr.export_stat_label, db.stats_mgr.export_stat_progress * 100)
-            db.progress_bar_app.processEvents()
         time.sleep(0.1)  
 
 def call_stats_update_payloads(db):

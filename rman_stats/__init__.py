@@ -556,6 +556,9 @@ class RfBStatsManager(object):
     def set_export_stats(self, label, progress):
         self.export_stat_label = label
         self.export_stat_progress = progress
+        if self.rman_render.progress_bar_app:
+            self.rman_render.progress_bar_window.update_progress(self.export_stat_label, self.export_stat_progress * 100)       
+            self.rman_render.progress_bar_app.processEvents()
 
     def draw_stats(self):
         if self.rman_render.rman_context.is_exporting_state():
