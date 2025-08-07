@@ -49,7 +49,7 @@ def get_mesh(mesh, get_normals=False):
     '''
 
     P = get_mesh_points_(mesh)
-    N = []    
+    N = None  
 
     npolygons = len(mesh.polygons)
     fastnvertices = np.zeros(npolygons, dtype=np.int32)
@@ -77,12 +77,10 @@ def get_mesh(mesh, get_normals=False):
                 fastnormals = np.zeros(loops*3, dtype=np.float32)
                 mesh.loops.foreach_get('normal', fastnormals)
                 N = fastnormals
-
-
-        if not N.any():            
-            fastnormals = np.zeros(npolygons*3, dtype=np.float32)
-            mesh.polygons.foreach_get('normal', fastnormals)
-            N = fastnormals
+            else:        
+                fastnormals = np.zeros(npolygons*3, dtype=np.float32)
+                mesh.polygons.foreach_get('normal', fastnormals)
+                N = fastnormals
 
     rman_mesh = RmanMesh(nverts, verts, P, N)
     return rman_mesh

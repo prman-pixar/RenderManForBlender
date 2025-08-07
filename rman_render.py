@@ -196,9 +196,11 @@ def get_qt_progress_class():
 
         RMAN_QT_PROGRESS = RmanQtProgress
 
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
+        rfb_log().error("Cannot import PySide: %s" % str(e))
         return(None, None)
-    except ImportError:
+    except ImportError as e:
+        rfb_log().error("Cannot import PySide: %s" % str(e))
         return(None, None)
 
     return (RmanQtProgress, QApplication)
@@ -1331,7 +1333,8 @@ class RmanRender(object):
             t.start()
 
         time_start = time.time()   
-        self.progress_bar_window.time_start = time_start       
+        if self.progress_bar_window:
+            self.progress_bar_window.time_start = time_start       
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
