@@ -11,7 +11,8 @@ class RmanMesh:
         self.npolys = len(self.nverts)
         self.npoints = int(len(self.P) / 3)
         self.numnverts = len(self.verts)
-        self.nnormals = int(len(self.N) / 3)
+        if self.N is not None:
+            self.nnormals = int(len(self.N) / 3)
 
     def __eq__(self, other):
         if self.nverts != other.nverts or self.verts != other.verts or self.P != other.P or self.N != other.N:
