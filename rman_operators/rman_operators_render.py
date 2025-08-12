@@ -3,7 +3,6 @@ from ..rman_render import RmanRender
 from ..rfb_logger import rfb_log
 import bpy
 import os
-import time
 import shutil
 import webbrowser
 
@@ -264,11 +263,8 @@ class PRMAN_OT_RefreshInteractive(bpy.types.Operator):
     bl_options = {'INTERNAL'}    
 
     def invoke(self, context, event=None):
-        rr = RmanRender.get_rman_render()
-        render_to_it = rr.rman_scene.ipr_render_into == 'it'
-        bpy.ops.renderman.stop_ipr('INVOKE_DEFAULT')
-        time.sleep(2.0) # add a little bit of a delay before we start IPR again
-        bpy.ops.renderman.start_ipr('INVOKE_DEFAULT', render_to_it=render_to_it)
+        from ..rfb_utils import render_utils
+        render_utils.refresh_viewport(context)
         return {'FINISHED'}    
 
 class PRMAN_OT_StopInteractive(bpy.types.Operator):

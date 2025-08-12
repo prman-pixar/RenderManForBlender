@@ -76,7 +76,7 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
             
         row = layout.row(align=True)
         row.prop(rm, 'renderVariant')
-        if is_rman_running or rm.current_platform == ("macOS") or not rm.has_xpu_license:
+        if rm.current_platform == ("macOS") or not rm.has_xpu_license:
             row.enabled = False
 
         if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:

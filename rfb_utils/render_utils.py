@@ -225,3 +225,44 @@ def set_render_variant_spool(bl_scene, args, is_tractor=False):
         if device_list:
             device_list = ','.join(device_list)
             args.append('-xpudevices:%s' % device_list)  
+
+def refresh_viewport(context):
+    '''
+    Stop the current viewport and then restart it again
+    '''
+
+    import time 
+    from ..rman_render import RmanRender
+
+    scene = context.scene
+    rm = scene.renderman
+    if not rm.is_rman_running or not rm.is_rman_interactive_running:
+        return
+    
+    rr = RmanRender.get_rman_render()
+    render_to_it = rr.rman_scene.ipr_render_into == 'it'
+    
+    if render_to_it:            
+        rr.stop_render(stop_draw_thread=False)
+        time.sleep(2.0) # add a little bit of a delay before we start IPR again    
+        depsgraph = context.evaluated_depsgraph_get()
+        rr.start_interactive_render(context, depsgraph)        
+    else:    
+        # first, look for the viewport that's rendering and stop it
+        viewport = None
+        for window in context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            if space.shading.type == 'RENDERED':    
+                                space.shading.type = 'SOLID'  
+                                viewport = space
+
+        if viewport is None:
+            return
+    
+        time.sleep(2.0) # add a little bit of a delay before we start IPR again
+        if viewport.shading.type != 'RENDERED':        
+            rr = RmanRender.get_rman_render()
+            viewport.shading.type = 'RENDERED'                

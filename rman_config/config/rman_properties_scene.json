@@ -33,6 +33,8 @@
             "options": "RIS:ris|XPU:xpu",
             "bl_prop_options": "",
             "help": "",
+            "update_function_name": "update_render_variant",
+            "update_function": "def update_render_variant(self, context):\n    from ..rfb_utils import render_utils\n    render_utils.refresh_viewport(context)",
             "conditionalLockOps": {
                 "conditionalVis1Path": "has_xpu_license",
                 "conditionalVis2Op": "notEqualTo",
