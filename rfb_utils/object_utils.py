@@ -154,6 +154,10 @@ def is_transforming(ob, recurse=False):
     transforming = (ob.animation_data is not None)
     if not transforming:
         transforming = (ob.original.animation_data is not None)
+    if not transforming:
+        # check if there are constraints
+        # assume any constraints causes the object to transform
+        transforming = len(ob.constraints) > 0        
     if not transforming and ob.parent:
         transforming = is_transforming(ob.parent, recurse=True)
         if not transforming and ob.parent.type == 'CURVE' and ob.parent.data:
