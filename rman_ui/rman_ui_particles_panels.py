@@ -53,8 +53,8 @@ class PARTICLE_PT_renderman_particle(ParticleButtonsPanel, Panel, _RManPanelHead
                 col.prop(rm, 'motion_segments')
         else:
             col.prop(rm, 'do_velocity_blur')
-
-
+            if rm.do_velocity_blur:
+                col.prop(rm, 'scale_velocity_blur')
 class PARTICLE_PT_renderman_prim_vars(CollectionPanel, Panel):
     bl_context = "particle"
     bl_label = "Primitive Variables"

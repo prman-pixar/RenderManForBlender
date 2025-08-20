@@ -118,6 +118,15 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
         update=update_psys
     )
     
+    scale_velocity_blur: FloatProperty(
+        name="Scale Velocity Blur",
+        description="Scale the velocity blur. Lower values will create less blur.",
+        default=1.0,
+        min=0.0,
+        max=10.0,
+        update=update_psys
+    )    
+
     motion_segments_override: BoolProperty(
         name="Override Motion Samples",
         description="",

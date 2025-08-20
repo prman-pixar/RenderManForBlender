@@ -11,13 +11,15 @@ def get_particles(ob, psys, inv_mtx, frame, valid_frames=None, get_next_P=False,
     valid_frames = (frame,
                     frame) if valid_frames is None else valid_frames
     
+    rm = psys.settings.renderman
+
     for pa in [p for p in psys.particles if valid_particle(p, valid_frames)]:
         pt = inv_mtx @ pa.location
         P.append(pt)
         
         if get_next_P:
             # calculate the point for the next frame using velocity
-            vel = Vector(pa.velocity / pa.lifetime )
+            vel = Vector(pa.velocity / pa.lifetime ) * rm.scale_velocity_blur
             next_P.append( inv_mtx @ (Vector(pa.location) + vel))
 
         if get_width:
