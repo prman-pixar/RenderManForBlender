@@ -7,7 +7,6 @@ from .rman_constants import RMAN_RENDERMAN_BLUE as BLUE
 from .rfb_logger import rfb_log
 
 import gpu
-import blf
 
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
@@ -88,19 +87,9 @@ class PRManRender(bpy.types.RenderEngine):
         if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:
             self.rman_render.update_scene(context, depsgraph)   
 
-    def draw_viewport_message(self, context, msg):
-        w = context.region.width     
-        h = context.region.height          
-        pos_x = w / 2 - 100
-        pos_y = 20
-        blf.enable(0, blf.SHADOW)
-        blf.shadow_offset(0, 1, -1)
-        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
-        blf.size(0, 20)
-        blf.position(0, pos_x, pos_y, 0)
-        blf.color(0, BLUE[0], BLUE[1], BLUE[2], BLUE[3])
-        blf.draw(0, "%s" % (msg))
-        blf.disable(0, blf.SHADOW)               
+    def draw_viewport_message(self, context, msg, warning=False):
+        from .rfb_utils.draw_utils import draw_viewport_message    
+        draw_viewport_message(context, msg, warning=warning)              
 
     def view_draw(self, context, depsgraph):
         '''
@@ -109,16 +98,16 @@ class PRManRender(bpy.types.RenderEngine):
         Blender display driver.
         '''
         if self.export_failed and self.rman_render.rman_license_failed:
-            self.draw_viewport_message(context, 'License failure: %s.' % self.rman_render.rman_license_failed_message)
+            self.draw_viewport_message(context, 'License failure: %s.' % self.rman_render.rman_license_failed_message, warning=True)
             return
         if self.ipr_already_running:
-            self.draw_viewport_message(context, 'Multiple viewport rendering not supported.')
+            self.draw_viewport_message(context, 'Multiple viewport rendering not supported.', warning=True)
             return
 
         if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:               
             self.rman_render.update_view(context, depsgraph)
 
-        if self.rman_render.rman_context.is_xpu() and self.rman_render.stats_mgr._progress < 1:
+        if self.rman_render.rman_context.is_xpu() and (self.rman_render.stats_mgr._progress < 1 or self.rman_render.bufer_is_zero):
             # sometimes, pixels can take a while to show up when in XPU
             # write a message to the viewport to let user know we are indeed rendering 
             self.draw_viewport_message(context, "Waiting for pixels...")
@@ -221,12 +210,10 @@ class PRManRender(bpy.types.RenderEngine):
             if not for_background:
                 self._increment_version_tokens(external_render=False)
 
-    def _draw_pixels(self, context, depsgraph):     
-
-        from .rfb_utils.draw_utils import draw_viewport_message    
+    def _draw_pixels(self, context, depsgraph):      
 
         if self.rman_render.rman_license_failed:
-            draw_viewport_message(context, self.rman_render.rman_license_failed_message)
+            self.draw_viewport_message(context, self.rman_render.rman_license_failed_message, warning=True)
 
         if not self.rman_render.rman_context.is_viewport_rendering():
             return       
@@ -236,7 +223,7 @@ class PRManRender(bpy.types.RenderEngine):
         h = context.region.height 
 
         if scene.renderman.rfb_disgust:
-            draw_viewport_message(context, 'Debug Logging On')                          
+            self.draw_viewport_message(context, 'Debug Logging On')
 
         # Bind shader that converts from scene linear to display space,
         gpu.state.blend_set("ADDITIVE_PREMULT")

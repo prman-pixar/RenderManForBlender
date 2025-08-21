@@ -40,7 +40,7 @@ def draw():
     rman_render = RmanRender.get_rman_render()
 
     if rman_render.rman_license_failed:
-        draw_viewport_message(bpy.context, rman_render.rman_license_failed_message)    
+        draw_viewport_message(bpy.context, rman_render.rman_license_failed_message, warning=True)    
         return
 
     scene = bpy.context.scene

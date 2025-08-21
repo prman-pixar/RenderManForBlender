@@ -3,22 +3,30 @@ from . import shadergraph_utils
 from . import prefs_utils
 from .property_utils import BlPropInfo, __LOBES_ENABLE_PARAMS__
 from ..rman_constants import NODE_LAYOUT_SPLIT
+from ..rman_constants import RMAN_RENDERMAN_BLUE as BLUE
 from .. import rman_config
 from .. import rfb_icons
 import bpy
 import re
 
-def draw_viewport_message(context, msg):
+def draw_viewport_message(context, msg, warning=False):
     import blf
 
     w = context.region.width 
     pos_x = w / 2 - 100
     pos_y = 20           
-    font_id = 0        
+    font_id = 0       
+    blf.enable(0, blf.SHADOW)
+    blf.shadow_offset(0, 1, -1)
+    blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)     
     blf.position(font_id, pos_x, pos_y, 0)
     blf.size(font_id, 20.0)
-    blf.color(font_id, 1, 0, 0, 1)
+    if warning:
+        blf.color(font_id, 1, 0, 0, 1)
+    else:
+        blf.color(0, BLUE[0], BLUE[1], BLUE[2], BLUE[3])
     blf.draw(font_id, msg)
+    blf.disable(0, blf.SHADOW)  
 
 def draw_indented_label(layout, label, level):
     for i in range(level):

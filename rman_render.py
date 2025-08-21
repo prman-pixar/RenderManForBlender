@@ -619,6 +619,8 @@ class RmanRender(object):
         self.progress_bar_app = None
         self.progress_bar_window = None
 
+        self.bufer_is_zero = False
+
         # hold onto this or python will unload it
         self.preloaded_dsos = list()
 
@@ -802,6 +804,7 @@ class RmanRender(object):
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False 
+        self.bufer_is_zero = False
 
     def create_scene(self, config, render_config):
         self.sg_scene = self.sgmngr.CreateScene(config, render_config, self.stats_mgr.rman_stats_session)
@@ -1645,6 +1648,11 @@ class RmanRender(object):
         if buffer is None:
             rfb_log().debug("Buffer is None")
             return
+        self.bufer_is_zero = numpy.all(buffer == 0.0)
+        if self.bufer_is_zero:
+            rfb_log().debug("Buffer is all zero")
+            return
+
         pixels = gpu.types.Buffer('FLOAT', width * height * 4, buffer)
 
         texture = gpu.types.GPUTexture((width, height), format='RGBA32F', data=pixels)
