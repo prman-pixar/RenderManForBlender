@@ -365,7 +365,7 @@ class RmanMeshTranslator(RmanTranslator):
         primvar.SetStringArray(self.rman_scene.rman.Tokens.Rix.k_Ri_subdivtagstringtags, stringargs, len(stringargs))        
 
     def export(self, ob, db_name):
-        if len(ob.data.polygons) < 1:
+        if ob.type == 'MESH' and len(ob.data.polygons) < 1:
             return None
         
         sg_node = self.rman_scene.sg_scene.CreateGroup('')
