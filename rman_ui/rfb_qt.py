@@ -148,6 +148,13 @@ def run_with_timer(window, cls):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     if not window:
         window = cls()
+        sh = window.styleSheet()
+        plt = dict(QT_RMAN_PLTF)
+        for nm, rgb in plt.items():
+            plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
+        css = QT_RMAN_BASE_CSS % plt
+        sh += css        
+        app.setStyleSheet(sh)          
     window.show()
     bpy.app.timers.register(functools.partial(process_qt_events, app, window))
     return window
