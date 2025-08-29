@@ -493,7 +493,7 @@ class RmanMeshTranslator(RmanTranslator):
             sg_node.SetScheme(None)
 
         if not rman_sg_mesh.is_subdiv:
-            if N.any():
+            if get_normals and N.any():
                 if rman_mesh.nnormals == numnverts:
                     primvar.SetNormalDetail(self.rman_scene.rman.Tokens.Rix.k_N, N.data, "facevarying")         
                 else:
