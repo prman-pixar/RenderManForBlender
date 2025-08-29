@@ -198,7 +198,8 @@ class RendermanPreferences(AddonPreferences):
 
                 found = False
                 for device in self.rman_xpu_gpu_devices:
-                    if device.name == device_name and device.version_major == desc.major and device.version_minor:
+                    rfb_logger.rfb_log().info("\tCheck %s" % device.name)
+                    if device.name == device_name and device.version_major == desc.major and device.version_minor == desc.minor:
                         found = True
                         break
 
