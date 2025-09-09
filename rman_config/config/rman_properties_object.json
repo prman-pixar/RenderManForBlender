@@ -610,6 +610,19 @@
         },
         {
             "panel": "OBJECT_PT_renderman_object_raytracing",
+            "name": "rman_groupingId",
+            "riattr": "grouping:id",
+            "label": "Grouping Id",
+            "type": "int",
+            "ipr_editable": true,
+            "default": 0,
+            "min": 0,
+            "max": 15,            
+            "page": "Trace",
+            "help": "Grouping id used for raytrace disambiguation purposes. Not implemented in XPU."
+        },
+        {
+            "panel": "OBJECT_PT_renderman_object_raytracing",
             "name": "rman_traceDisplacements",
             "primvar": "trace:displacements",
             "label": "Trace Displacement",
