@@ -77,6 +77,16 @@
             "required": [
             ]
         },
+        "node_size_preference": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "properties": {
+                "default": {
+                    "type": ["number"]
+                }
+            }                               
+        },
         "bxdf_viewport_color_map": {
             "type": "object",
             "properties": {
@@ -203,7 +213,15 @@
                 }
             }
         },      
-        "tractor_cfg": {"$ref": "#/definitions/tractor_cfg" }       
+        "tractor_cfg": {"$ref": "#/definitions/tractor_cfg" },   
+        "node_size_preferences": {
+            "type": "object",
+            "patternProperties": {
+                "[A-Za-z0-9_-]+": {
+                    "$ref": "#/definitions/node_size_preference"
+                }
+            }
+        }
     },
     "additionalProperties": false
 }

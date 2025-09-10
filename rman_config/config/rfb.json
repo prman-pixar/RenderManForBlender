@@ -15,6 +15,9 @@
             "default": false
         }
     },
+    "node_size_preferences": {
+        "default": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    },
     "vp_light_scale": {
         "PxrDomeLight": {
             "scale": 100.0

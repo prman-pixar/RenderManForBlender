@@ -346,22 +346,23 @@ def generate_node_type(node_desc, is_oso=False):
     ntype.bl_description = description
 
     # Node sizes
-    bl_width_default = getattr(node_desc, 'bl_width_default', 0.0)
+    node_size_defaults = rfb_config['node_size_preferences']['default']
+
+    bl_width_default, bl_width_min, bl_width_max, bl_height_default, bl_height_min, bl_height_max = node_size_defaults
+    if name in rfb_config['node_size_preferences']:
+        node_size_defaults = rfb_config['node_size_preferences'][name]
+        bl_width_default, bl_width_min, bl_width_max, bl_height_default, bl_height_min, bl_height_max = node_size_defaults
+
     if bl_width_default > 0.0:
         ntype.bl_width_default = bl_width_default
-    bl_width_min = getattr(node_desc, 'bl_width_min', 0.0)
     if bl_width_min > 0.0:
         ntype.bl_width_min = bl_width_min     
-    bl_width_max = getattr(node_desc, 'bl_width_max', 0.0)
     if bl_width_max > 0.0:
         ntype.bl_width_max = bl_width_max    
-    bl_height_default = getattr(node_desc, 'bl_height_default', 0.0)
     if bl_height_default > 0.0:
         ntype.bl_height_default = bl_height_default    
-    bl_height_min = getattr(node_desc, 'bl_height_min', 0.0) 
     if bl_height_min > 0.0:
         ntype.bl_height_min = bl_height_min    
-    bl_height_max = getattr(node_desc, 'bl_height_max', 0.0)    
     if bl_height_max > 0.0:
         ntype.bl_height_max = bl_height_max    
 
