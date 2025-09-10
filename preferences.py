@@ -94,7 +94,7 @@ __DEFAULTS__ = {
     'rman_roz_webSocketServer_Port': 0, 
     'rman_roz_stats_print_level': '1',
     'rman_enhance_zoom_factor': 5,
-    'rman_parent_lightfilter': False,
+    'rman_parent_lightfilter': True,
     'rman_tractor_hostname': 'tractor-engine',
     'rman_tractor_port': 80,
     'rman_tractor_local_user': True,
@@ -614,7 +614,7 @@ class RendermanPreferences(AddonPreferences):
 
     rman_parent_lightfilter: BoolProperty(
         name="Parent Filter to Light",
-        default=False,
+        default=True,
         description="If on, and a light is selected, attaching a light filter will parent the light filter to the selected light."
     )                      
 
