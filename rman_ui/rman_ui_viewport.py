@@ -917,6 +917,8 @@ class PRMAN_PT_Viewport_Options(Panel):
         
         col = layout.column(align=True)
         col.prop(rm, 'blender_ipr_denoiser')
+        if rm.renderVariant == 'xpu' and rm.is_rman_interactive_running:
+            col.enabled = False
         if rm.blender_ipr_denoiser == display_utils.__RFB_DENOISER_AI__:
             col.prop(rm, 'blender_ipr_aidenoiser_cheapFirstPass')
             col.prop(rm, 'blender_ipr_aidenoiser_minSamples')
