@@ -11,6 +11,10 @@ from .prefs_utils import get_pref
 from ..rman_constants import RFB_PLATFORM
 import bpy
 
+# import modules for <expr> tokens to use
+import math
+import random
+
 COUNTERS = None
 
 

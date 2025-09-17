@@ -326,6 +326,9 @@ class RmanTranslator(object):
         for ua in rm.user_attributes:
             param_type = ua.type
             val = getattr(ua, 'value_%s' % ua.type)
+            if ua.type == "string":
+                # make sure to expand any tokens in the string
+                val = string_utils.expand_string(val)
             namespace = ua.namespace
             if namespace == '':
                 namespace = 'user'

@@ -15,7 +15,29 @@ class RmanMesh:
             self.nnormals = int(len(self.N) / 3)
 
     def __eq__(self, other):
-        if self.nverts != other.nverts or self.verts != other.verts or self.P != other.P or self.N != other.N:
+        self_nverts = self.nverts
+        self_verts = self.verts
+        self_P = self.P
+        self_N = self.N
+
+        other_nverts = other.nverts
+        other_verts = other.verts
+        other_P = other.P
+        other_N = other.N
+
+        # convert these to lists
+        if isinstance(self.nverts, np.ndarray):
+            self_nverts = self.nverts.tolist()
+            self_verts = self.verts.tolist()
+            self_P = self.P.tolist()
+            self_N = self.N.tolist()
+        if isinstance(other.nverts, np.ndarray):
+            other_nverts = other.nverts.tolist()
+            other_verts = other.verts.tolist()
+            other_P = other.P.tolist()
+            other_N = other.N.tolist()
+
+        if self_nverts != other_nverts or self_verts != other_verts or self_P != other_P or self_N != other_N:
             return False
         return True
 
