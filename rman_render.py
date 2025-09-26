@@ -517,9 +517,14 @@ class BlRenderResultHelper:
 
     def update_passes(self): 
         for i, rp in self.bl_image_rps.items():
-            buffer = self.rman_render._get_buffer(self.width, self.height, image_num=i, 
-                                        num_channels=rp.channels,
-                                        as_flat=False,
+            width = self.width
+            height = self.height
+            if self.render.use_crop_to_border:
+                width = self.size_x
+                height = self.size_y
+            buffer = self.rman_render._get_buffer(width, height, image_num=i, 
+                                        num_channels=rp.channels, 
+                                        as_flat=False, 
                                         render=self.render)
             if buffer is None:
                 continue
@@ -1877,7 +1882,7 @@ class RmanRender(object):
                     return pixels
                     '''
             else:
-                if render and render.use_border:
+                if render and render.use_border and not render.use_crop_to_border:
                     start_x, end_x, start_y, end_y = scene_utils.get_render_borders(render, height, width)
 
                     buffer.shape = (height, width, dspy_num_channels)

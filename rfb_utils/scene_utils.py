@@ -1,6 +1,7 @@
 from . import shadergraph_utils
 from . import object_utils
 from . import string_utils
+from .envconfig_utils import envconfig
 from ..rman_constants import RMAN_GLOBAL_VOL_AGGREGATE
 from ..rfb_logger import rfb_log
 import bpy
@@ -700,7 +701,7 @@ def get_render_borders(render, height, width):
         if render.border_min_y > 0.0:
             start_y = round(height * render.border_min_y)-1
         if render.border_max_y > 0.0:                        
-            end_y = round(height * render.border_max_y)-1 
+            end_y = round(height * render.border_max_y)-2
         if render.border_min_x > 0.0:
             start_x = round(width * render.border_min_x)-1
         if render.border_max_x < 1.0:
