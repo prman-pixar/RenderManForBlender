@@ -2,6 +2,7 @@ from . import shadergraph_utils
 from . import object_utils
 from . import prefs_utils
 from . import string_utils
+from .envconfig_utils import envconfig
 from ..rman_constants import RMAN_GLOBAL_VOL_AGGREGATE
 from ..rfb_logger import rfb_log
 import bpy
@@ -272,6 +273,7 @@ def get_render_variant(bl_scene):
     return bl_scene.renderman.renderVariant    
 
 def set_render_variant_config(bl_scene, config, render_config):
+    
     variant = get_render_variant(bl_scene)
     if variant.startswith('xpu'):
         variant = 'xpu'
@@ -302,23 +304,39 @@ def set_render_variant_config(bl_scene, config, render_config):
             render_config.SetInteger('xpu:cpuconfig', 1)
         '''
 
-        # Else, we only support selecting one GPU
-        xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
-        if xpu_gpu_device > -1:
-            render_config.SetIntegerArray('xpu:gpuconfig', [xpu_gpu_device], 1)
+        xpu_mode_env = envconfig().getenv('RFB_XPU_MODE', '').lower()
 
-        # For now, there is only one CPU
-        xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-        if len(xpu_cpu_devices) > 0:
-            device = xpu_cpu_devices[0]
-            render_config.SetInteger('xpu:cpuconfig', int(device.use))    
+        if bpy.app.background and xpu_mode_env in ['xpu', 'xpucpu', 'xpugpu']:
+            # override the prefs value
+            if xpu_mode_env in ['xpu', 'xpucpu']:
+                render_config.SetInteger('xpu:cpuconfig', 1)
+            
+            if xpu_mode_env in ['xpu', 'xpugpu']:
+                import rman
+                
+                count = rman.pxrcore.GetGpgpuCount(rman.pxrcore.k_cuda)
+                if count > 0:
+                    render_config.SetIntegerArray('xpu:gpuconfig', [0], 1)
 
-            if xpu_gpu_device == -1 and not device.use:
-                # Nothing was selected, we should at least use the cpu.
-                print("No devices were selected for XPU. Defaulting to CPU.")
-                render_config.SetInteger('xpu:cpuconfig', 1)                         
         else:
-            render_config.SetInteger('xpu:cpuconfig', 1)         
+
+            # Else, we only support selecting one GPU
+            xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
+            if xpu_gpu_device > -1:
+                render_config.SetIntegerArray('xpu:gpuconfig', [xpu_gpu_device], 1)
+
+            # For now, there is only one CPU
+            xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
+            if len(xpu_cpu_devices) > 0:
+                device = xpu_cpu_devices[0]
+                render_config.SetInteger('xpu:cpuconfig', int(device.use))    
+
+                if xpu_gpu_device == -1 and not device.use:
+                    # Nothing was selected, we should at least use the cpu.
+                    print("No devices were selected for XPU. Defaulting to CPU.")
+                    render_config.SetInteger('xpu:cpuconfig', 1)                         
+            else:
+                render_config.SetInteger('xpu:cpuconfig', 1)         
 
 def set_render_variant_spool(bl_scene, args, is_tractor=False):
     variant = get_render_variant(bl_scene)

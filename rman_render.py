@@ -374,7 +374,7 @@ class BlRenderResultHelper:
             if self.render.border_min_y > 0.0:
                 start_y = round(self.height * self.render.border_min_y)-1
             if self.render.border_max_y > 0.0:                        
-                end_y = round(self.height * self.render.border_max_y)-1 
+                end_y = round(self.height * self.render.border_max_y)-2 
             if self.render.border_min_x > 0.0:
                 start_x = round(self.width * self.render.border_min_x)-1
             if self.render.border_max_x < 1.0:
@@ -397,7 +397,12 @@ class BlRenderResultHelper:
 
     def update_passes(self): 
         for i, rp in self.bl_image_rps.items():
-            buffer = self.rman_render._get_buffer(self.width, self.height, image_num=i, 
+            width = self.width
+            height = self.height
+            if self.render.use_crop_to_border:
+                width = self.size_x
+                height = self.size_y
+            buffer = self.rman_render._get_buffer(width, height, image_num=i, 
                                         num_channels=rp.channels, 
                                         as_flat=False, 
                                         back_fill=False,
@@ -1586,7 +1591,8 @@ class RmanRender(object):
                             p_pos += 4                                
                     return pixels
             else:
-                if render and render.use_border:
+                if render and render.use_border and not render.use_crop_to_border:
+                    # we need a grab portion of the buffer
                     start_x = 0
                     end_x = width
                     start_y = 0
@@ -1596,7 +1602,7 @@ class RmanRender(object):
                     if render.border_min_y > 0.0:
                         start_y = round(height * render.border_min_y)-1
                     if render.border_max_y > 0.0:                        
-                        end_y = round(height * render.border_max_y)-1 
+                        end_y = round(height * render.border_max_y)-2 
                     if render.border_min_x > 0.0:
                         start_x = round(width * render.border_min_x)-1
                     if render.border_max_x < 1.0:
