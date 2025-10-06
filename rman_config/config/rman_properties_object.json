@@ -660,7 +660,7 @@
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "rman_autoBias",
-                "conditionalVisValue": 1
+                "conditionalVisValue": 0
             }
         },
         {
@@ -693,7 +693,7 @@
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "rman_traceSssAutoBias",
-                "conditionalVisValue": 1
+                "conditionalVisValue": 0
             }
         },          
         {   
