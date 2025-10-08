@@ -544,7 +544,7 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
                 op.nodeID = nodeID     
             else:
                 draw_indented_label(row, None, level)
-                row.label(text="Input mage does not exists.", icon='ERROR')   
+                row.label(text="Input Image does not exist.", icon='ERROR')   
                    
 
 def draw_ui_struct(layout, node, prop_name, bl_prop_info, nt, context, level):

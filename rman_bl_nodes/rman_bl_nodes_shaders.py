@@ -193,7 +193,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                     op = row.operator('rman_txmgr_list.open_txmanager', text='', icon_value=rman_icon.icon_id)   
                     op.nodeID = nodeID     
                 else:
-                    row.label(text="Input mage does not exists.", icon='ERROR')         
+                    row.label(text="Input Image does not exist.", icon='ERROR')         
             return
         
 
