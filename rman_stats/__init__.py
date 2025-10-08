@@ -322,11 +322,9 @@ class RfBStatsManager(object):
 
         self.rman_stats_session_config = rman.Stats.SessionConfig(self.rman_stats_session_name)
 
-        # look for a custom stats.ini file
-        rman_stats_config_path = os.environ.get('RMAN_STATS_CONFIG_PATH', None)
-        if rman_stats_config_path:
-            if os.path.exists(os.path.join(rman_stats_config_path, 'stats.ini')):
-                self.rman_stats_session_config.LoadConfigFile(rman_stats_config_path, 'stats.ini')
+        # load the default stats.ini config file
+        # TODO RMAN-23901: add custom path/name or move this to the ctor
+        self.rman_stats_session_config.LoadConfigFile('', 'stats.ini')
 
         # add listener plugin path
         listenerPath = os.path.join(os.environ.get("RMANTREE"), "lib/plugins/listeners")
