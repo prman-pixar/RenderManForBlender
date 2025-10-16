@@ -21,6 +21,7 @@ import ctypes
 import numpy
 import traceback
 from collections import OrderedDict
+import functools
 
 # for viewport buckets
 import gpu
@@ -53,7 +54,7 @@ __RMAN_RENDER__ = None
 __RMAN_IT_PORT__ = -1
 __BLENDER_DSPY_PLUGIN__ = None
 __D_QUICKLYNOISELESS__ = None
-__DRAW_THREAD__ = None
+DRAW_THREAD = None
 __RMAN_STATS_THREAD__ = None
 
 # map Blender display file format
@@ -308,27 +309,24 @@ def start_cmd_server():
 
 def draw_threading_func(db):
     refresh_rate = get_pref('rman_viewport_refresh_rate', default=0.01)
-    while db.rman_context.is_live_rendering():
-        if db.bl_viewport.shading.type != 'RENDERED':
-            # if the viewport is not rendering, stop IPR
-            db.del_bl_engine()
-            break
-        if db.xpu_slow_mode:
-            if db.has_buffer_updated():
-                try:
-                    db.bl_engine.tag_redraw()
-                    db.reset_buffer_updated()
-                
-                except ReferenceError as e:
-                    # calling tag_redraw has failed. This might mean
-                    # that there are no more view_3d areas that are shading. Try to
-                    # stop IPR.
-                    #rfb_log().debug("Error calling tag_redraw (%s). Aborting..." % str(e))
-                    db.del_bl_engine()
-                    return            
-            time.sleep(refresh_rate)
-        else:            
-            time.sleep(1.0)
+    if db.bl_viewport.shading.type != 'RENDERED':
+        db.del_bl_engine()
+        return
+    if db.xpu_slow_mode:
+        if db.has_buffer_updated():
+            try:
+                db.bl_engine.tag_redraw()
+                db.reset_buffer_updated()
+            
+            except ReferenceError as e:
+                # calling tag_redraw has failed. This might mean
+                # that there are no more view_3d areas that are shading. Try to
+                # stop IPR.
+                #rfb_log().debug("Error calling tag_redraw (%s). Aborting..." % str(e))
+                db.del_bl_engine()
+                return      
+        return refresh_rate      
+    return 0.01
 
 def call_stats_export_payloads(db):
     while db.rman_context.is_exporting_state():
@@ -1276,7 +1274,7 @@ class RmanRender(object):
 
     def start_interactive_render(self, context, depsgraph):
 
-        global __DRAW_THREAD__
+        global DRAW_THREAD
         self.reset()
         if self._do_prman_render_begin():
             return False        
@@ -1407,9 +1405,12 @@ class RmanRender(object):
                     self.set_redraw_func()
                 else:
                     rfb_log().debug("XPU slow mode enabled.")
-            # start a thread to periodically call engine.tag_redraw()                
-            __DRAW_THREAD__ = threading.Thread(target=draw_threading_func, args=(self, ))
-            __DRAW_THREAD__.start()
+
+            # start an app timer function to peridodically call engine.tag_redaw()
+            # NOTE: this used to by a python thread, but because of RMAN-24005
+            # we've switched to using an application timer that runs every x seconds
+            DRAW_THREAD = functools.partial(draw_threading_func, self)
+            bpy.app.timers.register(DRAW_THREAD, first_interval=0.01)
 
             return True
         except Exception as e:      
@@ -1542,10 +1543,14 @@ class RmanRender(object):
         return True                 
 
     def stop_render(self, stop_draw_thread=True):
-        global __DRAW_THREAD__
+        global DRAW_THREAD
         global __RMAN_STATS_THREAD__
         is_main_thread = (threading.current_thread() == threading.main_thread())
         self.reset_redraw_func()
+
+        # strop the drawing thread
+        if DRAW_THREAD and bpy.app.timers.is_registered(DRAW_THREAD):
+            bpy.app.timers.unregister(DRAW_THREAD)
 
         if is_main_thread:
             rfb_log().debug("Trying to acquire stop_render_mtx")
@@ -1567,12 +1572,6 @@ class RmanRender(object):
         remove_ipr_to_it_handlers()
 
         self.rman_context.set_not_live_rendering()
-
-        # wait for the drawing thread to finish
-        # if we are told to.
-        if stop_draw_thread and __DRAW_THREAD__:
-            __DRAW_THREAD__.join()
-            __DRAW_THREAD__ = None
 
         # stop retrieving stats
         if __RMAN_STATS_THREAD__:
