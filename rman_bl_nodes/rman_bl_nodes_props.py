@@ -197,10 +197,10 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
     def get_rman_light_filter_shaders(self, context):
         items = []
         i = 0
-        rman_light_icon = rfb_icons.get_lightfilter_icon("_PxrBlockerLightFilter")
-        items.append(('PxrBlockerLightFilter', 'PxrBlockerLightFilter', '', rman_light_icon.icon_id, i))
+        rman_light_icon = rfb_icons.get_lightfilter_icon("_PxrRodLightFilter")
+        items.append(('PxrRodLightFilter', 'PxrRodLightFilter', '', rman_light_icon.icon_id, i))
         for n in rman_bl_nodes.__RMAN_LIGHTFILTER_NODES__:
-            if n.name != 'PxrBlockerLightFilter':
+            if n.name not in ['PxrRodLightFilter', 'PxrBlockerLightFilter', 'PxrGoboLightFilter']:
                 i += 1
                 light_icon = rfb_icons.get_lightfilter_icon(n.name)
                 items.append( (n.name, n.name, '', light_icon.icon_id, i))

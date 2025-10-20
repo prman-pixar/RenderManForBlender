@@ -769,7 +769,7 @@
             "type": "int",
             "default": 0,
             "widget": "checkbox",
-            "help": "Makes all display channels influence the adaptive sampler equally and potentially increase your render time.<br>By default, the adaptive sampler computes the selected metric on channels with relativepixelvariance > 0. In practice, Ci defaults to 1 and all other AOVs to 0, which means that some of the AOVs could be under-sampled, i.e. more noisy."
+            "help": "If one or more channels are marked with relativepixelvariance > 0.0, those channels will control the adaptive sampling (and \"adaptall\" is ignored).<br>However, if no channel is explicitly marked with relativepixelvariance > 0.0, \"adaptall\" determines which channel(s) will be control the adaptive sampling: When \"adaptall\" is enabled, all channels (beauty + AOVs) are considered when deciding if a pixel is converging. When \"adaptall\" is off (the default), the AOVs are ignored and only the beauty channel is considered for pixel convergence. So turning off \"adaptall\" may speed up your render if some of your AOVs never reach the specified variance threshold and you haven't explicitly marked any channels with relativepixelvariance > 0.0."
         },           
         {
             "panel": "RENDER_PT_renderman_sampling",
