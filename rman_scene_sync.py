@@ -1212,6 +1212,7 @@ class RmanSceneSync(object):
         if not self.rman_render.rman_context.is_interactive_running():
             return        
         self.rman_scene.bl_scene = context.scene    
+        self.rman_scene.bl_view_layer = context.view_layer
         self.rman_scene._find_renderman_layer()
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):
             self.rman_scene.export_displays()         

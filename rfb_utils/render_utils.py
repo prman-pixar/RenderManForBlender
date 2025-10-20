@@ -282,7 +282,7 @@ def refresh_viewport(context):
 
         if viewport is None:
             return
-    
+        rr.stop_render(stop_draw_thread=True)
         time.sleep(2.0) # add a little bit of a delay before we start IPR again
         if viewport.shading.type != 'RENDERED':        
             rr = RmanRender.get_rman_render()
