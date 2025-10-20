@@ -42,7 +42,7 @@ class RmanDenoiser:
         else:
             self.denoiser = None
 
-    def denoise(self, passes, render):
+    def denoise(self, passes, render, render_border):
         if self.denoiser is None:
             return None
         
@@ -115,9 +115,12 @@ class RmanDenoiser:
         
 
         # check for crop windows and borders
-        use_border = render.use_border   
-        start_x, end_x, start_y, end_y = scene_utils.get_render_borders(render, self.height, self.width)
-        if render.use_border:            
+        use_border = render.use_border and not render.use_crop_to_border
+        if render_border:
+            start_y, end_y, start_x, end_x = render_border
+        else: 
+            size_x, size_y, start_x, end_x, start_y, end_y = scene_utils.get_render_borders(render, self.height, self.width)
+        if use_border:            
             denoisedBeauty = denoisedBeauty[start_y:end_y,start_x:end_x,:]   
             denoisedAlpha = denoisedAlpha[start_y:end_y,start_x:end_x,:]   
         

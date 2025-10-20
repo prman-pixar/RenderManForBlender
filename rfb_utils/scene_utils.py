@@ -5,7 +5,7 @@ from .envconfig_utils import envconfig
 from ..rman_constants import RMAN_GLOBAL_VOL_AGGREGATE
 from ..rfb_logger import rfb_log
 import bpy
-
+import math
 
 # ------------- Atom's helper functions -------------
 GLOBAL_ZERO_PADDING = 5
@@ -690,9 +690,44 @@ def use_renderman_textures(context, force_colorspace=True, blocking=True):
                             if params['ocioconvert'] != colorspace and force_colorspace:
                                 texture_utils.update_txfile_colorspace(txfile, colorspace, blocking=blocking)
                         setattr(node, prop_name, txfile.get_output_texture())
-                        continue                  
+                        continue        
+
+def get_resolution(render):
+    image_scale = render.resolution_percentage * 0.01
+    width = int(render.resolution_x * image_scale)
+    height = int(render.resolution_y * image_scale)
+
+    return [width, height]              
 
 def get_render_borders(render, height, width):
+    size_x = width
+    size_y = height
+    start_x = 0
+    end_x = width
+    start_y = 0
+    end_y = height        
+    if render and render.use_border: 
+        res_x = width
+        res_y = height
+        
+        min_x = render.border_min_x
+        max_x = render.border_max_x
+        min_y = render.border_min_y
+        max_y = render.border_max_y            
+
+        crop_res_x = math.ceil(res_x * (max_x - min_x))
+        crop_res_y = math.ceil(res_y * (max_y - min_y))
+
+        start_y = int(res_y * min_y)
+        start_x = int(res_x * min_x)
+        end_y = start_y + crop_res_y
+        end_x = start_x + crop_res_x
+
+        size_x = crop_res_x
+        size_y = crop_res_y       
+        
+    return [size_x, size_y, start_y, end_y, start_x, end_x]
+
     start_x = 0
     end_x = width
     start_y = 0
