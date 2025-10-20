@@ -16,6 +16,7 @@ import subprocess
 import ctypes
 import numpy
 import traceback
+import math
 
 # for viewport buckets
 import gpu
@@ -317,27 +318,97 @@ class BlRenderResultHelper:
         self.render_view = None
         self.image_scale = -1
         self.write_aovs = False
+        self.render_border = None
 
     @staticmethod
     def write_empty_result(rman_render, bl_layer):
+        render = rman_render.bl_scene.render
         scale = rman_render.bl_scene.render.resolution_percentage / 100.0
         size_x = int(rman_render.bl_scene.render.resolution_x * scale)
         size_y = int(rman_render.bl_scene.render.resolution_y * scale)
 
+        if render.use_border: 
+            res_x = render.resolution_x
+            res_y = render.resolution_y
+            
+            min_x = render.border_min_x
+            max_x = render.border_max_x
+            min_y = render.border_min_y
+            max_y = render.border_max_y            
+
+            crop_res_x = math.ceil(res_x * (max_x - min_x))
+            crop_res_y = math.ceil(res_y * (max_y - min_y))
+
+            size_x = crop_res_x
+            size_y = crop_res_y                     
+
+        result = rman_render.bl_engine.begin_result(0, 0, size_x, size_y, layer=bl_layer.name)
+        if result.resolution_x != size_x or result.resolution_y != size_y:            
+            size_x = result.resolution_x
+            size_y = result.resolution_y
+   
         pixel_count = size_x * size_y
         rect = numpy.zeros((pixel_count, 4))
-        result = rman_render.bl_engine.begin_result(0, 0, size_x, size_y, layer=bl_layer.name)
         layer = result.layers[0].passes["Combined"]
         layer.rect = rect       
         rman_render.bl_engine.end_result(result)     
 
-    def register_passes(self):
+    def call_begin_result(self):
         self.render = self.rman_render.rman_scene.bl_scene.render
         self.render_view = self.rman_render.bl_engine.active_view_get()
         self.image_scale = self.render.resolution_percentage * 0.01
         self.width = int(self.render.resolution_x * self.image_scale)
         self.height = int(self.render.resolution_y * self.image_scale)
 
+        self.size_x = self.width
+        self.size_y = self.height
+        start_x = 0
+        end_x = self.width
+        start_y = 0
+        end_y = self.height        
+        if self.render.use_border: 
+            res_x = self.render.resolution_x
+            res_y = self.render.resolution_y
+            
+            min_x = self.render.border_min_x
+            max_x = self.render.border_max_x
+            min_y = self.render.border_min_y
+            max_y = self.render.border_max_y            
+
+            crop_res_x = math.ceil(res_x * (max_x - min_x))
+            crop_res_y = math.ceil(res_y * (max_y - min_y))
+
+            start_y = int(res_y * min_y)
+            start_x = int(res_x * min_x)
+            end_y = start_y + crop_res_y
+            end_x = start_x + crop_res_x
+
+            self.size_x = crop_res_x
+            self.size_y = crop_res_y       
+                        
+            self.render_border = [start_y, end_y, start_x, end_x]
+
+        self.bl_result = self.rman_render.bl_engine.begin_result(0, 0,
+                                    self.size_x,    
+                                    self.size_y,
+                                    layer=self.bl_layer.name,
+                                    view=self.render_view)     
+
+        if self.bl_result.resolution_x != self.size_x or self.bl_result.resolution_y != self.size_y:    
+            # we don't agree on the size of the image, just
+            # take what Blender is expecting        
+            self.size_x = self.bl_result.resolution_x
+            self.size_y = self.bl_result.resolution_y
+
+            end_x = start_x + self.size_x
+            end_y = start_y + self.size_y
+
+            self.render_border = [start_y, end_y, start_x, end_x]
+
+    def register_passes(self):
+
+        self.render = self.rman_render.rman_scene.bl_scene.render
+        self.render_view = self.rman_render.bl_engine.active_view_get()
         # register any AOV's as passes
         for i, dspy_nm in enumerate(self.dspy_dict['displays'].keys()):
             if i == 0:
@@ -363,31 +434,7 @@ class BlRenderResultHelper:
                 self.rman_render.bl_engine.add_pass(dspy_nm, 2, 'XY')                        
             else:
                 self.rman_render.bl_engine.add_pass(dspy_nm, 1, 'X')
-
-        self.size_x = self.width
-        self.size_y = self.height
-        if self.render.use_border: 
-            start_x = 0
-            end_x = self.width
-            start_y = 0
-            end_y = self.height            
-            if self.render.border_min_y > 0.0:
-                start_y = round(self.height * self.render.border_min_y)-1
-            if self.render.border_max_y > 0.0:                        
-                end_y = round(self.height * self.render.border_max_y)-2 
-            if self.render.border_min_x > 0.0:
-                start_x = round(self.width * self.render.border_min_x)-1
-            if self.render.border_max_x < 1.0:
-                end_x = round(self.width * self.render.border_max_x)-2
-            self.size_x = end_x - start_x
-            self.size_y = end_y - start_y
-
-        self.bl_result = self.rman_render.bl_engine.begin_result(0, 0,
-                                    self.size_x,
-                                    self.size_y,
-                                    layer=self.bl_layer.name,
-                                    view=self.render_view)                        
-
+        
         for i, dspy_nm in enumerate(self.dspy_dict['displays'].keys()):
             if i == 0:
                 render_pass = self.bl_result.layers[0].passes.find_by_name("Combined", self.render_view)
@@ -406,7 +453,8 @@ class BlRenderResultHelper:
                                         num_channels=rp.channels, 
                                         as_flat=False, 
                                         back_fill=False,
-                                        render=self.render)
+                                        render=self.render,
+                                        render_border=self.render_border)        
             if buffer is None:
                 continue
             rp.rect = buffer
@@ -436,7 +484,8 @@ class BlRenderResultHelper:
                         filepath = '%s_beauty_raw.exr' % (toks[0])
                     
                     if use_ice:
-                        buffer = self.rman_render._get_buffer(self.width, self.height, image_num=i, raw_buffer=True, as_flat=False)
+                        buffer = self.rman_render._get_buffer(self.width, self.height, image_num=i, raw_buffer=True, as_flat=False, render=self.render,
+                                        render_border=self.render_border)
                         if buffer is None:
                             continue
 
@@ -493,6 +542,7 @@ class RmanRender(object):
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False
+        self.bl_rr_helper = None
 
         self._start_prman_begin()
 
@@ -681,6 +731,7 @@ class RmanRender(object):
         self.bl_viewport = None
         self.xpu_slow_mode = False
         self.use_qn = False 
+        self.bl_rr_helper = None
 
     def create_scene(self, config, render_config):
         self.sg_scene = self.sgmngr.CreateScene(config, render_config, self.stats_mgr.rman_stats_session)
@@ -758,6 +809,15 @@ class RmanRender(object):
                 self.stop_render(stop_draw_thread=False)
                 self.del_bl_engine()
                 return False
+            
+        if self.rman_render_into == 'blender':  
+            dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
+            self.bl_rr_helper = BlRenderResultHelper(self, self.bl_scene, dspy_dict, bl_layer)
+            if for_background:
+                self.bl_rr_helper.write_aovs = (use_compositor and rm.use_bl_compositor_write_aovs)
+            else:
+                self.bl_rr_helper.write_aovs = True
+            self.bl_rr_helper.call_begin_result()          
 
         # Export the scene
         try:
@@ -791,21 +851,15 @@ class RmanRender(object):
         if boot_strapping:
             self.sg_scene.Render(render_cmd)
         if self.rman_render_into == 'blender':  
-            dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
-            bl_rr_helper = BlRenderResultHelper(self, self.bl_scene, dspy_dict, bl_layer)
-            if for_background:
-                bl_rr_helper.write_aovs = (use_compositor and rm.use_bl_compositor_write_aovs)
-            else:
-                bl_rr_helper.write_aovs = True
-            bl_rr_helper.register_passes()
+            self.bl_rr_helper.register_passes()
                               
         self.start_stats_thread()
         while self.bl_engine and not self.bl_engine.test_break() and self.rman_is_live_rendering:
             time.sleep(0.01)      
-            if bl_rr_helper:
-                bl_rr_helper.update_passes()
-        if bl_rr_helper:
-            bl_rr_helper.finish_passes()            
+            if self.bl_rr_helper:
+                self.bl_rr_helper.update_passes()
+        if self.bl_rr_helper:
+            self.bl_rr_helper.finish_passes()            
         elif for_background and not use_compositor:
             # if we're background mode and not using the compositor,
             # i.e.: we're not using the Blender display driver
@@ -1485,7 +1539,9 @@ class RmanRender(object):
             arXMin = ctypes.c_int(0)
             arXMax = ctypes.c_int(0)
             arYMin = ctypes.c_int(0)
-            arYMax = ctypes.c_int(0)            
+            arYMax = ctypes.c_int(0)     
+            height = self.viewport_res_y
+            width = self.viewport_res_x       
             dspy_plugin.GetActiveRegion(ctypes.c_size_t(image_num), ctypes.byref(arXMin), ctypes.byref(arXMax), ctypes.byref(arYMin), ctypes.byref(arYMax))
             if ( (arXMin.value + arXMax.value + arYMin.value + arYMax.value) > 0):
                 yMin = height-1 - arYMin.value
@@ -1544,7 +1600,7 @@ class RmanRender(object):
         num_channels = dspy_plugin.GetNumberOfChannels(ctypes.c_size_t(image_num))
         return num_channels
 
-    def _get_buffer(self, width, height, image_num=0, num_channels=-1, raw_buffer=False, back_fill=True, as_flat=True, render=None):
+    def _get_buffer(self, width, height, image_num=0, num_channels=-1, raw_buffer=False, back_fill=True, as_flat=True, render=None, render_border=None):
         dspy_plugin = self.get_blender_dspy_plugin()
         if num_channels == -1:
             num_channels = self.get_numchannels(image_num)
@@ -1593,20 +1649,7 @@ class RmanRender(object):
             else:
                 if render and render.use_border and not render.use_crop_to_border:
                     # we need a grab portion of the buffer
-                    start_x = 0
-                    end_x = width
-                    start_y = 0
-                    end_y = height
-
-                
-                    if render.border_min_y > 0.0:
-                        start_y = round(height * render.border_min_y)-1
-                    if render.border_max_y > 0.0:                        
-                        end_y = round(height * render.border_max_y)-2 
-                    if render.border_min_x > 0.0:
-                        start_x = round(width * render.border_min_x)-1
-                    if render.border_max_x < 1.0:
-                        end_x = round(width * render.border_max_x)-2
+                    start_y, end_y, start_x, end_x = render_border
 
                     # return the buffer as a list of lists
                     if back_fill:

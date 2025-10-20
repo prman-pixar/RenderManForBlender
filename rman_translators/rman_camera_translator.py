@@ -597,7 +597,13 @@ class RmanCameraTranslator(RmanTranslator):
             res_y = resolution[1] * (self.rman_scene.bl_scene.render.border_max_y -
                                     self.rman_scene.bl_scene.render.border_min_y)
 
-            options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (int(res_x), int(res_y)), 2)
+            if self.rman_scene.rman_render.bl_rr_helper:
+                res_x = self.rman_scene.rman_render.bl_rr_helper.size_x
+                res_y = self.rman_scene.rman_render.bl_rr_helper.size_y
+                options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (res_x, res_y), 2)
+            else:
+                options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (round(res_x), round(res_y)), 2)
+
             options.SetFloat(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatPixelAspectRatio, 1.0)        
         else:            
             options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (resolution[0], resolution[1]), 2)
