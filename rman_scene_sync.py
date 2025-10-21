@@ -787,13 +787,36 @@ class RmanSceneSync(object):
         group_db_name = object_utils.get_group_db_name(instance)
         lst = self.need_cleaning.get(rman_sg_node, list())
         lst.append(group_db_name)
-        self.need_cleaning[rman_sg_node] = lst           
+        self.need_cleaning[rman_sg_node] = lst       
+
+    def check_ob_to_meshlight(self, ob_eval, instance, rman_sg_node, rman_sg_group, rman_type, instance_parent, psys, is_empty_instancer):
+        # check if this object is turing into a mesh light
+        # if so, we need to first delete the instance and
+        # then re-add with the meshlight material, or we get double the geometry
+        need_export = False
+        if is_empty_instancer and instance_parent.renderman.rman_material_override:
+            mat, rman_sg_material = self.rman_scene.get_rman_sg_material(instance_parent)
+            if rman_sg_material and rman_sg_group.is_meshlight != rman_sg_material.has_meshlight:
+                need_export = True
+        else:
+            mat, rman_sg_material = self.rman_scene.get_rman_sg_material(ob_eval, psys=psys, parent=instance_parent)
+            if rman_sg_material and rman_sg_group.is_meshlight != rman_sg_material.has_meshlight:
+                need_export = True                
+
+        if need_export:
+            # first delete the instance
+            group_db_name = object_utils.get_group_db_name(instance) 
+            if group_db_name in rman_sg_node.instances:
+                del rman_sg_node.instances[group_db_name]
+            # now, re-export the instance
+            self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)
+            return True
+        return False
 
     @time_this
     def check_instances(self, batch_mode=False):
         deleted_obj_keys = list(self.rman_scene.rman_prototypes) # list of potential objects to delete
-        already_udpated = list() # list of objects already updated during our loop
-        # clear_instances = list() # list of objects who had their instances cleared       
+        already_udpated = list() # list of objects already updated during our loop     
         self.need_cleaning = dict()     
         rfb_log().debug("Updating instances")        
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
@@ -894,19 +917,23 @@ class RmanSceneSync(object):
                             meta = rm.prop_meta[rman_update.updated_prop_name]
                             rfb_log().debug("Setting RiAttribute: %s" % rman_update.updated_prop_name)
                             property_utils.set_riattr_bl_prop(attrs, rman_update.updated_prop_name, meta, rm, check_inherit=True)
-                            rman_sg_node.sg_attributes.SetAttributes(attrs)                          
-                        elif rman_update.is_updated_geometry:
-                            translator =  self.rman_scene.rman_translators.get(rman_type, None)
-                            if rman_update.updated_prop_name:
-                                rfb_log().debug("\tUpdating Single Primvar: %s" % proto_key)
-                                translator.update_primvar(ob_eval, rman_sg_node, rman_update.updated_prop_name)
-                            else:
-                                rfb_log().debug("\tUpdating Object: %s" % proto_key)
-                                translator.update(ob_eval, rman_sg_node)  
-                                #rman_sg_node.shared_attrs.Clear()
-                                self.rman_scene.attach_material(ob_eval, rman_sg_node, sg_node=rman_sg_node.sg_attributes)
-                                self.update_particle_emitters(ob_eval)
-                            
+                            rman_sg_node.sg_attributes.SetAttributes(attrs)       
+                        else:                   
+                            if rman_update.is_updated_geometry:
+                                translator =  self.rman_scene.rman_translators.get(rman_type, None)
+                                if rman_update.updated_prop_name:
+                                    rfb_log().debug("\tUpdating Single Primvar: %s" % proto_key)
+                                    translator.update_primvar(ob_eval, rman_sg_node, rman_update.updated_prop_name)
+                                else:
+                                    rfb_log().debug("\tUpdating Object: %s" % proto_key)
+                                    translator.update(ob_eval, rman_sg_node)  
+                                    #rman_sg_node.shared_attrs.Clear()
+                                    # self.rman_scene.attach_material(ob_eval, rman_sg_node, sg_node=rman_sg_node.sg_attributes)
+                                    self.update_particle_emitters(ob_eval)
+                            if rman_update.is_updated_shading:
+                                rfb_log().debug("\tUpdating Shading: %s" % proto_key)
+                                self.rman_scene.attach_material(ob_eval, rman_sg_node, sg_node=rman_sg_node.sg_attributes)                            
+                                
                         if rman_type == "MESH" and rman_update.is_updated_geometry and not is_instance:
                             # if this is a mesh, and not an instance, check if we generated geometry
                             # if not, don't append to already_updated, instances of this prototype
@@ -935,13 +962,18 @@ class RmanSceneSync(object):
 
                     if rman_update.is_updated_transform:
                         rman_group_translator.update_transform(instance, rman_sg_group) 
-                    if is_empty_instancer and instance_parent.renderman.rman_material_override:
-                        self.rman_scene.attach_material(instance_parent, rman_sg_group)                            
-                    elif rman_update.is_updated_shading:  
-                        if psys:
-                            self.rman_scene.attach_particle_material(psys.settings, instance_parent, ob_eval, rman_sg_group)
-                        else:
-                            self.rman_scene.attach_material(ob_eval, rman_sg_group)                            
+
+                    if rman_update.is_updated_shading: 
+                        if not self.check_ob_to_meshlight(ob_eval, instance, rman_sg_node, rman_sg_group, rman_type, instance_parent, psys, is_empty_instancer):
+                            if is_empty_instancer:
+                                if instance_parent.renderman.rman_material_override:
+                                    self.rman_scene.attach_material(instance_parent, rman_sg_group)                            
+                                else:
+                                    self.rman_scene.attach_material(ob_eval, rman_sg_group)   
+                            elif psys:
+                                self.rman_scene.attach_particle_material(psys, instance_parent, ob_eval, rman_sg_group)
+                            elif ob_eval.renderman.rman_material_override:
+                                self.rman_scene.attach_material(ob_eval, rman_sg_group)                            
                 else:
                     # Didn't get an rman_sg_group. Do a full instance export.
                     self.rman_scene.export_instance(ob_eval, instance, rman_sg_node, rman_type, instance_parent, psys)

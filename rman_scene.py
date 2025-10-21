@@ -653,18 +653,20 @@ class RmanScene(object):
                 # the material of the object
                 self.attach_material(ob_eval, rman_sg_group)        
         elif psys:
-            self.attach_particle_material(psys.settings, instance_parent, ob_eval, rman_sg_group)
+            self.attach_particle_material(psys, instance_parent, ob_eval, rman_sg_group)
             rman_sg_group.bl_psys_settings = psys.settings.original     
         elif ob_eval.renderman.rman_material_override:
             self.attach_material(ob_eval, rman_sg_group) 
         else:
-            rman_sg_group.sg_node.SetMaterial(None)                   
+            rman_sg_group.sg_node.SetMaterial(None)        
+            rman_sg_group.is_meshlight = rman_sg_node.is_meshlight           
 
         if is_empty_instancer:
             # if this is an empty instancer, add as a child to the empty instancer
             parent_proto_key = object_utils.prototype_key(instance_parent)
             rman_parent_node = self.get_rman_prototype(parent_proto_key, ob=instance_parent, create=True)             
             rman_parent_node.sg_attributes.AddChild(rman_sg_group.sg_node)
+            rman_sg_group.is_meshlight = rman_parent_node.is_meshlight
         else:
             rman_sg_node.sg_attributes.AddChild(rman_sg_group.sg_node)
 
@@ -998,38 +1000,48 @@ class RmanScene(object):
             self.get_root_sg_node().AddChild(rman_sg_node.sg_node)
             self.get_root_sg_node().AddCoordinateSystem(rman_sg_node.sg_node)
 
-    def attach_material(self, ob, rman_sg_node, sg_node=None):
+    def get_rman_sg_material(self, ob, psys=None, parent=None):
+        # return the rman_sg_material node for this object
+        if psys:
+            psys_settings = psys.settings
+            if not object_utils.is_particle_instancer(psys=None, particle_settings=psys_settings):
+                return (None, None)
+            
+            if psys_settings.renderman.override_instance_material:
+                mat_idx = psys_settings.material - 1
+                if mat_idx < len(parent.material_slots):
+                    mat = parent.material_slots[mat_idx].material
+                    rman_sg_material = self.rman_materials.get(mat.original, None)
+                    if rman_sg_material:
+                        return (mat, rman_sg_material)
+                return (None, None)
+            
         mat = object_utils.get_active_material(ob)
         if mat:
             rman_sg_material = self.rman_materials.get(mat.original, None)
             if rman_sg_material and rman_sg_material.sg_node:
-                if sg_node is None:
-                    sg_node = rman_sg_node.sg_node
-                scenegraph_utils.set_material(sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-                rman_sg_node.is_meshlight = rman_sg_material.has_meshlight
+                return (mat, rman_sg_material)
+        return (None, None)        
 
-    def attach_particle_material(self, psys_settings, parent, ob, group):
+    def attach_material(self, ob, rman_sg_node, sg_node=None):
+        mat, rman_sg_material = self.get_rman_sg_material(ob)
+        if not rman_sg_material:
+            return
+        if sg_node is None:
+            sg_node = rman_sg_node.sg_node
+        scenegraph_utils.set_material(sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
+        rman_sg_node.is_meshlight = rman_sg_material.has_meshlight
+
+    def attach_particle_material(self, psys, parent, ob, group):
         # This function should only be used by particle instancing.
         # For emitters and hair, the material attachment is done in either
         # the emitter translator or hair translator directly
 
-        if not object_utils.is_particle_instancer(psys=None, particle_settings=psys_settings):
+        mat, rman_sg_material = self.get_rman_sg_material(ob, psys=psys, parent=parent)
+        if not rman_sg_material:
             return
-
-        if psys_settings.renderman.override_instance_material:
-            mat_idx = psys_settings.material - 1
-            if mat_idx < len(parent.material_slots):
-                mat = parent.material_slots[mat_idx].material
-                rman_sg_material = self.rman_materials.get(mat.original, None)
-                if rman_sg_material:
-                    scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-        else:
-            mat = object_utils.get_active_material(ob)
-            if mat:
-                rman_sg_material = self.rman_materials.get(mat.original, None)
-                if rman_sg_material and rman_sg_material.sg_node:
-                    scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-                    group.is_meshlight = rman_sg_material.has_meshlight
+        scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
+        group.is_meshlight = rman_sg_material.has_meshlight
 
     def check_light_local_view(self, ob, rman_sg_node):
         if self.is_interactive and self.context.space_data:

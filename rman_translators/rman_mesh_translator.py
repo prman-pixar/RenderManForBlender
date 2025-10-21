@@ -454,7 +454,8 @@ class RmanMeshTranslator(RmanTranslator):
             rman_sg_mesh.nverts = 0
             rman_sg_mesh.is_transforming = False
             rman_sg_mesh.is_deforming = False
-            rman_sg_mesh.sg_node.RemoveChild(rman_sg_mesh.sg_mesh)
+            if rman_sg_mesh.sg_mesh:
+                rman_sg_mesh.sg_node.RemoveChild(rman_sg_mesh.sg_mesh)
             return None
         
         # double check that sg_mesh has been added
