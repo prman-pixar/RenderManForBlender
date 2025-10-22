@@ -198,7 +198,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         
 
         if bl_prop_info.is_ui_struct:                      
-            ui_prop = prop_name + "_uio"
+            ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
             ui_open = getattr(node, ui_prop)
             icon = draw_utils.get_open_close_icon(ui_open)
 
@@ -292,7 +292,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
 
                 prop_disabled = getattr(node, '%s_disabled' % prop_name, False)
                 
-                ui_prop = prop_name + "_uio"
+                ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
                 ui_open = getattr(node, ui_prop)
                 icon = draw_utils.get_open_close_icon(ui_open)
 

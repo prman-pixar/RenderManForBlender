@@ -515,11 +515,16 @@ if not bpy.app.background:
         ''') 
     
 _SHADER_ = None
+SHADER_SOLID_IMAGE = None
+SHADER_SOLID_COLOR = None
 if not bpy.app.background:
     uniform_color =  '3D_UNIFORM_COLOR'
     if BLENDER_41:
         uniform_color = 'UNIFORM_COLOR'
     _SHADER_ = gpu.shader.from_builtin(uniform_color)
+
+    SHADER_SOLID_IMAGE = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
+    SHADER_SOLID_COLOR = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
 
 _SELECTED_COLOR_ = (1, 1, 1)
 _WIRE_COLOR_ = (0, 0, 0)
@@ -545,6 +550,16 @@ def _get_indices(l):
             indices.append((i, i+1)) 
 
     return indices   
+
+def _get_indices_tris(l):
+    indices = []
+    for i in range(0, len(l)):
+        if i == len(l)-1:
+            indices.append((i-1, i, 0))
+        else:
+            indices.append((i, i+1, i+2)) 
+
+    return indices 
 
 def _get_sun_direction(ob):
     light = ob.data
@@ -766,45 +781,35 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
         return
     
     real_path = string_utils.expand_string(tex)
-    if os.path.exists(real_path):
-        shader = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
-
-        if indices:
-            batch = batch_for_shader(shader, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)   
-        elif uvs:
-            batch = batch_for_shader(shader, 'TRI_FAN', {"position": pts, "uv": uvs})                
+    if os.path.exists(real_path):              
+        batch = batch_for_shader(SHADER_SOLID_IMAGE, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)               
 
         texture = _PRMAN_TEX_CACHE_.get(tex, None)
         if not texture:
             texture = load_gl_texture(tex)
 
-        shader.bind()
+        SHADER_SOLID_IMAGE.bind()
         matrix = bpy.context.region_data.perspective_matrix
-        shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
-        shader.uniform_sampler("image", texture)
+        SHADER_SOLID_IMAGE.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        SHADER_SOLID_IMAGE.uniform_sampler("image", texture)
         gpu.state.blend_set("ALPHA")
         gpu.state.depth_test_set("LESS")
-        batch.draw(shader)           
+        batch.draw(SHADER_SOLID_IMAGE)           
         gpu.state.depth_test_set("NONE")
         gpu.state.blend_set("NONE")
     
 
     elif col:
-        shader = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
-
-        if indices:
-            batch = batch_for_shader(shader, 'TRIS', {"position": pts}, indices=indices)  
-        else: 
-            batch = batch_for_shader(shader, 'TRI_FAN', {"position": pts})  
+        batch = batch_for_shader(SHADER_SOLID_COLOR, 'TRIS', {"position": pts}, indices=indices)  
 
         lightColor = (col[0], col[1], col[2], 1.0)
-        shader.bind()
-        shader.uniform_float("lightColor", lightColor)
+        SHADER_SOLID_COLOR.bind()
+        SHADER_SOLID_COLOR.uniform_float("lightColor", lightColor)
         matrix = bpy.context.region_data.perspective_matrix   
-        shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        SHADER_SOLID_COLOR.uniform_float("viewProjectionMatrix", matrix @ mtx)
         gpu.state.depth_test_set("LESS")
         gpu.state.blend_set("ALPHA")
-        batch.draw(shader)
+        batch.draw(SHADER_SOLID_COLOR)
         gpu.state.blend_set("NONE")
         gpu.state.depth_test_set("NONE")            
 
@@ -874,8 +879,9 @@ def draw_rect_light(ob):
         col = light_shader.lightColor
         
         pts = ((0.5, -0.5, 0.0), (-0.5, -0.5, 0.0), (-0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
-        uvs = ((1, 1), (0, 1), (0, 0), (1, 0))    
-        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col)  
+        uvs = ((1, 1), (0, 1), (0, 0), (1, 0))
+        indices = _get_indices_tris(pts)
+        draw_solid(ob, pts, m, uvs=uvs, indices=indices, tex=tex, col=col)  
 
 def draw_sphere_light(ob):
     global _FRUSTUM_DRAW_HELPER_
@@ -1096,7 +1102,11 @@ def draw_disk_light(ob):
  
     m = ob_matrix @ __MTX_Y_180__ 
     col = light_shader.lightColor    
-    draw_solid(ob, s_diskLight, m, col=col)   
+    disk.insert(0, ob_matrix @ __MTX_Y_180__  @ Vector((0.0, 0.0, 0.0)))
+    indices = []
+    for i in range(1, len(disk)):
+        indices.append((0, i, i+1))
+    draw_solid(ob, s_diskLight, m, col=col, indices=indices)   
 
 def draw_dist_light(ob):      
     
@@ -1529,7 +1539,8 @@ def draw_barn_light_filter(ob, light_shader, light_shader_name):
         pts = ((0.5*w, -0.5*h, 0.0), (-0.5*w, -0.5*h, 0.0), (-0.5*w, 0.5*h, 0.0), (0.5*w, 0.5*h, 0.0))
         #uvs = ((0, 1), (1,1), (1, 0), (0,0))
         uvs = ((1.0-u, v), (u,v), (u, 1.0-v), (1.0-u, 1.0-v))
-        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col)  
+        indices = _get_indices_tris(pts) 
+        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col, indices=indices)  
 
 def draw():
     global _PRMAN_TEX_CACHE_

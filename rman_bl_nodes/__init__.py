@@ -7,6 +7,7 @@ from ..rfb_utils.rman_socket_utils import node_add_inputs
 from ..rfb_utils.rman_socket_utils import node_add_outputs
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import register_utils
+from ..rfb_utils.string_utils import sanitize_attr_name
 from ..rfb_logger import rfb_log
 from ..rfb_utils.envconfig_utils import envconfig
 from .. import rfb_icons
@@ -211,7 +212,8 @@ def class_generate_properties(node, parent_name, node_desc, generate_array_ui=Tr
                 meta['ui_struct'] = ui_struct_nm
                 sub_prop_names.append(ndp._name)
                 prop_meta[ndp._name] = meta
-                node.__annotations__[ndp._name] = prop  
+                ndp_name_attr = sanitize_attr_name(ndp._name)
+                node.__annotations__[ndp_name_attr] = prop  
 
             setattr(node, param_name, sub_prop_names)   
             continue            
@@ -237,8 +239,9 @@ def class_generate_properties(node, parent_name, node_desc, generate_array_ui=Tr
                 sub_prop_names.append(page_name)
                 prop_meta[page_name] = {'renderman_type': 'page', 'renderman_name': page_name, 'label': page_name_label}
                 ui_label = "%s_uio" % page_name
-                dflt = getattr(node_desc_param, 'page_open', False)                
-                node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=dflt)
+                dflt = getattr(node_desc_param, 'page_open', False)  
+                page_name_attr = sanitize_attr_name(ui_label)              
+                node.__annotations__[page_name_attr] = BoolProperty(name=ui_label, default=dflt)
                 setattr(node, page_name, [])   
 
                 # If this a PxrSurface node, add an extra BoolProperty to control
@@ -264,13 +267,14 @@ def class_generate_properties(node, parent_name, node_desc, generate_array_ui=Tr
 
                 for i in range(1, len(tokens)):
                     parent_page = page_name
-                    page_name += '.' + tokens[i].replace(' ', '')
+                    page_name += '_' + tokens[i].replace(' ', '')
                     page_name_label = tokens[i]
                     if page_name not in prop_meta:
                         prop_meta[page_name] = {'renderman_type': 'page', 'renderman_name': page_name, 'label': page_name_label}
                         ui_label = "%s_uio" % page_name
                         dflt = getattr(node_desc_param, 'page_open', False) 
-                        node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=dflt)
+                        page_name_attr = sanitize_attr_name(ui_label) 
+                        node.__annotations__[page_name_attr] = BoolProperty(name=ui_label, default=dflt)
                         setattr(node, page_name, [])
                     
                     sub_prop_names = getattr(node, parent_page)

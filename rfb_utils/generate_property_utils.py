@@ -1,6 +1,7 @@
 from ..rman_constants import RFB_ARRAYS_MAX_LEN, __RMAN_EMPTY_STRING__, __RESERVED_BLENDER_NAMES__
 from ..rfb_logger import rfb_log
 from .property_callbacks import *
+from .string_utils import sanitize_attr_name
 from ..rman_properties.rman_properties_misc import RendermanArrayGroup
 from collections import OrderedDict
 from bpy.props import *
@@ -113,7 +114,8 @@ def generate_colorspace_menu(node, param_name):
         return items
 
     ui_label = "%s_colorspace" % param_name
-    node.__annotations__[ui_label] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))    
+    attr_name = "%s_sticky" % sanitize_attr_name(param_name)
+    node.__annotations__[attr_name] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))    
 
 def generate_uistruct_property(node, name, prop_names, prop_meta):
     prop_meta[name] = {'renderman_type': '', 
@@ -128,11 +130,13 @@ def generate_uistruct_property(node, name, prop_names, prop_meta):
     prop_names.append(name)
 
     ui_label = "%s_sticky" % name
-    node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=False)
+    attr_name = "%s_sticky" % sanitize_attr_name(name)
+    node.__annotations__[attr_name] = BoolProperty(name=ui_label, default=False)
 
 
     ui_label = "%s_uio" % name
-    node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=False)
+    attr_name = "%s_uio" % sanitize_attr_name(name)
+    node.__annotations__[attr_name] = BoolProperty(name=ui_label, default=False)
 
     arraylen_nm = '%s_arraylen' % name
     prop = IntProperty(name=arraylen_nm, 
@@ -211,6 +215,7 @@ def generate_array_property(node, prop_names, prop_meta, node_desc_param, update
     node.__annotations__[coll_idx_nm] = prop    
 
     ## Not used
+    ## but keep around for older scenes
     arraylen_nm = '%s_arraylen' % param_name
     prop = IntProperty(name=arraylen_nm, 
                         default=0, min=0, max=RFB_ARRAYS_MAX_LEN,
@@ -712,16 +717,17 @@ def generate_property(node, sp, update_function=None, set_function=None, get_fun
 
     # bool property to represent whether this property
     # should be hidden. Needed for conditionalVisOps.
-    hidden_prop_name = '%s_hidden' % param_name
+    param_name_attr = sanitize_attr_name(param_name)
+    hidden_prop_name = '%s_hidden' % param_name_attr
     node.__annotations__[hidden_prop_name] = BoolProperty(name=hidden_prop_name, default=False)
 
     # bool property to represent whether this property
     # should be disabled. Needed for conditionalLockOps.
-    disabled_prop_name = '%s_disabled' % param_name
+    disabled_prop_name = '%s_disabled' % param_name_attr
     node.__annotations__[disabled_prop_name] = BoolProperty(name=disabled_prop_name, default=False)    
 
     # add a property to represent if this property should be stickied
-    sticky_prop_name = "%s_sticky" % param_name
+    sticky_prop_name = "%s_sticky" % param_name_attr
     node.__annotations__[sticky_prop_name] = BoolProperty(name=sticky_prop_name, default=False)            
 
     prop_meta['renderman_type'] = renderman_type

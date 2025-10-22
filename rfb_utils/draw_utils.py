@@ -1,6 +1,7 @@
 from ..rfb_logger import rfb_log
 from . import shadergraph_utils
 from . import prefs_utils
+from . import string_utils
 from .property_utils import BlPropInfo, __LOBES_ENABLE_PARAMS__
 from ..rman_constants import NODE_LAYOUT_SPLIT
 from ..rman_constants import RMAN_RENDERMAN_BLUE as BLUE
@@ -88,7 +89,7 @@ def draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, s
     row = layout.row(align=True)
     row.enabled = not bl_prop_info.prop_disabled
 
-    ui_prop = prop_name + "_uio"
+    ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
     ui_open = getattr(node, ui_prop)
     icon = get_open_close_icon(ui_open)
 
@@ -220,7 +221,7 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
             ipr_editable = getattr(ndp, 'ipr_editable', False)
             is_enabled = True
             if hasattr(ndp, 'page') and ndp.page != '':       
-                page_prop = ndp.page + "_uio"
+                page_prop = string_utils.sanitize_attr_name(ndp.page + "_uio")
                 page_open = getattr(parent, page_prop, False)        
                 page_name = ndp.page       
                 has_page = True
@@ -274,7 +275,7 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
                     if not page_open:
                         continue      
                     row.label(text='', icon='BLANK1')          
-                ui_prop = param_name + "_uio"
+                ui_prop = string_utils.sanitize_attr_name(param_name + "_uio")
                 ui_open = getattr(parent, ui_prop)
                 icon = get_open_close_icon(ui_open)
                 row.context_pointer_set("node", parent)               
@@ -409,7 +410,7 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
     elif bl_prop_info.renderman_type == 'page':
         row = layout.row(align=True)
         row.enabled = not bl_prop_info.prop_disabled
-        ui_prop = prop_name + "_uio"
+        ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
         ui_open = getattr(node, ui_prop)
         icon = get_open_close_icon(ui_open)
 
@@ -551,7 +552,7 @@ def draw_ui_struct(layout, node, prop_name, bl_prop_info, nt, context, level):
     row = layout.row(align=True)
     row.enabled = not bl_prop_info.prop_disabled
 
-    ui_prop = prop_name + "_uio"
+    ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
     ui_open = getattr(node, ui_prop)
     icon = get_open_close_icon(ui_open)
 
