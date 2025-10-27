@@ -106,14 +106,15 @@ def node_add_inputs(node, node_name, prop_names, first_level=True, label_prefix=
             collection = getattr(node, coll_nm)
             array_props = node.__annotations__.get('__ARRAYS__', [])
             if len(collection) > 0:
-                param_array_name = '%s[%d]' % (name, i)
-                param_array_label = '%s[%d]' % (name, i)
-                param_array_label = label_prefix + meta.get('label', name) + '[%d]' % i
-                if param_array_name in node.inputs.keys():
-                    if remove:
-                        node.inputs.remove(node.inputs[param_array_name])   
-                    continue          
-                node_add_input(node, param_array_type, param_array_name, meta, param_array_label)                
+                for i in range(len(collection)):
+                    param_array_name = '%s[%d]' % (name, i)
+                    param_array_label = '%s[%d]' % (name, i)
+                    param_array_label = label_prefix + meta.get('label', name) + '[%d]' % i
+                    if param_array_name in node.inputs.keys():
+                        if remove:
+                            node.inputs.remove(node.inputs[param_array_name])   
+                        continue          
+                    node_add_input(node, param_array_type, param_array_name, meta, param_array_label)                
             elif name in array_props:
                 dflt = meta['default']
                 arraySize = meta.get('arraySize', None)
