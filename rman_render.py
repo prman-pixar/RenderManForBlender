@@ -574,7 +574,8 @@ class BlRenderResultHelper:
                 render_pass = self.bl_result.layers[0].passes.find_by_name("Combined", self.render_view)
             else:
                 render_pass = self.bl_result.layers[0].passes.find_by_name(dspy_nm, self.render_view)
-            self.bl_image_rps[i] = render_pass           
+            if render_pass:
+                self.bl_image_rps[i] = render_pass           
 
     def update_passes(self): 
         for i, rp in self.bl_image_rps.items():
@@ -635,7 +636,7 @@ class BlRenderResultHelper:
                         img = ice.FromArray(buffer)
                         img = img.Flip(False, True, False)
                         img_format = ice.constants.FMT_EXRFLOAT
-                        if not display_utils.using_rman_displays():
+                        if not display_utils.using_rman_displays(bl_view_layer=self.rman_render.rman_scene.bl_view_layer):
                             img_format = __BLENDER_TO_ICE_DSPY__.get(self.bl_scene.render.image_settings.file_format, img_format)
 
                         # change file extension                            
@@ -889,6 +890,8 @@ class RmanRender(object):
     
         self.reset()
         self.bl_scene = depsgraph.scene_eval
+        bl_layer = depsgraph.view_layer_eval
+        self.rman_scene.set_bl_scene(depsgraph)
         rm = self.bl_scene.renderman    
         do_prman_render_begin = True
         do_persistent_data = rm.do_persistent_data   
@@ -906,7 +909,8 @@ class RmanRender(object):
             return False        
 
         self.rman_context.set_mode_append(RmanRenderContext.k_render_running)
-        use_compositor = scene_utils.should_use_bl_compositor(self.bl_scene)
+        use_compositor = scene_utils.should_use_bl_compositor(self.bl_scene, bl_view_layer=bl_layer)
+
         if for_background:
             self.rman_context.set_mode_append(RmanRenderContext.k_for_background)
             self.rman_render_into = ''
@@ -944,6 +948,7 @@ class RmanRender(object):
         if is_external:
             self.rman_context.set_mode_append(RmanRenderContext.k_is_external)
 
+        is_render_into_blender = self.rman_render_into == 'blender'
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
         rendervariant = render_utils.get_render_variant(self.bl_scene)
@@ -953,7 +958,6 @@ class RmanRender(object):
         self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
 
         boot_strapping = False
-        bl_layer = depsgraph.view_layer_eval
         if self.sg_scene is None:
             boot_strapping = True
             if not self.create_scene(config, render_config):
@@ -962,7 +966,7 @@ class RmanRender(object):
                 self.del_bl_engine()
                 return False
             
-        if self.rman_render_into == 'blender':  
+        if is_render_into_blender and self.rman_scene.rm_rl:  
             dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
             self.bl_rr_helper = BlRenderResultHelper(self, self.bl_scene, dspy_dict, bl_layer)
             if for_background:
@@ -997,7 +1001,7 @@ class RmanRender(object):
         
         # Start the render
         render_cmd = "prman -live"
-        if self.rman_render_into == 'blender' or do_persistent_data:
+        if is_render_into_blender or do_persistent_data:
             render_cmd = "prman -live"
         render_cmd = self._append_render_cmd(render_cmd)
         if boot_strapping:
@@ -1013,20 +1017,21 @@ class RmanRender(object):
             else:
                 self.rman_denoiser.bootstrap(width, height, rm.ai_denoiser_asymmetry, rm.blender_denoiser_use_color_pass)
             self.sg_scene.Render(render_cmd)
-        if self.rman_render_into == 'blender':  
+        if self.bl_rr_helper:  
             self.bl_rr_helper.register_passes()
                               
         self.start_stats_thread()
         #while self.bl_engine and not self.bl_engine.test_break() and self.rman_is_live_rendering:
         while self.bl_engine and not self.bl_engine.test_break() and self.rman_context.is_live_rendering():
             time.sleep(0.01)      
-            if self.bl_rr_helper:
+            if is_render_into_blender and self.bl_rr_helper:
                 self.bl_rr_helper.update_passes()
         if self.bl_rr_helper and self.use_qn and not self.bl_engine.test_break():
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_denoising)
             self.bl_rr_helper.denoise_passes()
         if self.bl_rr_helper:
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
+        if is_render_into_blender and self.bl_rr_helper:
             self.bl_rr_helper.finish_passes()            
         elif for_background and not use_compositor:
             # if we're background mode and not using the compositor,

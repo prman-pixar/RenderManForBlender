@@ -151,7 +151,7 @@ class BlAttribute:
         elif attr.data_type == 'STRING':
             detail = detail_map.get(len(attr.data), detail_default) 
             if detail not in ["uniform", "constant"]:
-                rfb_log().error("Unsupported string domain type: %s" % attr.domain)
+                rfb_log().debug("Unsupported string domain type: %s" % attr.domain)
                 return None
             rman_attr = BlAttribute()
             rman_attr.rman_name = attr.name
@@ -166,7 +166,7 @@ class BlAttribute:
             else:
                 rman_attr.values = values     
         else:    
-            rfb_log().error("Unsupported data type: %s" % attr.data_type)                  
+            rfb_log().debug("Unsupported data type: %s" % attr.data_type)                  
 
         if rman_attr:
             rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)    
@@ -263,12 +263,13 @@ def add_global_vol_aggregate():
     rm.vol_aggregates.move(len(rm.vol_aggregates)-1, 0)
 
 
-def should_use_bl_compositor(bl_scene):
+def should_use_bl_compositor(bl_scene, bl_view_layer=None):
     '''
     Check if we should use the Blender compositor
 
     Args:
         bl_scene (bpy.types.Scene) - the Blender scene
+        bl_view_layer (bpy.types.ViewLayer) - view layer
 
     Returns:
         (bool) - true if we should use the compositor; false if not
@@ -279,7 +280,7 @@ def should_use_bl_compositor(bl_scene):
     if not bpy.app.background:
         return (rm.render_into == 'blender')
 
-    if not display_utils.using_rman_displays():
+    if not display_utils.using_rman_displays(bl_view_layer=bl_view_layer):
         return True
 
     if not rm.use_bl_compositor:

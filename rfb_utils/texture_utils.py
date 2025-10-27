@@ -36,7 +36,7 @@ def get_nodeid(node):
         node, ob = scene_utils.find_node_by_name(node_name, node_tree, library=library)
         if node is None:
             return None
-        txm_id = getattr(node, 'txm_id')
+        txm_id = getattr(node, 'txm_id', None)
         return txm_id
     except ValueError:
         return None

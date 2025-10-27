@@ -513,11 +513,20 @@ def gather_nodes(node, for_solo_node=False):
                     nodes.append(sub_node)
 
             
-            if link.from_node.bl_idname == 'NodeReroute':
-                continue
-
             if node.bl_idname == 'NodeReroute':
                 continue
+
+            if link.from_node.bl_idname == 'NodeReroute':
+                # if the from node is a reroute node
+                # look for the incoming node
+                found = False
+                while found is False:
+                    incoming_socket = from_node.inputs[0]
+                    link = incoming_socket.links[0]
+                    from_node = link.from_node
+                    if from_node.bl_idname == 'NodeReroute':
+                        continue
+                    found = True
             
             # if this is a float->float3 type or float3->float connections, insert
             # either PxrToFloat3 or PxrToFloat conversion nodes         
