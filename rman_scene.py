@@ -207,6 +207,10 @@ class RmanScene(object):
         except AttributeError as err:
             rfb_log().debug("Cannot set viewport_render_res_mult: %s" % str(err))
 
+    def set_bl_scene(self, depsgraph):
+        self.bl_scene = depsgraph.scene_eval
+        self.bl_view_layer = depsgraph.view_layer_eval
+        self._find_renderman_layer()       
 
     def export_for_final_render(self, depsgraph, sg_scene, bl_view_layer, is_external=False):
         self.sg_scene = sg_scene

@@ -93,7 +93,9 @@ def get_beauty_filepath(bl_scene, use_blender_frame=False, expand_tokens=False, 
 
     return dspy_info
 
-def using_rman_displays():
+def using_rman_displays(bl_view_layer=None):
+    if bl_view_layer:
+        return bl_view_layer.renderman.use_renderman
     view_layer = bpy.context.view_layer
     return view_layer.renderman.use_renderman
 
