@@ -966,7 +966,7 @@ class RmanRender(object):
                 self.del_bl_engine()
                 return False
             
-        if is_render_into_blender and self.rman_scene.rm_rl:  
+        if is_render_into_blender:  
             dspy_dict = display_utils.get_dspy_dict(self.rman_scene, include_holdouts=False)
             self.bl_rr_helper = BlRenderResultHelper(self, self.bl_scene, dspy_dict, bl_layer)
             if for_background:
