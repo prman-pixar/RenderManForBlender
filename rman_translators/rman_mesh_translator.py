@@ -386,7 +386,7 @@ class RmanMeshTranslator(RmanTranslator):
             sg_node = rman_sg_mesh.sg_mesh
         primvar = sg_node.GetPrimVars()
         P = mesh_utils.get_mesh_points_(mesh)
-        npoints = len(P)
+        npoints = int(len(P) / 3)
 
         if rman_sg_mesh.npoints != npoints:
             primvar.SetTimes([])
@@ -400,14 +400,14 @@ class RmanMeshTranslator(RmanTranslator):
                     c.SetPrimVars(pvar)            
             return       
 
-        primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P, "vertex", time_sample)                            
+        primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P.data, "vertex", time_sample)                            
 
         sg_node.SetPrimVars(primvar)
 
         if rman_sg_mesh.is_multi_material:
             for c in rman_sg_mesh.multi_material_children:
                 pvar = c.GetPrimVars()
-                pvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P, "vertex", time_sample)                                  
+                pvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P.data, "vertex", time_sample)                                  
                 c.SetPrimVars(pvar)
 
         ob.to_mesh_clear()    
