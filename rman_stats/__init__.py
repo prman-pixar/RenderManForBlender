@@ -369,10 +369,12 @@ class RfBStatsManager(object):
             str:  renderer name, 'prman' currently,
             str:  server ID, None if no render or not supported)
         """
-        
+
         live_stats_supported = True
         renderer = 'prman'
-        serverId = self.web_socket_server_id            
+        serverId = self.web_socket_server_id
+        if not self.rman_render.rman_context.is_render_running():
+            serverId = None
 
         return (live_stats_supported, renderer, serverId)
 
