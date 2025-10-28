@@ -686,6 +686,8 @@ class RmanSceneSync(object):
             
             if self.rman_scene.do_motion_blur and self.rman_scene.moving_objects:
                 self.rman_scene.export_instances_motion()
+
+        self.rman_scene.context = None
                                   
     @time_this
     def update_scene(self, context, depsgraph):
@@ -780,7 +782,8 @@ class RmanSceneSync(object):
                             
         # call txmake all in case of new textures
         texture_utils.get_txmanager().txmake_all(blocking=False)      
-        self.rman_updates = dict()                        
+        self.rman_updates = dict()           
+        self.rman_scene.context = None             
         rfb_log().debug("------End update scene----------")    
 
     def add_to_need_cleaning(self, instance, rman_sg_node):
