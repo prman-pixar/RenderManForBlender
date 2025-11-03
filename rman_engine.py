@@ -55,6 +55,13 @@ class PRManRender(bpy.types.RenderEngine):
     def update(self, data, depsgraph):
         pass
 
+    def start_interactive_render(self, context, depsgraph):
+        if not self.rman_render.start_interactive_render(context, depsgraph):
+            self.export_failed = True
+            return False
+        self.export_failed = False        
+        return True
+
     def view_update(self, context, depsgraph):
         '''
         For viewport renders. Blender calls view_update when starting viewport renders
@@ -79,10 +86,8 @@ class PRManRender(bpy.types.RenderEngine):
         if not self.rman_render.rman_context.is_interactive_running() and self.rman_render.sg_scene is None:
             self.rman_render.bl_engine = self
             self.rman_render.rman_scene.ipr_render_into = 'blender'
-            if not self.rman_render.start_interactive_render(context, depsgraph):
-                self.export_failed = True
+            if not self.start_interactive_render(context, depsgraph):
                 return
-            self.export_failed = False
                 
         if self.rman_render.rman_context.is_interactive_running() and not self.rman_render.rman_license_failed:
             self.rman_render.update_scene(context, depsgraph)   
@@ -97,9 +102,21 @@ class PRManRender(bpy.types.RenderEngine):
         This is where we check for camera moves and draw pxiels from our
         Blender display driver.
         '''
-        if self.export_failed and self.rman_render.rman_license_failed:
-            self.draw_viewport_message(context, 'License failure: %s.' % self.rman_render.rman_license_failed_message, warning=True)
-            return
+        if self.export_failed:
+            if self.rman_render.rman_license_failed:
+                self.draw_viewport_message(context, 'License failure: %s.' % self.rman_render.rman_license_failed_message, warning=True)
+                return
+        
+            if self.rman_render.rman_context.is_restarting_state():
+                if self.rman_render.start_interactive_render(context, depsgraph):
+                    return
+            if self.rman_render.rman_context.is_canceled_state():                
+                self.draw_viewport_message(context, 'Render canceled.', warning=True)    
+                return
+            
+            self.draw_viewport_message(context, 'Export failed.', warning=True) 
+            return   
+        
         if self.ipr_already_running:
             self.draw_viewport_message(context, 'Multiple viewport rendering not supported.', warning=True)
             return

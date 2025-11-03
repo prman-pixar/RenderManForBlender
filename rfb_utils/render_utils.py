@@ -47,6 +47,8 @@ class RmanRenderContext(object):
     k_render_state_exporting = 1                             # we are exporting/parsing the scene
     k_render_state_rendering = 2                             # we are rendering
     k_render_state_denoising = 3                             # we are denoising
+    k_render_state_canceled  = 4                             # we are canceled
+    k_render_state_restart  = 5                              # restart requested
 
     def __init__(self):
         self.mode = 0
@@ -66,6 +68,12 @@ class RmanRenderContext(object):
 
     def set_render_state(self, render_state):
         self.render_state = render_state    
+
+    def set_canceled(self):
+        self.render_state = RmanRenderContext.k_render_state_canceled
+
+    def set_restart(self):
+        self.render_state = RmanRenderContext.k_render_state_restart
 
     def set_not_live_rendering(self):
         self.mode = self.mode & RmanRenderContext.k_not_is_live_rendering
@@ -118,6 +126,12 @@ class RmanRenderContext(object):
 
     def is_rendering_state(self):
         return self.render_state == RmanRenderContext.k_render_state_rendering
+    
+    def is_canceled_state(self):
+        return self.render_state == RmanRenderContext.k_render_state_canceled
+    
+    def is_restarting_state(self):
+        return self.render_state == RmanRenderContext.k_render_state_restart
     
 def get_render_variant(bl_scene):
     if not bl_scene.renderman.has_xpu_license and bl_scene.renderman.renderVariant != 'ris':
@@ -247,7 +261,7 @@ def set_render_variant_spool(bl_scene, args, is_tractor=False):
             device_list = ','.join(device_list)
             args.append('-xpudevices:%s' % device_list)  
 
-def refresh_viewport(context):
+def restart_viewport(context):
     '''
     Stop the current viewport and then restart it again
     '''
@@ -257,10 +271,15 @@ def refresh_viewport(context):
 
     scene = context.scene
     rm = scene.renderman
+    rr = RmanRender.get_rman_render() 
+
     if not rm.is_rman_running or not rm.is_rman_interactive_running:
+        if rr.rman_context.is_canceled_state():
+            # check if we were canceled
+            rr.rman_context.set_restart()
+            rr.bl_engine.tag_redraw()
         return
     
-    rr = RmanRender.get_rman_render()
     render_to_it = rr.rman_scene.ipr_render_into == 'it'
     
     if render_to_it:            

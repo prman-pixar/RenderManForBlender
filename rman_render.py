@@ -122,7 +122,15 @@ def get_qt_progress_class():
     '''
 
     try: 
-        from rman_utils.vendor.Qt.QtWidgets import QApplication, QWidget, QVBoxLayout, QProgressBar, QLabel
+        from rman_utils.vendor.Qt.QtWidgets import (
+            QApplication, 
+            QWidget, 
+            QVBoxLayout, 
+            QHBoxLayout,
+            QProgressBar, 
+            QLabel,
+            QMessageBox,
+            QPushButton)
         from rman_utils.vendor.Qt.QtGui import QIcon
         import rman_utils.vendor.Qt.QtCore as QtCore
         from .rman_constants import (
@@ -136,10 +144,11 @@ def get_qt_progress_class():
         if RMAN_QT_PROGRESS is not None:
             return (RMAN_QT_PROGRESS, QApplication)
         class RmanQtProgress(QWidget):
-            def __init__(self, parent):
+            def __init__(self, parent, rman_render):
                 super().__init__()
                 self.setWindowTitle("RenderMan Exporting...")
                 self.setGeometry(100, 100, 500, 80)
+                self.MAX_STR_LEN = 60
                 self.parent = parent
                 if RFB_PLATFORM == "macOS":
                     self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
@@ -149,6 +158,7 @@ def get_qt_progress_class():
                     icon = QIcon(os.path.join(RFB_ADDON_PATH, "rfb_icons", "rman_blender.png"))
                     self.parent.setWindowIcon(icon)   
                 self.time_start = None         
+                self.rman_render = rman_render
 
                 self.init_ui()
 
@@ -170,8 +180,15 @@ def get_qt_progress_class():
                 self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
                 self.progress_label = QLabel("")
 
+                self.cancel_button = QPushButton("Cancel", self) 
+                self.cancel_button.clicked.connect(self.cancel_render)                  
+
+                h_lyt = QHBoxLayout()      
+                h_lyt.addWidget(self.cancel_button)      
+
                 lyt.addWidget(self.progress_label)
                 lyt.addWidget(self.progress_bar)
+                lyt.addLayout(h_lyt)
                 self.setLayout(lyt)
 
                 sh = self.styleSheet()
@@ -191,8 +208,33 @@ def get_qt_progress_class():
                 sh += css  + progressbar_css                 
                 self.parent.setStyleSheet(sh)
 
+            def keyPressEvent(self, event):
+                if event.key() == QtCore.Qt.Key_Escape:                
+                    self.cancel_render()
+                else:
+                    super().keyPressEvent(event)
+
+            def closeEvent(self, event):  
+                self.cancel_render()
+                event.ignore()                 
+
+            def cancel_render(self):
+                confirm_win = QMessageBox()
+                confirm_win.setWindowTitle("Cancel Render")
+                confirm_win.setText("Do you want to cancel the render?")
+                confirm_win.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                confirm_win.setDefaultButton(QMessageBox.No)
+
+                result = confirm_win.exec() 
+                if result == QMessageBox.Yes:                  
+                    self.progress_bar.setFormat("%p% (Cancelling..)")
+                    self.rman_render.rman_context.set_canceled()
+                    self.progress_bar.setValue(100)
+
             def update_progress(self, label, progress):
                 self.progress_bar.setValue(progress)
+                if len(label) > self.MAX_STR_LEN:
+                    label = label[:self.MAX_STR_LEN] + " ...)"
                 self.progress_label.setText(label)
                 self.progress_bar.setFormat("%p% (" + string_utils._format_time_(time.time() - self.time_start) + ")")
 
@@ -313,6 +355,11 @@ def draw_threading_func(db):
     if db.bl_viewport.shading.type != 'RENDERED':
         db.del_bl_engine()
         return
+    if db.rman_context.is_canceled_state():
+        # if we are canceled, change viewport back to SOLID
+        db.bl_viewport.shading.type = 'SOLID'
+        db.del_bl_engine()
+        return 
     if db.xpu_slow_mode:
         if db.has_buffer_updated():
             try:
@@ -981,7 +1028,10 @@ class RmanRender(object):
             self.start_export_stats_thread()
             if boot_strapping:
                 # This is our first time exporting
-                self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer)
+                if not self.rman_scene.export_for_final_render(depsgraph, self.sg_scene, bl_layer):
+                    self.stop_render(stop_draw_thread=False)
+                    self.del_bl_engine()                           
+                    return False                    
             else:   
                 # Scene still exists, which means we're in persistent data mode
                 # Try to get the scene diffs.                    
@@ -1405,10 +1455,9 @@ class RmanRender(object):
             if not self.progress_bar_app:
                 self.progress_bar_app = QApplication(sys.argv)
             if self.progress_bar_window is None:
-                self.progress_bar_window = RmanQtProgress(self.progress_bar_app)
+                self.progress_bar_window = RmanQtProgress(self.progress_bar_app, self)
             self.progress_bar_window.show()
-            t = threading.Thread(target=self.progress_bar_app.exec)
-            t.start()
+            bpy.app.timers.register(self.progress_bar_app.exec, first_interval=0.01)
 
         time_start = time.time()   
         if self.progress_bar_window:
@@ -1448,7 +1497,33 @@ class RmanRender(object):
             if self.progress_bar_app:
                 self.progress_bar_app.processEvents()    
 
-            self.rman_scene.export_for_interactive_render(context, depsgraph, self.sg_scene)
+            # start an app timer function to peridodically call engine.tag_redaw()
+            # NOTE: this used to by a python thread, but because of RMAN-24005
+            # we've switched to using an application timer that runs every x seconds
+            if self.rman_render_into == 'blender':
+                DRAW_THREAD = functools.partial(draw_threading_func, self)
+                bpy.app.timers.register(DRAW_THREAD, first_interval=0.01)                
+
+            if not self.rman_scene.export_for_interactive_render(context, depsgraph, self.sg_scene):
+                if self.bl_engine:
+                    self.bl_engine.report({'ERROR'}, 'Cancel requested. Aborting...' )              
+                
+                if self.progress_bar_app:
+                    bpy.app.timers.unregister(self.progress_bar_app.exec)                         
+                    self.progress_bar_app.quit()
+                    self.progress_bar_app = None
+                    self.progress_bar_window = None            
+
+                if self.rman_render_into == 'it':
+                    # explicitly call stop_render when rendering to "it"
+                    self.stop_render(stop_draw_thread=False)
+
+                return False      
+
+            # stop the progress bar thread        
+            if self.progress_bar_app:  
+                bpy.app.timers.unregister(self.progress_bar_app.exec)            
+
             self.rman_context.set_render_state(RmanRenderContext.k_render_state_rendering)
 
             self._dump_rib_(self.bl_scene.frame_current)
@@ -1477,12 +1552,6 @@ class RmanRender(object):
                     self.set_redraw_func()
                 else:
                     rfb_log().debug("XPU slow mode enabled.")
-
-            # start an app timer function to peridodically call engine.tag_redaw()
-            # NOTE: this used to by a python thread, but because of RMAN-24005
-            # we've switched to using an application timer that runs every x seconds
-            DRAW_THREAD = functools.partial(draw_threading_func, self)
-            bpy.app.timers.register(DRAW_THREAD, first_interval=0.01)
 
             return True
         except Exception as e:      
@@ -1620,9 +1689,13 @@ class RmanRender(object):
         is_main_thread = (threading.current_thread() == threading.main_thread())
         self.reset_redraw_func()
 
-        # strop the drawing thread
+        # stop the drawing thread
         if DRAW_THREAD and bpy.app.timers.is_registered(DRAW_THREAD):
             bpy.app.timers.unregister(DRAW_THREAD)
+
+        # stop the progress bar
+        if self.progress_bar_app and bpy.app.timers.is_registered(self.progress_bar_app.exec):
+            bpy.app.timers.unregister(self.progress_bar_app.exec)             
 
         if is_main_thread:
             rfb_log().debug("Trying to acquire stop_render_mtx")

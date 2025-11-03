@@ -254,17 +254,17 @@ class PRMAN_OT_StartInteractive(bpy.types.Operator):
 
         return {'FINISHED'}
     
-class PRMAN_OT_RefreshInteractive(bpy.types.Operator):
+class PRMAN_OT_RestartInteractive(bpy.types.Operator):
 
     ''''''
-    bl_idname = "renderman.refresh_ipr"
-    bl_label = "Refresh Interactive Rendering"
+    bl_idname = "renderman.restart_ipr"
+    bl_label = "Restart Interactive Rendering"
     bl_description = "Stop and then restart IPR"
     bl_options = {'INTERNAL'}    
 
     def invoke(self, context, event=None):
         from ..rfb_utils import render_utils
-        render_utils.refresh_viewport(context)
+        render_utils.restart_viewport(context)
         return {'FINISHED'}    
 
 class PRMAN_OT_StopInteractive(bpy.types.Operator):
@@ -282,6 +282,7 @@ class PRMAN_OT_StopInteractive(bpy.types.Operator):
             rr.stop_render(stop_draw_thread=False)
         elif context.space_data.type == 'VIEW_3D':
             context.space_data.shading.type = 'SOLID'
+            rr.stop_render(stop_draw_thread=True)
         else:
             for window in bpy.context.window_manager.windows:
                 for area in window.screen.areas:
@@ -290,7 +291,9 @@ class PRMAN_OT_StopInteractive(bpy.types.Operator):
                             if space.type == 'VIEW_3D':
                                 if space.shading.type == 'RENDERED':    
                                     space.shading.type = 'SOLID'
+            rr.stop_render(stop_draw_thread=True)
 
+        
         return {'FINISHED'}
 
 class PRMAN_OT_StopRender(bpy.types.Operator):
@@ -377,7 +380,7 @@ classes = [
     PRMAN_OT_StartInteractive,
     PRMAN_OT_StopInteractive,
     PRMAN_OT_StopRender,
-    PRMAN_OT_RefreshInteractive,
+    PRMAN_OT_RestartInteractive,
     PRMAN_OT_AttachStatsRender,
     PRMAN_OT_DisconnectStatsRender,
     PRMAN_OT_UpdateStatsConfig,

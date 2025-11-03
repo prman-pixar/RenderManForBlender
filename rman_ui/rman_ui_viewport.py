@@ -833,7 +833,7 @@ def draw_rman_viewport_props(self, context):
             row.operator('renderman.stop_ipr', text="",
                             icon_value=rman_rerender_controls.icon_id)
             rman_icon = rfb_icons.get_icon('rman_refresh')    
-            row.operator('renderman.refresh_ipr', text="",
+            row.operator('renderman.restart_ipr', text="",
                             icon_value=rman_icon.icon_id)                    
 
             # integrators menu

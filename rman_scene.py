@@ -271,7 +271,7 @@ class RmanScene(object):
         self.depsgraph = depsgraph
         self.do_motion_blur = False
 
-        self.export()
+        return self.export()
 
     def export_for_rib_selection(self, context, sg_scene):
         self.reset()
@@ -324,7 +324,8 @@ class RmanScene(object):
         self.scene_any_lights = self._scene_has_lights()
 
         rfb_log().debug("Calling export_data_blocks()")
-        self.export_data_blocks()
+        if not self.export_data_blocks():
+            return False
 
         self.export_searchpaths()
         self.export_global_options()
@@ -343,7 +344,8 @@ class RmanScene(object):
 
         if self.do_motion_blur:
             rfb_log().debug("Calling export_instances_motion()")
-            self.export_instances_motion()
+            if not self.export_instances_motion():
+                return False
 
         self.rman_render.stats_mgr.set_export_stats("Finished Export", 1.0)
         self.num_object_instances = len(self.depsgraph.object_instances)
@@ -355,6 +357,8 @@ class RmanScene(object):
             self.export_viewport_stats()
         else:
             self.export_stats()
+
+        return True
 
     def export_bake_render_scene(self):
         self.reset()
@@ -511,6 +515,13 @@ class RmanScene(object):
         rfb_log().debug("Calling export_data_blocks()")
 
         self.export_data_blocks()
+
+    def cancel_requested(self):
+        if self.rman_render.bl_engine and self.rman_render.bl_engine.test_break():
+            return True
+        if self.rman_render.rman_context.is_canceled_state():
+            return True
+        return False        
 
     def set_root_lightlinks(self, rixattrs=None):
         rm = self.bl_scene.renderman
@@ -714,6 +725,8 @@ class RmanScene(object):
     def export_data_blocks(self, selected_objects=False, objects_list=False):
         total = len(self.depsgraph.object_instances)
         for i, ob_inst in enumerate(self.depsgraph.object_instances):
+            if self.cancel_requested():
+                return False
             ob = ob_inst.object
             rfb_log().debug("   Exported %d/%d instances... (%s)" % (i, total, ob.name))
             self.rman_render.stats_mgr.set_export_stats("Exporting (%s)" % ob.name,i/total)
@@ -751,6 +764,7 @@ class RmanScene(object):
                 continue
 
             self.export_instance(ob_eval, ob_inst, rman_sg_node, rman_type, instance_parent, psys)
+        return True
 
     def export_data_block(self, proto_key, ob):
         rman_type = object_utils._detect_primitive_(ob)
@@ -857,6 +871,8 @@ class RmanScene(object):
         rman_group_translator = self.rman_translators['GROUP']
         deform_sampled = dict() # dictionary to know what segment we've already sampled for deform blur
         for samp, seg in enumerate(motion_steps):
+            if self.cancel_requested():
+                return False            
             first_sample = (samp == 0)
             if seg < 0.0:
                 self.rman_render.bl_engine.frame_set(origframe - 1, subframe=1.0 + seg)
@@ -879,6 +895,8 @@ class RmanScene(object):
 
             rfb_log().debug(" Export Sample: %i" % samp)
             for i, ob_inst in enumerate(self.depsgraph.object_instances):
+                if self.cancel_requested():
+                    return False                
                 if selected_objects and not self.is_instance_selected(ob_inst):
                     continue
 
@@ -943,6 +961,7 @@ class RmanScene(object):
         self.rman_render.bl_engine.frame_set(origframe, subframe=0)
         rfb_log().debug("   Finished exporting motion instances")
         self.rman_render.stats_mgr.set_export_stats("Finished exporting motion instances", 100)
+        return True
 
     def export_defaultlight(self):
         # Export a headlight light if needed
