@@ -517,8 +517,12 @@ class RmanScene(object):
         self.export_data_blocks()
 
     def cancel_requested(self):
-        if self.rman_render.bl_engine and self.rman_render.bl_engine.test_break():
-            return True
+        try:
+            if self.rman_render.bl_engine and self.rman_render.bl_engine.test_break():
+                return True
+        except ReferenceError as e:
+            rfb_log().error('Cannot check test_break(): %s' % str(e))
+            pass
         if self.rman_render.rman_context.is_canceled_state():
             return True
         return False        
@@ -1296,7 +1300,7 @@ class RmanScene(object):
                 self.rman_cameras[main_cam.original] = self.main_camera
         else:
             if self.is_interactive:
-                main_cam = self.context.space_data.camera
+                main_cam = getattr(self.context.space_data, 'camera', main_cam)
             db_name = object_utils.get_db_name(main_cam)
             rman_sg_camera = cam_translator.export(main_cam, db_name)
             self.main_camera = rman_sg_camera
