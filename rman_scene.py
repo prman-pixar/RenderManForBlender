@@ -521,7 +521,7 @@ class RmanScene(object):
             if self.rman_render.bl_engine and self.rman_render.bl_engine.test_break():
                 return True
         except ReferenceError as e:
-            rfb_log().error('Cannot check test_break(): %s' % str(e))
+            rfb_log().debug('Cannot check test_break(): %s' % str(e))
             pass
         if self.rman_render.rman_context.is_canceled_state():
             return True
