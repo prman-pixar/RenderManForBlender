@@ -5,7 +5,7 @@ No exception handling at all: should be handled by the caller.
 
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 - 2021 Pixar
+# Copyright (c) 2015 - 2025 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
