@@ -35,7 +35,7 @@ bl_info = {
     "location": "Render Properties > Render Engine > RenderMan",
     "description": "RenderMan 27 integration",
     "doc_url": "https://rmanwiki.pixar.com/display/RFB",
-    'warning': 'BETA',
+    'warning': '',
     "category": "Render"}
 
 __RMAN_ADDON_LOADED__ = False
