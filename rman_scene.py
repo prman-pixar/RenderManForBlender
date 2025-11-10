@@ -246,7 +246,7 @@ class RmanScene(object):
         self._find_renderman_layer()
         self.depsgraph = depsgraph
         self.do_motion_blur = self.bl_scene.renderman.motion_blur
-        self.export()
+        return self.export()
 
     def export_for_bake_render(self, depsgraph, sg_scene, bl_view_layer):
         self.sg_scene = sg_scene
