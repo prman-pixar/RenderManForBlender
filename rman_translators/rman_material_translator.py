@@ -122,18 +122,10 @@ class RmanMaterialTranslator(RmanTranslator):
             if out:
                 nt = material.node_tree
 
-                # check if there's a solo node
-                if out.solo_node_name:
-                    if out.solo_nodetree:
-                        solo_nodetree = out.solo_nodetree
-                        solo_node = solo_nodetree.nodes.get(out.solo_node_name, None)
-                    else:
-                        # try the material node tree
-                        solo_node = material.node_tree.nodes.get(out.solo_node_name, None)
-                        solo_nodetree = material.node_tree
-                        
-                    if solo_node:
-                        has_solo_node = self.export_solo_shader(material, solo_nodetree, out, solo_node, rman_sg_material, handle)                        
+                if out.solo_node_on:
+                    solo_node, solo_nodetree = shadergraph_utils.find_solo_node(nt)
+                    if solo_node: 
+                        has_solo_node = self.export_solo_shader(material, solo_nodetree, out, solo_node, rman_sg_material, handle)
                     else:
                         rfb_log().error("Solo node requested, but could not find nodetree.")
 
@@ -236,7 +228,8 @@ class RmanMaterialTranslator(RmanTranslator):
 
         rman_solo_sg_node = None        
         for sub_node in nodes_list:
-            shader_sg_nodes = self.shader_node_sg(mat, sub_node, rman_sg_material, mat_name=mat_handle)
+            group_node = shadergraph_utils.get_group_node(sub_node)
+            shader_sg_nodes = self.shader_node_sg(mat, sub_node, rman_sg_material, mat_name=mat_handle, group_node=group_node)
             for s in shader_sg_nodes:                
                 if sub_node == solo_node:
                     rman_solo_sg_node = s

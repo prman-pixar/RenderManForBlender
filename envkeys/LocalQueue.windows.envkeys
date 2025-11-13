@@ -1,0 +1,9 @@
+[
+    {
+        "key": 'riley_capture=([^"]+)',
+        "environment": {
+            "RILEY_CAPTURE": r"\1",
+            "RILEY_CAPTURE_FORMAT": "python"
+        }
+    }
+]

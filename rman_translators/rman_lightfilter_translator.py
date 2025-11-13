@@ -2,6 +2,7 @@ from .rman_translator import RmanTranslator
 from ..rfb_utils import property_utils
 from ..rfb_utils import scenegraph_utils
 from ..rfb_utils import object_utils
+from ..rfb_utils import string_utils
 from ..rman_sg_nodes.rman_sg_lightfilter import RmanSgLightFilter
 from mathutils import Matrix
 import bpy                    
@@ -30,7 +31,8 @@ class RmanLightFilterTranslator(RmanTranslator):
             rman_sg_node.sg_lightfilters.clear()
         else:
             for c in [ rman_sg_node.sg_node.GetChild(i) for i in range(0, rman_sg_node.sg_node.GetNumChildren())]:
-                rman_sg_node.sg_node.RemoveCoordinateSystem(c)
+                # This RemoveCoordinateSystem call seems to cause issues with editing. See RMAN-23355.
+                # rman_sg_node.sg_node.RemoveCoordinateSystem(c)
                 rman_sg_node.sg_node.RemoveChild(c)
                 self.rman_scene.sg_scene.DeleteDagNode(c)         
 
@@ -149,7 +151,10 @@ class RmanLightFilterTranslator(RmanTranslator):
         rixparams.SetString("coordsys", rman_sg_lightfilter.coord_sys)
             
         # check if this light filter belongs to a light link
-        if ob.original.data.renderman.linkingGroups != "":
-            rixparams.SetString("linkingGroups", ob.original.data.renderman.linkingGroups)
+        if self.rman_scene.use_blender_light_link:
+            rixparams.SetString("linkingGroups", string_utils.sanitize_node_name(ob.name))            
         else:
-            rixparams.Remove("linkingGroups")
+            if ob.original.data.renderman.linkingGroups != "":
+                rixparams.SetString("linkingGroups", ob.original.data.renderman.linkingGroups)
+            else:
+                rixparams.Remove("linkingGroups")

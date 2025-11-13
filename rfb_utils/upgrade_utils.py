@@ -5,6 +5,14 @@ from ..rfb_utils.prefs_utils import get_pref
 from collections import OrderedDict
 import bpy
 
+def copy_param(nt, old_node, new_node, old_nm, new_nm):
+    socket = old_node.inputs.get(old_nm, None)
+    if socket and socket.is_linked:            
+        connected_socket = socket.links[0].from_socket
+        nt.links.new(connected_socket, new_node.inputs[new_nm])
+    elif hasattr(old_node, old_nm) and hasattr(new_node, new_nm):
+        setattr(new_node, new_nm, getattr(old_node, old_nm))
+
 def upgrade_242(scene):
     shadergraph_utils.reload_bl_ramps(scene, check_library=False)
 
@@ -113,15 +121,6 @@ def upgrade_250_1(scene):
     25.0b2 changed the names of input parameters for lama nodes,
     because they were using OSL reserved keywords (ex: color)
     '''         
-
-    def copy_param(old_node, new_node, old_nm, new_nm):
-        socket = old_node.inputs.get(old_nm, None)
-        if socket and socket.is_linked:            
-            connected_socket = socket.links[0].from_socket
-            nt.links.new(connected_socket, new_node.inputs[new_nm])
-        else:
-            setattr(new_node, new_nm, getattr(n, old_nm))
-
     for mat in bpy.data.materials:
         if mat.node_tree is None:
             continue
@@ -132,79 +131,79 @@ def upgrade_250_1(scene):
             if n.bl_label == 'LamaDiffuse':
                 new_node = nt.nodes.new('LamaDiffuseBxdfNode')
                 nms = ['color', 'normal']
-                copy_param(n, new_node, 'color', 'diffuseColor')
-                copy_param(n, new_node, 'normal', 'diffuseNormal')
+                copy_param(nt, n, new_node, 'color', 'diffuseColor')
+                copy_param(nt, n, new_node, 'normal', 'diffuseNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)
+                    copy_param(nt, n, new_node, prop_name, prop_name)
             elif n.bl_label == 'LamaSheen':
                 new_node = nt.nodes.new('LamaSheenBxdfNode')
                 nms = ['color', 'normal']
-                copy_param(n, new_node, 'color', 'sheenColor')
-                copy_param(n, new_node, 'normal', 'sheenNormal')
+                copy_param(nt, n, new_node, 'color', 'sheenColor')
+                copy_param(nt, n, new_node, 'normal', 'sheenNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                
+                    copy_param(nt, n, new_node, prop_name, prop_name)                
             elif n.bl_label == 'LamaConductor':
                 new_node = nt.nodes.new('LamaConductorBxdfNode')
                 nms = ['normal']
-                copy_param(n, new_node, 'normal', 'conductorNormal')       
+                copy_param(nt, n, new_node, 'normal', 'conductorNormal')       
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                            
+                    copy_param(nt, n, new_node, prop_name, prop_name)                            
             elif n.bl_label == 'LamaDielectric':
                 new_node = nt.nodes.new('LamaDielectricBxdfNode')
                 nms = ['normal']
-                copy_param(n, new_node, 'normal', 'dielectricNormal')
+                copy_param(nt, n, new_node, 'normal', 'dielectricNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                   
+                    copy_param(nt, n, new_node, prop_name, prop_name)                   
             elif n.bl_label == 'LamaEmission':
                 new_node = nt.nodes.new('LamaEmissionBxdfNode')
                 nms = ['color']
-                copy_param(n, new_node, 'color', 'emissionColor')   
+                copy_param(nt, n, new_node, 'color', 'emissionColor')   
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                        
+                    copy_param(nt, n, new_node, prop_name, prop_name)                        
             elif n.bl_label == 'LamaGeneralizedSchlick':
                 new_node = nt.nodes.new('LamaGeneralizedSchlickBxdfNode')
                 nms = ['normal']
-                copy_param(n, new_node, 'normal', 'genSchlickNormal')
+                copy_param(nt, n, new_node, 'normal', 'genSchlickNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                     
+                    copy_param(nt, n, new_node, prop_name, prop_name)                     
             elif n.bl_label == 'LamaSSS':
                 new_node = nt.nodes.new('LamaSSSBxdfNode')
                 nms = ['color', 'normal']
-                copy_param(n, new_node, 'color', 'sssColor')
-                copy_param(n, new_node, 'normal', 'sssNormal')
+                copy_param(nt, n, new_node, 'color', 'sssColor')
+                copy_param(nt, n, new_node, 'normal', 'sssNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                   
+                    copy_param(nt, n, new_node, prop_name, prop_name)                   
             elif n.bl_label == 'LamaTranslucent':
                 new_node = nt.nodes.new('LamaTranslucentBxdfNode')
                 nms = ['color', 'normal']
-                copy_param(n, new_node, 'color', 'translucentColor')
-                copy_param(n, new_node, 'normal', 'translucentNormal')
+                copy_param(nt, n, new_node, 'color', 'translucentColor')
+                copy_param(nt, n, new_node, 'normal', 'translucentNormal')
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                   
+                    copy_param(nt, n, new_node, prop_name, prop_name)                   
             elif n.bl_label == 'LamaTricolorSSS':
                 new_node = nt.nodes.new('LamaTricolorSSSBxdfNode')
                 nms = ['normal']
-                copy_param(n, new_node, 'normal', 'sssNormal')      
+                copy_param(nt, n, new_node, 'normal', 'sssNormal')      
                 for prop_name, meta in n.prop_meta.items():
                     if prop_name in nms:
                         continue
-                    copy_param(n, new_node, prop_name, prop_name)                             
+                    copy_param(nt, n, new_node, prop_name, prop_name)                             
 
             if new_node:
                 new_node.location[0] = n.location[0]
@@ -281,6 +280,60 @@ def upgrade_262_1(scene):
     if get_pref('rman_invert_light_linking'):
         scene.renderman.invert_light_linking = 1
 
+def upgrade_270_0(scene):        
+    '''
+    In 27.0:
+    
+    * PxrDisney and PxrDisneyBsdf's subsurface parameter
+    was renamed to subsurfaceMult.
+    * The <udim> token is no longer supported. Convert <udim> to <UDIM>
+    '''
+    nms = ['subsurface']
+    for mat in bpy.data.materials:
+        if mat.node_tree is None:
+            continue
+        nt = mat.node_tree
+        nodes = [n for n in nt.nodes]
+        for n in nodes:
+            new_node = None
+            if n.bl_label == 'PxrDisney':
+                new_node = nt.nodes.new('PxrDisneyBxdfNode')
+                copy_param(nt, n, new_node, 'subsurface', 'subsurfaceMult')
+                for prop_name, meta in n.prop_meta.items():
+                    if prop_name in nms:
+                        continue
+                    copy_param(nt, n, new_node, prop_name, prop_name)
+            elif n.bl_label == 'PxrDisneyBsdf':
+                new_node = nt.nodes.new('PxrDisneyBsdfBxdfNode')                
+                copy_param(nt, n, new_node, 'subsurface', 'subsurfaceMult')
+                for prop_name, meta in n.prop_meta.items():
+                    if prop_name in nms:
+                        continue
+                    copy_param(nt, n, new_node, prop_name, prop_name)                    
+            if new_node:
+                new_node.location[0] = n.location[0]
+                new_node.location[1] = n.location[1]      
+                if n.outputs['bxdf_out'].is_linked:
+                    for link in n.outputs['bxdf_out'].links:
+                        connected_socket = link.to_socket
+                        nt.links.new(new_node.outputs['bxdf_out'], connected_socket)
+                node_name = n.name
+                nt.nodes.remove(n)
+                new_node.name = node_name   
+                new_node.select = False     
+
+        # look for <udim> and replace with <UDIM>
+        nodes = [n for n in nt.nodes]
+        for n in nodes:
+            has_textured_params = getattr(n, 'rman_has_textured_params', False)
+            if has_textured_params:
+                textured_params = getattr(n, 'rman_textured_params', list())
+                for prop_name in textured_params:
+                    val = getattr(n, prop_name)
+                    if '<udim>' in val:
+                        val = val.replace('<udim>', '<UDIM>')
+                        setattr(n, prop_name, val)
+
 __RMAN_SCENE_UPGRADE_FUNCTIONS__ = OrderedDict()
     
 __RMAN_SCENE_UPGRADE_FUNCTIONS__['24.2'] = upgrade_242
@@ -290,6 +343,7 @@ __RMAN_SCENE_UPGRADE_FUNCTIONS__['25.0.1'] = upgrade_250_1
 __RMAN_SCENE_UPGRADE_FUNCTIONS__['26.0.0'] = upgrade_260_0
 __RMAN_SCENE_UPGRADE_FUNCTIONS__['26.1.0'] = upgrade_261_0
 __RMAN_SCENE_UPGRADE_FUNCTIONS__['26.2.1'] = upgrade_262_1
+__RMAN_SCENE_UPGRADE_FUNCTIONS__['27.0.1'] = upgrade_270_0
 
 def upgrade_scene(bl_scene):
     global __RMAN_SCENE_UPGRADE_FUNCTIONS__

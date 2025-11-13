@@ -1,6 +1,5 @@
 import bpy
 from .prefs_utils import get_pref
-from ..rman_constants import BLENDER_HAS_CURVES_NODE
 from . import string_utils
 
 # These types don't create instances
@@ -116,9 +115,10 @@ def is_subdmesh(ob):
     if not rm:
         return False
 
+    check_modifiers = False
     rman_subdiv_scheme = getattr(ob.data.renderman, 'rman_subdiv_scheme', 'none')
 
-    if rm.primitive == 'AUTO' and rman_subdiv_scheme == 'none':
+    if check_modifiers and rm.primitive == 'AUTO' and rman_subdiv_scheme == 'none':
         return (is_subd_last(ob) or is_subd_displace_last(ob))
     else:
         return (rman_subdiv_scheme != 'none')       
@@ -129,7 +129,10 @@ def is_deforming_fluid(ob):
         mod = ob.modifiers[len(ob.modifiers) - 1]
         return mod.type == 'FLUID' and mod.fluid_type == 'DOMAIN'
 
-def _is_deforming_(ob):
+def _is_deforming_(ob, scene):
+    if ob.is_deform_modified(scene, "RENDER"):
+        return True
+
     deforming_modifiers = ['ARMATURE', 'MESH_SEQUENCE_CACHE', 'CAST', 'CLOTH', 'CURVE', 'DISPLACE',
                            'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP', 'EXPLODE',
                            'SIMPLE_DEFORM', 'SMOOTH', 'WAVE', 'SOFT_BODY',
@@ -147,7 +150,7 @@ def _is_deforming_(ob):
                 return True
     if ob.data and hasattr(ob.data, 'shape_keys') and ob.data.shape_keys:
         return True
-
+    
     return is_deforming_fluid(ob)
 
 def is_transforming(ob, recurse=False):
@@ -194,7 +197,7 @@ def prototype_key(ob):
                     if data_ob.original.data:
                         return '%s-MESH-DATA' % data_ob.original.data.name_full
                     return '%s-MESH-DATA' % ob.object.data.name_full
-                elif BLENDER_HAS_CURVES_NODE and isinstance(ob.object.data, bpy.types.Curves):
+                elif isinstance(ob.object.data, bpy.types.Curves):
                     # see below about gpu_acceleration bug
                     data_ob = bpy.data.objects[ob.object.name]
                     if data_ob.original.data:
@@ -221,7 +224,7 @@ def prototype_key(ob):
                 data_ob = bpy.data.objects[ob.object.name]
                 return '%s-MESH-DATA' % data_ob.original.data.name_full
 
-            elif BLENDER_HAS_CURVES_NODE and isinstance(ob.object.data, bpy.types.Curves):
+            elif isinstance(ob.object.data, bpy.types.Curves):
                 '''
                 Looks like a similar problem as above happens with Curves as well. The data block
                 name is not unique when you have multiple Curves object.
@@ -247,7 +250,7 @@ def prototype_key(ob):
             data_ob = bpy.data.objects[ob.name]
             return '%s-MESH-DATA' % data_ob.original.data.name_full
 
-        elif BLENDER_HAS_CURVES_NODE and isinstance(ob.data, bpy.types.Curves):
+        elif isinstance(ob.data, bpy.types.Curves):
             '''
             Looks like a similar problem as above happens with Curves as well. The data block
             name is not unique when you have multiple Curves object.

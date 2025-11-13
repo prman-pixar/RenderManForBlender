@@ -5,11 +5,10 @@ from ...rfb_utils import string_utils
 from ...rfb_utils import prefs_utils
 from ...rfb_utils import transform_utils
 from ...rfb_logger import rfb_log
-from ...rman_constants import RMAN_AREA_LIGHT_TYPES, USE_GPU_MODULE, BLENDER_41
+from ...rman_constants import RMAN_AREA_LIGHT_TYPES, BLENDER_41
 from .barn_light_filter_draw_helper import BarnLightFilterDrawHelper
 from .frustrum_draw_helper import FrustumDrawHelper
 from mathutils import Vector, Matrix, Quaternion
-from bpy.app.handlers import persistent
 import mathutils
 import math
 import ice
@@ -17,11 +16,7 @@ import bpy
 import gpu
 
 if not bpy.app.background:
-    if USE_GPU_MODULE:
-        bgl = None
-        from gpu_extras.batch import batch_for_shader
-    else:    
-        import bgl
+    from gpu_extras.batch import batch_for_shader
 
 _DRAW_HANDLER_ = None
 _FRUSTUM_DRAW_HELPER_ = None
@@ -465,7 +460,7 @@ __MTX_ENVDAYLIGHT_ORIENT__ = transform_utils.convert_to_blmatrix([
             -0.0000,  1.0000, -0.0000, 0.0000,
             0.0000,  0.0000,  0.0000, 1.0000])
 
-if USE_GPU_MODULE and not bpy.app.background:
+if not bpy.app.background:
     # Code reference: https://projects.blender.org/blender/blender/src/branch/main/doc/python_api/examples/gpu.7.py
 
     vert_out = gpu.types.GPUStageInterfaceInfo("image_interface")
@@ -518,65 +513,18 @@ if USE_GPU_MODULE and not bpy.app.background:
         }
 
         ''') 
-else:
-    _VERTEX_SHADER_UV_ = '''
-        uniform mat4 modelMatrix;
-        uniform mat4 viewProjectionMatrix;
-
-        in vec3 position;
-        in vec2 uv;
-
-        out vec2 uvInterp;
-
-        void main()
-        {
-            uvInterp = uv;
-            gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 1.0);
-        }
-    '''
-
-    _VERTEX_SHADER_ = '''
-        uniform mat4 modelMatrix;
-        uniform mat4 viewProjectionMatrix;
-
-        in vec3 position;
-
-        void main()
-        {
-            gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 1.0f);
-        }
-    '''
-
-    _FRAGMENT_SHADER_TEX_ = '''
-        uniform sampler2D image;
-
-        in vec2 uvInterp;       
-        out vec4 FragColor;
-
-        void main()
-        {
-            FragColor = texture(image, uvInterp);
-        }
-    '''
-
-    _FRAGMENT_SHADER_COL_ = '''
-        uniform vec4 lightColor;
-
-        in vec2 uvInterp;       
-        out vec4 FragColor;
-
-        void main()
-        {
-            FragColor = lightColor;
-        }
-    '''
-
+    
 _SHADER_ = None
+SHADER_SOLID_IMAGE = None
+SHADER_SOLID_COLOR = None
 if not bpy.app.background:
     uniform_color =  '3D_UNIFORM_COLOR'
     if BLENDER_41:
         uniform_color = 'UNIFORM_COLOR'
     _SHADER_ = gpu.shader.from_builtin(uniform_color)
+
+    SHADER_SOLID_IMAGE = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
+    SHADER_SOLID_COLOR = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
 
 _SELECTED_COLOR_ = (1, 1, 1)
 _WIRE_COLOR_ = (0, 0, 0)
@@ -602,6 +550,16 @@ def _get_indices(l):
             indices.append((i, i+1)) 
 
     return indices   
+
+def _get_indices_tris(l):
+    indices = []
+    for i in range(0, len(l)):
+        if i == len(l)-1:
+            indices.append((i-1, i, 0))
+        else:
+            indices.append((i, i+1, i+2)) 
+
+    return indices 
 
 def _get_sun_direction(ob):
     light = ob.data
@@ -659,11 +617,7 @@ def load_gl_texture(tex):
 
     ice._registry.Mark() 
     iceimg = ice.Load(real_path)
-    if USE_GPU_MODULE:
-        iceimg = iceimg.TypeConvert(ice.constants.FLOAT)
-    else:
-        # quantize to 8 bits
-        iceimg = iceimg.TypeConvert(ice.constants.FRACTIONAL)
+    iceimg = iceimg.TypeConvert(ice.constants.FLOAT)
 
     x1, x2, y1, y2 = iceimg.DataBox()
     width = (x2 - x1) + 1
@@ -686,49 +640,19 @@ def load_gl_texture(tex):
         width = (x2 - x1) + 1
         height = (y2 - y1) + 1 
 
-    numChannels = iceimg.Ply()
-    if USE_GPU_MODULE:       
-        iFormat = 'RGBA32F'
-        if numChannels != 4:
-            # if this is not a 4-channel image, we create a card with an alpha
-            # and composite the image over the card
-            bg = ice.Card(ice.constants.FLOAT, [0,0,0,1])
-            iceimg = bg.Over(iceimg)
+    numChannels = iceimg.Ply() 
+    iFormat = 'RGBA32F'
+    if numChannels != 4:
+        # if this is not a 4-channel image, we create a card with an alpha
+        # and composite the image over the card
+        bg = ice.Card(ice.constants.FLOAT, [0,0,0,1])
+        iceimg = bg.Over(iceimg)
 
-        # Generate texture
-        buffer = iceimg.AsByteArray()
-        pixels = gpu.types.Buffer('FLOAT', len(buffer), buffer)
-        texture = gpu.types.GPUTexture((width, height), format=iFormat, data=pixels)
-        _PRMAN_TEX_CACHE_[tex] = texture
-    else:
-        buffer = iceimg.AsByteArray()
-        pixels = bgl.Buffer(bgl.GL_BYTE, len(buffer), buffer)
-        texture = bgl.Buffer(bgl.GL_INT, 1)
-        _PRMAN_TEX_CACHE_[tex] = texture
-
-        iFormat = bgl.GL_RGBA
-        texFormat = bgl.GL_RGBA
-        if numChannels == 1:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_LUMINANCE
-        elif numChannels == 2:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_LUMINANCE_ALPHA
-        elif numChannels == 3:
-            iFormat = bgl.GL_RGB
-            texFormat = bgl.GL_RGB
-                    
-        elif numChannels == 4:
-            iFormat = bgl.GL_RGBA
-            texFormat = bgl.GL_RGBA
-            
-        bgl.glGenTextures(1, texture)    
-        bgl.glActiveTexture(bgl.GL_TEXTURE0)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture[0])
-        bgl.glTexImage2D(bgl.GL_TEXTURE_2D, 0, iFormat, width, height, 0, texFormat, bgl.GL_UNSIGNED_BYTE, pixels)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_LINEAR)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_LINEAR)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, 0)   
+    # Generate texture
+    buffer = iceimg.AsByteArray()
+    pixels = gpu.types.Buffer('FLOAT', len(buffer), buffer)
+    texture = gpu.types.GPUTexture((width, height), format=iFormat, data=pixels)
+    _PRMAN_TEX_CACHE_[tex] = texture
 
     ice._registry.RemoveToMark()
     del iceimg   
@@ -853,91 +777,51 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
     if not prefs_utils.get_pref('rman_viewport_draw_lights_textured'):
         return
     
+    if not ob.data.renderman.rman_vp_draw_texture:
+        return
+    
     real_path = string_utils.expand_string(tex)
-    if os.path.exists(real_path):
-        if USE_GPU_MODULE:
-            shader = gpu.shader.create_from_info(_SHADER_IMAGE_INFO_)
-        else:
-            shader = gpu.types.GPUShader(_VERTEX_SHADER_UV_, _FRAGMENT_SHADER_TEX_)
-        if indices:
-            batch = batch_for_shader(shader, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)   
-        elif uvs:
-            batch = batch_for_shader(shader, 'TRI_FAN', {"position": pts, "uv": uvs})                
+    if os.path.exists(real_path):              
+        batch = batch_for_shader(SHADER_SOLID_IMAGE, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)               
 
         texture = _PRMAN_TEX_CACHE_.get(tex, None)
         if not texture:
             texture = load_gl_texture(tex)
 
-        if USE_GPU_MODULE:
-            shader.bind()
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
-            shader.uniform_sampler("image", texture)
-            gpu.state.blend_set("ALPHA")
-            gpu.state.depth_test_set("LESS")
-            batch.draw(shader)           
-            gpu.state.depth_test_set("NONE")
-            gpu.state.blend_set("NONE")
-        else:
-
-            bgl.glActiveTexture(bgl.GL_TEXTURE0)
-            bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture[0])
-
-            shader.bind()
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("modelMatrix", mtx)    
-            shader.uniform_float("viewProjectionMatrix", matrix)
-            shader.uniform_float("image", texture[0])
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            batch.draw(shader)           
-            bgl.glDisable(bgl.GL_DEPTH_TEST)      
+        SHADER_SOLID_IMAGE.bind()
+        matrix = bpy.context.region_data.perspective_matrix
+        SHADER_SOLID_IMAGE.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        SHADER_SOLID_IMAGE.uniform_sampler("image", texture)
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set("LESS")
+        batch.draw(SHADER_SOLID_IMAGE)           
+        gpu.state.depth_test_set("NONE")
+        gpu.state.blend_set("NONE")
+    
 
     elif col:
-        if USE_GPU_MODULE:
-            shader = gpu.shader.create_from_info(_SHADER_COLOR_INFO_)
-        else:
-            shader = gpu.types.GPUShader(_VERTEX_SHADER_, _FRAGMENT_SHADER_COL_)
-
-        if indices:
-            batch = batch_for_shader(shader, 'TRIS', {"position": pts}, indices=indices)  
-        else: 
-            batch = batch_for_shader(shader, 'TRI_FAN', {"position": pts})  
+        batch = batch_for_shader(SHADER_SOLID_COLOR, 'TRIS', {"position": pts}, indices=indices)  
 
         lightColor = (col[0], col[1], col[2], 1.0)
-        shader.bind()
-        shader.uniform_float("lightColor", lightColor)
-        if USE_GPU_MODULE:
-            matrix = bpy.context.region_data.perspective_matrix   
-            shader.uniform_float("viewProjectionMatrix", matrix @ mtx)
-            gpu.state.depth_test_set("LESS")
-            gpu.state.blend_set("ALPHA")
-            batch.draw(shader)
-            gpu.state.blend_set("NONE")
-            gpu.state.depth_test_set("NONE")            
-        else:
-            matrix = bpy.context.region_data.perspective_matrix
-            shader.uniform_float("modelMatrix", mtx)
-            shader.uniform_float("viewProjectionMatrix", matrix)                            
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            batch.draw(shader)           
-            bgl.glDisable(bgl.GL_DEPTH_TEST)      
+        SHADER_SOLID_COLOR.bind()
+        SHADER_SOLID_COLOR.uniform_float("lightColor", lightColor)
+        matrix = bpy.context.region_data.perspective_matrix   
+        SHADER_SOLID_COLOR.uniform_float("viewProjectionMatrix", matrix @ mtx)
+        gpu.state.depth_test_set("LESS")
+        gpu.state.blend_set("ALPHA")
+        batch.draw(SHADER_SOLID_COLOR)
+        gpu.state.blend_set("NONE")
+        gpu.state.depth_test_set("NONE")            
 
 def draw_line_shape(ob, shader, pts, indices):  
     do_draw = ((ob in bpy.context.selected_objects) or (prefs_utils.get_pref('rman_viewport_lights_draw_wireframe')))
     if do_draw:
         batch = batch_for_shader(shader, 'LINES', {"pos": pts}, indices=indices)    
-        if USE_GPU_MODULE:
-            gpu.state.depth_test_set("LESS")
-            gpu.state.blend_set("ALPHA")
-            batch.draw(shader)
-            gpu.state.depth_test_set("NONE")
-            gpu.state.blend_set("NONE")
-        else:            
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            bgl.glEnable(bgl.GL_BLEND)
-            batch.draw(shader)
-            bgl.glDisable(bgl.GL_DEPTH_TEST)    
-            bgl.glDisable(bgl.GL_BLEND)
+        gpu.state.depth_test_set("LESS")
+        gpu.state.blend_set("ALPHA")
+        batch.draw(shader)
+        gpu.state.depth_test_set("NONE")
+        gpu.state.blend_set("NONE")
 
 def draw_rect_light(ob):
     global _FRUSTUM_DRAW_HELPER_
@@ -945,7 +829,9 @@ def draw_rect_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale        
     m = ob_matrix @ __MTX_Y_180__ 
 
     box = [m @ Vector(pt) for pt in s_rmanLightLogo['box']]
@@ -993,8 +879,9 @@ def draw_rect_light(ob):
         col = light_shader.lightColor
         
         pts = ((0.5, -0.5, 0.0), (-0.5, -0.5, 0.0), (-0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
-        uvs = ((1, 1), (0, 1), (0, 0), (1, 0))    
-        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col)  
+        uvs = ((1, 1), (0, 1), (0, 0), (1, 0))
+        indices = _get_indices_tris(pts)
+        draw_solid(ob, pts, m, uvs=uvs, indices=indices, tex=tex, col=col)  
 
 def draw_sphere_light(ob):
     global _FRUSTUM_DRAW_HELPER_
@@ -1003,7 +890,9 @@ def draw_sphere_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale    
     m = ob_matrix @ __MTX_Y_180__ 
 
     disk = [m @ Vector(pt) for pt in s_diskLight]
@@ -1066,7 +955,7 @@ def draw_envday_light(ob):
 
     loc, rot, sca = Matrix(ob.matrix_world).decompose()
     axis,angle = rot.to_axis_angle()
-    scale = max(sca) # take the max axis   
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis   
     m = Matrix.Translation(loc)
     m = m @ Matrix.Rotation(angle, 4, axis)
     m = m @ Matrix.Scale(scale, 4)
@@ -1147,7 +1036,9 @@ def draw_cheat_shadow_lightfilter(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale        
     m = ob_matrix @ __MTX_Y_180__ 
 
     box = [m @ Vector(pt) for pt in s_rmanLightLogo['box']]
@@ -1165,7 +1056,9 @@ def draw_disk_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)    
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale    
     m = ob_matrix @ __MTX_Y_180__ 
 
     disk = [m @ Vector(pt) for pt in s_diskLight]
@@ -1209,7 +1102,11 @@ def draw_disk_light(ob):
  
     m = ob_matrix @ __MTX_Y_180__ 
     col = light_shader.lightColor    
-    draw_solid(ob, s_diskLight, m, col=col)   
+    disk.insert(0, ob_matrix @ __MTX_Y_180__  @ Vector((0.0, 0.0, 0.0)))
+    indices = []
+    for i in range(1, len(disk)):
+        indices.append((0, i, i+1))
+    draw_solid(ob, s_diskLight, m, col=col, indices=indices)   
 
 def draw_dist_light(ob):      
     
@@ -1217,8 +1114,16 @@ def draw_dist_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
-    m = ob_matrix @ __MTX_Y_180__ 
+    ob_matrix = Matrix(ob.matrix_world)  
+    loc, rot, sca = Matrix(ob.matrix_world).decompose()
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis 
+    scale = Matrix.Scale(scale, 4)
+    ob_matrix = ob_matrix @ scale
+    m = ob_matrix @ __MTX_Y_180__
+
+    disk = [m @ Vector(pt) for pt in s_diskLight]
+    disk_indices = _get_indices(s_diskLight)
+    draw_line_shape(ob, _SHADER_, disk, disk_indices)    
 
     arrow1 = [m @ Vector(pt) for pt in s_distantLight['arrow1']]
     arrow1_indices = _get_indices(s_distantLight['arrow1'])
@@ -1246,7 +1151,9 @@ def draw_portal_light(ob):
 
     set_selection_color(ob)
 
-    ob_matrix = Matrix(ob.matrix_world)        
+    ob_matrix = Matrix(ob.matrix_world)   
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale
     m = ob_matrix
 
     R_outside = [m @ Vector(pt) for pt in s_rmanLightLogo['R_outside']]
@@ -1275,17 +1182,16 @@ def draw_dome_light(ob):
 
     loc, rot, sca = Matrix(ob.matrix_world).decompose()
     axis,angle = rot.to_axis_angle()
-    scale = max(sca) # take the max axis   
+    scale = ob.data.renderman.get_vp_scale() * max(sca) # take the max axis   
     m = Matrix.Rotation(angle, 4, axis)
-    m = m @ Matrix.Scale(100 * scale, 4)
+    m = m @ Matrix.Scale(scale, 4)
     m = m @ __MTX_X_90__ 
-    uv_offsets = [0.25, 0.0]
-    if USE_GPU_MODULE:
-        # the GPU module doesn't seem to do any texture wrapping
-        # when UVs go over the boundary. Reset the UV offsets
-        # and rotate 90 degrees on the Y-axis
-        uv_offsets = [0.0, 0.0]
-        m = m @ __MTX_Y_90__ 
+
+    # the GPU module doesn't seem to do any texture wrapping
+    # when UVs go over the boundary. Reset the UV offsets
+    # and rotate 90 degrees on the Y-axis
+    uv_offsets = [0.0, 0.0]
+    m = m @ __MTX_Y_90__ 
 
     sphere_pts = make_sphere()
     sphere = [m @ Vector(p) for p in sphere_pts]
@@ -1309,7 +1215,10 @@ def draw_cylinder_light(ob):
 
     set_selection_color(ob)
 
-    m = Matrix(ob.matrix_world)
+    ob_matrix = ob.matrix_world
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)
+    ob_matrix = ob_matrix @ scale
+    m = ob_matrix
 
     cylinder = [m @ Vector(pt) for pt in s_cylinderLight['vtx']]
     draw_line_shape(ob, _SHADER_, cylinder, s_cylinderLight['indices'])
@@ -1425,7 +1334,8 @@ def draw_rod_light_filter(ob):
     set_selection_color(ob)
 
     m = Matrix(ob.matrix_world)        
-    m = m @ __MTX_Y_180__ 
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)    
+    m = m @ __MTX_Y_180__ @ scale
 
     light = ob.data
     rm = light.renderman.get_light_node()
@@ -1599,7 +1509,8 @@ def draw_barn_light_filter(ob, light_shader, light_shader_name):
     _SHADER_.bind()
 
     m = Matrix(ob.matrix_world) 
-    m = m @ __MTX_Y_180__ 
+    scale = Matrix.Scale(ob.data.renderman.get_vp_scale(), 4)    
+    m = m @ __MTX_Y_180__ @ scale
 
     set_selection_color(ob) 
 
@@ -1628,7 +1539,8 @@ def draw_barn_light_filter(ob, light_shader, light_shader_name):
         pts = ((0.5*w, -0.5*h, 0.0), (-0.5*w, -0.5*h, 0.0), (-0.5*w, 0.5*h, 0.0), (0.5*w, 0.5*h, 0.0))
         #uvs = ((0, 1), (1,1), (1, 0), (0,0))
         uvs = ((1.0-u, v), (u,v), (u, 1.0-v), (1.0-u, 1.0-v))
-        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col)  
+        indices = _get_indices_tris(pts) 
+        draw_solid(ob, pts, m, uvs=uvs, tex=tex, col=col, indices=indices)  
 
 def draw():
     global _PRMAN_TEX_CACHE_
@@ -1687,7 +1599,9 @@ def draw():
         elif light_shader_name == 'PxrPortalLight': 
             draw_portal_light(ob)      
         elif light_shader_name == 'PxrDomeLight': 
-            draw_dome_light(ob)        
+            if viewport.region_3d.is_perspective:
+                # only draw the dome light in perspective view
+                draw_dome_light(ob)        
         elif light_shader_name == 'PxrCylinderLight':
             draw_cylinder_light(ob)     
         elif light_shader_name in ['PxrRectLight']:
@@ -1732,26 +1646,20 @@ def draw():
                 break
 
         if not still_exists:
-            if USE_GPU_MODULE:
-                del v
-            else:
-                bgl.glDeleteTextures(1, v)
+            del v
             remove_textures.append(k)            
 
     for k in remove_textures:
         rfb_log().debug("Call glDeleteTextures for: %s" % k)
         del _PRMAN_TEX_CACHE_[k]
 
-@persistent 
 def clear_gl_tex_cache(bl_scene=None):
     global _PRMAN_TEX_CACHE_
     if _PRMAN_TEX_CACHE_:
         rfb_log().debug("Clearing _PRMAN_TEX_CACHE_.")
         for k, v in _PRMAN_TEX_CACHE_.items():
-            if USE_GPU_MODULE:
-                del v
-            else:
-                bgl.glDeleteTextures(1, v)
+            del v
+
         _PRMAN_TEX_CACHE_.clear()    
 
 def register():

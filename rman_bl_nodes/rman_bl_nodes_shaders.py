@@ -6,6 +6,7 @@ from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import draw_utils
 from ..rfb_utils.property_utils import BlPropInfo, __LOBES_ENABLE_PARAMS__
 from ..rfb_utils import filepath_utils
+from ..rfb_utils import prefs_utils
 from ..rman_config import __RFB_CONFIG_DICT__
 from ..rman_constants import RFB_FLOAT3, RFB_SHADER_ALLOWED_CONNECTIONS, __RMAN_SOCKET_MAP__
 from .. import rman_bl_nodes
@@ -13,7 +14,7 @@ from .. import rfb_icons
 from .. import rman_render
 from copy import deepcopy
 from bpy.types import Menu
-from bpy.props import EnumProperty, StringProperty, CollectionProperty, BoolProperty, PointerProperty
+from bpy.props import EnumProperty, StringProperty, BoolProperty, PointerProperty
 import _cycles
 import bpy
 import os
@@ -27,6 +28,7 @@ NODE_LAYOUT_SPLIT = 0.5
 class RendermanShadingNode(bpy.types.ShaderNode):
     bl_label = 'Output'
     prev_hidden: BoolProperty(default=False, description="Whether or not this node was previously hidden.")
+    solo_node: BoolProperty(default=False)
     new_links = []
     num_links = -1
 
@@ -79,7 +81,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
             mat = bpy.context.material
             if shadergraph_utils.is_soloable_node(self):
                 out_node = shadergraph_utils.find_node(mat, 'RendermanOutputNode')
-                if out_node.solo_nodetree == self.id_data and self.name == out_node.solo_node_name:
+                if self.solo_node and out_node.solo_node_on:
                     nm = "%s (SOLO)" % nm
         return nm
 
@@ -90,7 +92,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         nt = self.id_data
         mat = context.material
         out_node = shadergraph_utils.find_node(mat, 'RendermanOutputNode')
-        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node)
+        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node, is_side=False)
         if self.bl_idname == "PxrOSLPatternNode":
             layout.operator("node.rman_refresh_osl_shader")
 
@@ -104,49 +106,47 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         col.label(text=self.bl_label, icon_value=rman_icon.icon_id)  
         if shadergraph_utils.is_soloable_node(self):
             self.draw_solo_button(nt, out_node, split)
-            # draw solo output select menu
-            if self.name == out_node.solo_node_name:            
-                solo_node = nt.nodes.get(out_node.solo_node_name, None)
-                if solo_node:
-                    col = layout.column(align=True)
-                    col.context_pointer_set("nodetree", nt)  
-                    col.context_pointer_set("node", out_node) 
-                    col.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
+            # draw solo output select menu         
+            if out_node.solo_node_on and self.solo_node:
+                col = layout.column(align=True)
+                col.context_pointer_set("nodetree", nt)  
+                col.context_pointer_set("node", self) 
+                col.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
 
         layout.separator()
-        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node)
+        self.draw_nonconnectable_props(context, layout, self.prop_names, output_node=out_node, is_side=True)
 
     def draw_solo_button(self, nt, rman_output_node, layout):
         layout.context_pointer_set("nodetree", nt)  
-        layout.context_pointer_set("node", rman_output_node)                  
+        layout.context_pointer_set("node", rman_output_node)
+        layout.context_pointer_set("selected_node", self)                  
 
-        if rman_output_node.solo_node_name == '':
+        if not rman_output_node.solo_node_on:
             col = layout.column(align=True)
             rman_icon = rfb_icons.get_icon('rman_solo_off')
             op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
-            op.refresh_solo = False
-            op.solo_node_name = self.name           
+            op.refresh_solo = False       
         else:
             rman_icon = rfb_icons.get_icon('rman_solo_on')
-            if rman_output_node.solo_nodetree == self.id_data and  self.name == rman_output_node.solo_node_name:
+            if rman_output_node.solo_node_on and self.solo_node:
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = True
-                op.solo_node_name = self.name                             
             else:
                 rman_icon = rfb_icons.get_icon('rman_solo_off')
                 col = layout.column(align=True)
                 op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = False
-                op.solo_node_name = self.name 
                 col = layout.column(align=True)
-                op = col.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH', emboss=False)
+                rman_icon = rfb_icons.get_icon('rman_refresh')
+                op = col.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
                 op.refresh_solo = True                          
 
-    def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0):
+    def draw_nonconnectable_prop(self, context, layout, prop_name, output_node=None, level=0, is_side=False, bl_prop_info=None):
         node = self
         prop_meta = node.prop_meta[prop_name]
-        bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
+        if bl_prop_info is False or bl_prop_info is None:
+            bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
         ui_structs = getattr(node, 'ui_structs', dict())
         if not bl_prop_info.is_ui_struct and bl_prop_info.prop is None:
             return
@@ -168,9 +168,37 @@ class RendermanShadingNode(bpy.types.ShaderNode):
 
         if bl_prop_info.prop_hidden:
             return
+        
+        if bl_prop_info.is_texture:
+            split = layout.split(factor=0.95)
+            row = split.row(align=True)
+            row.enabled = not bl_prop_info.prop_disabled            
+            row.prop(node, prop_name, slider=True)           
+            draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)             
+            prop_val = getattr(node, prop_name)
+            if prop_val != '':
+                from ..rfb_utils import texture_utils
+                from ..rfb_utils import scene_utils
+                if texture_utils.get_txmanager().is_file_src_tex(node, prop_name):
+                    return
+                colorspace_prop_name = '%s_colorspace' % prop_name
+                if not hasattr(node, colorspace_prop_name):
+                    return
+                row = layout.row(align=True)
+                if texture_utils.get_txmanager().does_file_exist(prop_val):
+                    row.prop(node, colorspace_prop_name, text='Color Space')
+                    rman_icon = rfb_icons.get_icon('rman_txmanager')  
+                    id = scene_utils.find_node_owner(node)
+                    nodeID = texture_utils.generate_node_id(node, prop_name, ob=id)                                      
+                    op = row.operator('rman_txmgr_list.open_txmanager', text='', icon_value=rman_icon.icon_id)   
+                    op.nodeID = nodeID     
+                else:
+                    row.label(text="Input Image does not exist.", icon='ERROR')         
+            return
+        
 
         if bl_prop_info.is_ui_struct:                      
-            ui_prop = prop_name + "_uio"
+            ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
             ui_open = getattr(node, ui_prop)
             icon = draw_utils.get_open_close_icon(ui_open)
 
@@ -197,7 +225,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                         sub_prop_name = '%s[%d]' % (nm, i)
                         meta = node.prop_meta[sub_prop_name]
                         if meta.get('__noconnection', False):
-                             self.draw_nonconnectable_prop(context, layout, sub_prop_name, output_node=output_node, level=level+1)
+                             self.draw_nonconnectable_prop(context, layout, sub_prop_name, output_node=output_node, level=level+1, is_side=is_side)
 
             return                
         elif bl_prop_info.widget == 'colorramp':
@@ -264,7 +292,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
 
                 prop_disabled = getattr(node, '%s_disabled' % prop_name, False)
                 
-                ui_prop = prop_name + "_uio"
+                ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
                 ui_open = getattr(node, ui_prop)
                 icon = draw_utils.get_open_close_icon(ui_open)
 
@@ -280,51 +308,55 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 row.label(text=page_label)                
                 if ui_open:                  
                     self.draw_nonconnectable_props(
-                        context, layout, sub_prop_names, output_node, level=level+1)          
+                        context, layout, sub_prop_names, output_node, level=level+1, is_side=is_side)          
                 return
 
             elif bl_prop_info.renderman_type == 'array':
-                row = layout.row(align=True)
-                col = row.column()
-                row = col.row()                
-                row.enabled = not bl_prop_info.prop_disabled
-                prop_label = bl_prop_info.label
-                coll_nm = '%s_collection' % prop_name
-                collection = getattr(node, coll_nm)
-                array_len = len(collection)
-                array_label = prop_label + ' [%d]:' % array_len
-                row.label(text=array_label)         
-                coll_idx_nm = '%s_collection_index' % prop_name
-                row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
-                col = row.column(align=True)
-                row = col.row()
-                row.context_pointer_set("node", node)
-                op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
-                op.collection = coll_nm
-                op.collection_index = coll_idx_nm
-                op.param_name = prop_name
-                op.action = 'ADD'
-                op.elem_type = bl_prop_info.renderman_array_type
-                row = col.row()
-                row.context_pointer_set("node", node)
-                op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
-                op.collection = coll_nm
-                op.collection_index = coll_idx_nm
-                op.param_name = prop_name
-                op.action = 'REMOVE'
-                op.elem_type = bl_prop_info.renderman_array_type
-
-                coll_index = getattr(node, coll_idx_nm, None)
-                if coll_idx_nm is None:
-                    return
-
-                if coll_index > -1 and coll_index < len(collection):
-                    item = collection[coll_index]
+                arraySize = prop_meta.get('arraySize', None)
+                if prop_meta.get('__noconnection', False) or arraySize is None or arraySize < 0:
                     row = layout.row(align=True)
-                    socket_name = '%s[%d]' % (prop_name, coll_index)
-                    socket = node.inputs.get(socket_name, None)
-                    if not socket:
-                        row.prop(item, 'value_%s' % item.type, slider=True)                
+                    col = row.column()
+                    row = col.row()                
+                    row.enabled = not bl_prop_info.prop_disabled
+                    prop_label = bl_prop_info.label
+                    coll_nm = '%s_collection' % prop_name
+                    coll_idx_nm = '%s_collection_index' % prop_name
+                    collection = getattr(node, coll_nm)
+                    array_len = len(collection)
+                    array_label = prop_label + ' [%d]:' % array_len
+                    row.label(text=array_label)                             
+                    row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
+                    # only draw the add and remove buttons if this is a variable length array
+                    if arraySize and arraySize < 0:
+                        col = row.column(align=True)
+                        row = col.row()
+                        row.context_pointer_set("node", node)
+                        op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
+                        op.collection = coll_nm
+                        op.collection_index = coll_idx_nm
+                        op.param_name = prop_name
+                        op.action = 'ADD'
+                        op.elem_type = bl_prop_info.renderman_array_type
+                        row = col.row()
+                        row.context_pointer_set("node", node)
+                        op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
+                        op.collection = coll_nm
+                        op.collection_index = coll_idx_nm
+                        op.param_name = prop_name
+                        op.action = 'REMOVE'
+                        op.elem_type = bl_prop_info.renderman_array_type
+
+                    coll_index = getattr(node, coll_idx_nm, None)
+                    if coll_idx_nm is None:
+                        return
+
+                    if coll_index > -1 and coll_index < len(collection):
+                        item = collection[coll_index]
+                        row = layout.row(align=True)
+                        socket_name = '%s[%d]' % (prop_name, coll_index)
+                        socket = node.inputs.get(socket_name, None)
+                        if not socket:
+                            row.prop(item, 'value_%s' % item.type, slider=True, text=socket_name)                
 
                 return
 
@@ -360,31 +392,11 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 draw_utils.draw_sticky_toggle(row2, node, prop_name, output_node)
             else:
                 row.prop(node, prop_name, slider=True)           
-                draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)                       
-            
-            if bl_prop_info.is_texture:
-                prop_val = getattr(node, prop_name)
-                if prop_val != '':
-                    from ..rfb_utils import texture_utils
-                    from ..rfb_utils import scene_utils
-                    if texture_utils.get_txmanager().is_file_src_tex(node, prop_name):
-                        return
-                    colorspace_prop_name = '%s_colorspace' % prop_name
-                    if not hasattr(node, colorspace_prop_name):
-                        return
-                    row = layout.row(align=True)
-                    if texture_utils.get_txmanager().does_file_exist(prop_val):
-                        row.prop(node, colorspace_prop_name, text='Color Space')
-                        rman_icon = rfb_icons.get_icon('rman_txmanager')  
-                        id = scene_utils.find_node_owner(node)
-                        nodeID = texture_utils.generate_node_id(node, prop_name, ob=id)                                      
-                        op = row.operator('rman_txmgr_list.open_txmanager', text='', icon_value=rman_icon.icon_id)   
-                        op.nodeID = nodeID     
-                    else:
-                        row.label(text="Input mage does not exists.", icon='ERROR')       
+                draw_utils.draw_sticky_toggle(row, node, prop_name, output_node)                             
 
-    def draw_nonconnectable_props(self, context, layout, prop_names, output_node=None, level=0):        
-        if level == 0 and shadergraph_utils.has_lobe_enable_props(self):
+    def draw_nonconnectable_props(self, context, layout, prop_names, output_node=None, level=0, is_side=False):
+        draw_it = (is_side is True or prefs_utils.get_pref('rman_show_no_connect_params'))
+        if draw_it and level == 0 and shadergraph_utils.has_lobe_enable_props(self):
             # We want to draw the enable lobe params at the top of the node
             col = layout.column(align=True)
             for prop_name in __LOBES_ENABLE_PARAMS__:
@@ -411,7 +423,14 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                 layout.prop(self, "expression")
         else:            
             for prop_name in prop_names:
-                self.draw_nonconnectable_prop(context, layout, prop_name, output_node=output_node, level=level)
+                node = self
+                prop_meta = node.prop_meta[prop_name]
+                bl_prop_info = BlPropInfo(node, prop_name, prop_meta)
+                if not draw_it and not bl_prop_info.is_texture:
+                    # if rman_show_no_connnect_params is on, we want to still
+                    # draw file textures
+                    continue
+                self.draw_nonconnectable_prop(context, layout, prop_name, output_node=output_node, level=level, is_side=is_side, bl_prop_info=bl_prop_info)
 
 
     def copy(self, node):
@@ -780,7 +799,7 @@ class RendermanOutputNode(RendermanShadingNode):
     bl_icon = 'MATERIAL'
     node_tree = None
 
-    def update_solo_node_name(self, context):
+    def update_solo_node(self, context):
         rr = rman_render.RmanRender.get_rman_render()        
         mat = getattr(bpy.context, 'material', None)
         if mat:
@@ -804,9 +823,9 @@ class RendermanOutputNode(RendermanShadingNode):
         return items 
 
 
-    solo_node_name: StringProperty(name='Solo Node', update=update_solo_node_name)
     solo_node_output: StringProperty(name='Solo Node Output')
-    solo_nodetree: PointerProperty(type=bpy.types.NodeTree)
+    solo_material: PointerProperty(type=bpy.types.Material)
+    solo_node_on: BoolProperty(default=False, update=update_solo_node)
 
 
     bxdf_filter_method: EnumProperty(name="Filter Method",
@@ -883,16 +902,15 @@ class RendermanOutputNode(RendermanShadingNode):
         super().update()
 
         # check if the solo node still exists
-        if self.solo_node_name:
-            if self.solo_nodetree:
-                solo_nodetree = self.solo_nodetree
-                solo_node = solo_nodetree.nodes.get(self.solo_node_name, None)
-                if solo_node is None:
-                    shadergraph_utils.set_solo_node(self, solo_nodetree, '', refresh_solo=True)
-                    solo_nodetree.update_tag()
-                    return     
+        if self.solo_node_on:
+            solo_material = self.solo_material
+            solo_node, nt = shadergraph_utils.find_solo_node(solo_material.node_tree)
+            if solo_node:
+                shadergraph_utils.set_solo_node(self, solo_node, solo_material, refresh_solo=True)
+                solo_material.node_tree.update_tag()
+                return     
             else:
-                shadergraph_utils.set_solo_node(self, None, '', refresh_solo=True)      
+                shadergraph_utils.set_solo_node(self, None, solo_material , refresh_solo=True)      
 
 class RendermanIntegratorsOutputNode(RendermanShadingNode):
     bl_label = 'RenderMan Integrators'

@@ -23,16 +23,18 @@
             "help": "(hidden) Enable external RIB rendering"
         },    
         {
-            "panel": "RENDER_PT_renderman_render",
+            "panel": "",
             "page": "",
             "name": "renderVariant",
             "label": "Renderer",
             "type": "string",
-            "default": "prman",
+            "default": "ris",
             "widget": "popup",
-            "options": "RIS:prman|XPU:xpu",
+            "options": "RIS:ris|XPU:xpu",
             "bl_prop_options": "",
             "help": "",
+            "update_function_name": "update_render_variant",
+            "update_function": "def update_render_variant(self, context):\n    from ..rfb_utils import render_utils\n    render_utils.restart_viewport(context)",
             "conditionalLockOps": {
                 "conditionalVis1Path": "has_xpu_license",
                 "conditionalVis2Op": "notEqualTo",
@@ -44,7 +46,7 @@
                 "conditionalVis2Path": "current_platform",
                 "conditionalVis2Value": "macOS"     
             }              
-        },          
+        },                    
         {
             "panel": "RENDER_PT_renderman_render",
             "page": "Display",
@@ -58,7 +60,7 @@
             "help": "Controls where preview renders will go to."
         },          
         {
-            "panel": "RENDER_PT_renderman_render",
+            "panel": "",
             "page": "Display",
             "name": "blender_optix_denoiser",
             "label": "Use Optix Denoiser",
@@ -81,6 +83,67 @@
                 "conditionalVis2Value": "macOS"     
             }             
         },         
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser",
+            "label": "Denoiser",
+            "type": "int",
+            "default": 0,
+            "help": "Select which denoiser to use to denoise Blender render displays. Optix requires an Nvidia GPU.",
+            "widget": "mapper",
+            "bl_prop_options": "",
+            "options": "None:0|RenderMan Denoiser:1|Optix:2",
+            "conditionalVisOps": {
+                "conditionalVisOp": "equalTo",
+                "conditionalVisPath": "render_into",
+                "conditionalVisValue": "blender"
+            }    
+        },
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser_use_color_pass",
+            "label": "Use Color Pass",
+            "type": "int",
+            "widget": "checkbox",
+            "default": 0,
+            "help": "If unchecked, the beauty is denoised by adding the denoised diffuse and denoised specular passes together. This provides a slightly better result. However, this might cause issues when you have Display and Sample filters. If this is the case for you, check this box",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "render_into",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "blender",
+                "conditionalVisOp": "and",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "blender_denoiser",
+                "conditionalVis2Value": "1"     
+            }    
+        },        
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "Display",
+            "name": "blender_denoiser_asymmetry",
+            "label": "Asymmetry",
+            "type": "float",
+            "bl_prop_options": "",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 2.0,
+            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "render_into",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "blender",
+                "conditionalVisOp": "and",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "blender_denoiser",
+                "conditionalVis2Value": "1"     
+            }    
+        },                            
         {
             "panel": "",
             "page": "Display",
@@ -127,7 +190,7 @@
             "update_function": "def update_blender_ipr_denoiser(self, context):\n    from ..rman_render import RmanRender\n    rr = RmanRender.get_rman_render()\n    rr.rman_scene_sync.update_displays(context)",            
             "widget": "mapper",
             "bl_prop_options": "",
-            "options": "None:0|RenderMan Denoiser:1|Optix:2"
+            "options": "None:0|RenderMan Denoiser:1|Optix:2"         
         },   
         {
             "panel": "",
@@ -148,7 +211,7 @@
             "name": "blender_ipr_aidenoiser_minSamples",
             "label": "Min Samples",
             "type": "int",
-            "default": 2,
+            "default": 4,
             "bl_prop_options": "",
             "help": "The minimum number of average samples per bucket before interactive denoising runs for the first time. Changing this preference requires a render restart to be respected",
             "update_function_name": "update_blender_ipr_aidenoiser_minSamples",
@@ -214,7 +277,18 @@
             "ipr_editable": false,
             "update_function_name": "update_do_persistent_data",
             "update_function": "def update_do_persistent_data(self, context):\n    scene = context.scene\n    scene.render.use_persistent_data = self.do_persistent_data"            
-        },             
+        },  
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "page": "",
+            "name": "rfb_disgust",
+            "label": "Debug Logging",
+            "type": "int",
+            "default": 0,
+            "widget": "checkbox",
+            "bl_prop_options": "",
+            "help": "If on, a debug python file will be generated when rendering, in the same directory as the current blend file. Only one file will be generated, so subsequent renders will overwrite the previous session's file. Note, this can generate large files, so only have this on if you believe there's a bug."
+        },                    
         {
             "panel": "RENDER_PT_renderman_sampling",
             "page": "IPR Sampling",
@@ -300,7 +374,7 @@
             "min": 0.125,
             "max": 1.0,
             "widget": "mapper",
-            "options": "100%:1.0|50%:0.5|33%:0.33|25%:0.25|12.5%:0.125",
+            "options": "100%:1.0|75%:0.75|50%:0.5|33%:0.33|25%:0.25|12.5%:0.125",
             "help": "This value is only applied during IPR. This scales down the resolution during viewport renders.",
             "ipr_editable": true,
             "update_function_name": "update_viewport_res_mult",
@@ -335,7 +409,38 @@
             "max": 32,
             "help": "The number of threads for batch renders.  A negative number means to use all but n processors, and zero means all processors."
 
-        },   
+        },
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "name": "use_blender_light_link",
+            "label": "Workflow",
+            "type": "int",
+            "default": 0,
+            "widget": "mapper",
+            "options": "Blender:1|RenderMan:0",
+            "page": "Light Linking",
+            "help": "Which light linking workflow to use. Select Blender if you want to use Blender's native light linking workflow",
+            "conditionalVisOps": {
+                "conditionalVisOp": "greaterThan",
+                "conditionalVisPath": "blender_version",
+                "conditionalVisValue": "4.0"
+            }              
+        },             
+        {
+            "panel": "RENDER_PT_renderman_render",
+            "name": "invert_light_linking",
+            "label": "Invert Light Linking",
+            "type": "int",
+            "default": 0,
+            "widget": "checkbox",
+            "page": "Light Linking",
+            "conditionalVisOps": {
+                "conditionalVisOp": "equalTo",
+                "conditionalVisPath": "use_blender_light_link",
+                "conditionalVisValue": "0"
+            },            
+            "help": "Invert the behavior of light linking (only applies if UI framework is set to Native). Only objects linked to the light in the light linking editor will be illuminated. Changing this requires an IPR restart"            
+        },            
         {
             "panel": "RENDER_PT_renderman_baking",
             "page": "",
@@ -482,7 +587,22 @@
                 "conditionalVisPath": "rman_bake_mode",
                 "conditionalVisValue": "pattern"
             } 
-        },         
+        },    
+        {
+            "panel": "RENDER_PT_renderman_baking",
+            "page": "Illumination",
+            "name": "rman_bake_illum_raytracebaketesselation",
+            "label": "Raytrace Bake Tesselation",
+            "type": "int",
+            "default": 0,  
+            "widget": "checkbox",
+            "help": "Force the tesselation to be the same as the baking tesselation when raytracing (for example when using a PxrOcclusion or PxrDirt shader). This can reduce self intersections and give cleaner results but may increase the density of polygons when raytracing. If you have multiple pattern bakes at different resolutions, the highest resolution will be chosen. Don't attempt to use this option alongside interactive rendering.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "rman_bake_mode",
+                "conditionalVisValue": "pattern"
+            } 
+        },      
         {
             "panel": "RENDER_PT_renderman_baking",
             "page": "Illumination",
@@ -554,10 +674,10 @@
             "type": "string",
             "default": "variance",
             "widget": "popup",
-            "options": "contrast|variance|halfbuffer",
-            "help": "Selects the metric used by the adaptive sampler. contrast: New version of the original metric used before RenderMan 24. variance: New perceptual variance metric (default). halfbuffer: Half-buffer metric introduced in RenderMan 22. When changing from variance to contrast, it is recommended that the PixelVariance be lowered.  eg. The default production level PixelVariance for the variance metric is 0.015, but for contrast it should be 0.005",
+            "options": "contrast|variance|relativevariance|halfbuffer",
+            "help": "Specifies the metric used to drive adaptive sampling. 'contrast' measures the contrast between samples in a pixel. 'variance' measures the variance of the samples in a pixel. 'relativevariance' uses the variance of the samples divided by the intensity. (Previously called variance-v22.) 'halfbuffer' splits the samples into two classes and measures the difference between the average of each of the two sample classes. Not implemented in XPU.",
             "update_function_name": "update_adaptiveMetric",
-            "update_function": "def update_adaptiveMetric(self, context):\n    if self.adaptiveMetric=='contrast':\n        self.ri_pixelVariance=0.005\n    elif self.adaptiveMetric=='variance':\n        self.ri_pixelVariance=0.015\n    elif self.adaptiveMetric=='halfbuffer':\n        self.ri_pixelVariance=0.02"
+            "update_function": "def update_adaptiveMetric(self, context):\n    if self.adaptiveMetric=='contrast':\n        self.ri_pixelVariance=0.1\n    elif self.adaptiveMetric=='variance':\n        self.ri_pixelVariance=0.05\n    elif self.adaptiveMetric=='relativevariance':\n        self.ri_pixelVariance=0.18\n    elif self.adaptiveMetric=='halfbuffer':\n        self.ri_pixelVariance=0.1"
         },              
         {
             "panel": "RENDER_PT_renderman_sampling",
@@ -565,13 +685,13 @@
             "riopt": "Ri:PixelVariance",
             "label": "Pixel Variance",
             "type": "float",
-            "default": 0.015,
+            "default": 0.05,
             "min": 0.0,
             "max": 0.5,
             "digits": 5,
             "connectable": false,
             "presets": {
-                "Test": 0.15,
+                "Test": 0.1,
                 "Denoising": 0.05,
                 "High Quality": 0.01
             },
@@ -649,7 +769,7 @@
             "type": "int",
             "default": 0,
             "widget": "checkbox",
-            "help": "Makes all display channels influence the adaptive sampler equally and potentially increase your render time.<br>By default, the adaptive sampler computes the selected metric on channels with relativepixelvariance > 0. In practice, Ci defaults to 1 and all other AOVs to 0, which means that some of the AOVs could be under-sampled, i.e. more noisy."
+            "help": "If one or more channels are marked with relativepixelvariance > 0.0, those channels will control the adaptive sampling (and \"adaptall\" is ignored).<br>However, if no channel is explicitly marked with relativepixelvariance > 0.0, \"adaptall\" determines which channel(s) will be control the adaptive sampling: When \"adaptall\" is enabled, all channels (beauty + AOVs) are considered when deciding if a pixel is converging. When \"adaptall\" is off (the default), the AOVs are ignored and only the beauty channel is considered for pixel convergence. So turning off \"adaptall\" may speed up your render if some of your AOVs never reach the specified variance threshold and you haven't explicitly marked any channels with relativepixelvariance > 0.0."
         },           
         {
             "panel": "RENDER_PT_renderman_sampling",
@@ -880,16 +1000,7 @@
                 "conditionalVisValue": "1"
             },  
             "help": "Controls the speed of the shutter closing. 1 means instantaneous, < 1 is a gradual closing"
-        },       
-        {
-            "panel": "RENDER_PT_renderman_advanced_settings",
-            "name": "invert_light_linking",
-            "label": "Invert Light Linking",
-            "type": "int",
-            "default": 0,
-            "widget": "checkbox",
-            "help": "Invert the behavior of light linking (only applies if UI framework is set to Native). Only objects linked to the light in the light linking editor will be illuminated. Changing this requires an IPR restart"
-        },                 
+        },                
         {
             "panel": "RENDER_PT_renderman_advanced_settings",
             "name": "learnLightSelection",
@@ -1056,6 +1167,15 @@
                 "conditionalVisPath": "opt_bucket_order",
                 "conditionalVisValue": "spiral"
             }              
+        },
+        {
+            "panel": "RENDER_PT_renderman_advanced_settings",
+            "name": "deep_maxsamples",
+            "label": "Max Deep Samples",
+            "riopt": "deep:maxsamples",
+            "type": "int",
+            "default": 1,
+            "help": "The maximum number of deep samples to retain per subpixel location. Note that this is a hard limit that applies regardless of the compression setting. Increasing this value and decreasing the deep shadow error limit will increase the number of samples in deep output, which may help with accuracy in deep compositing. However, this will increase the RAM requirements of the render. This option currently only applies to XPU."
         },
         {
             "panel": "RENDER_PT_renderman_advanced_settings",
@@ -1468,14 +1588,42 @@
         {
             "panel": "RENDER_PT_renderman_workspace",
             "page": "",
+            "name": "statistics_jsonEnabled",
+            "riopt": "statistics:jsonEnabled",
+            "label": "Enable JSON Report",
+            "type": "int",
+            "widget": "checkbox",
+            "default": "1",
+            "help": "Enable end-of-render JSON report containing render diagnostics. Changes to this parameter will not take effect until the next render."               
+        },
+        {
+            "panel": "RENDER_PT_renderman_workspace",
+            "page": "",
             "name": "statistics_jsonFilename",
             "riopt": "statistics:jsonFilename",
-            "label": "Stats JSON Filename",
+            "label": "JSON Report Filename",
             "type": "string",
             "widget": "fileinput",
             "default": "",
-            "help": "File name for raw statistics JSON report. Setting this file name will trigger the creation of a default JSON Report listener to write out all diagnostic data from the stats system to a JSON file. When left blank, fall back to JSON report listener in the configuration file if specified otherwise JSON report is disabled."               
-        },                
+            "help": "Output file name for a statistics JSON report. Setting this file name will trigger the creation of an end-of render JSON-format report containing diagnostic data from the stats system. By default only the standard set of metrics will be gathered (see jsonMetrics).",
+            "conditionalLockOps": {
+                "conditionalVisOp": "equalTo",
+                "conditionalVisPath": "statistics_jsonEnabled",
+                "conditionalVisValue": "1"
+            }  
+        },
+        {
+            "panel": "RENDER_PT_renderman_workspace",
+            "page": "",
+            "name": "statistics_jsonMetrics",
+            "riopt": "statistics:jsonMetrics",
+            "label": "Stats JSON Metric Preset",
+            "type": "string",
+            "default": "standard",
+            "widget": "popup",
+            "options": "standard|detailed",
+            "help": "The preset string defines the metrics included in the JSON diagnostic report. There are two supported options: 'standard' or 'detailed'. The default setting, 'standard', includes nearly all available metrics in the report. Choose the 'detailed' option to capture every available metric. Keep in mind that capturing all metrics may impact render performance."
+        },
         {
             "panel": "RENDER_PT_renderman_workspace",
             "page": "",
@@ -1545,7 +1693,7 @@
             "default": 1,
             "widget": "checkbox",
             "bl_prop_options": "",
-            "help": "Only applies to Blender Batch. When enabled, all of the RenderMan Display settings are ignored, and one final image from the Blender compositor is written out. When using RIB, the Blender compositor cannot be used.",
+            "help": "Only applies to Blender Batch and if you're using RenderMan Displays. When enabled, all of the RenderMan Display settings are ignored, and one final image from the Blender compositor is written out. When using RIB, the Blender compositor cannot be used.",
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "spool_style",
@@ -1561,7 +1709,7 @@
             "default": 0,
             "widget": "checkbox",
             "bl_prop_options": "",
-            "help": "Only applies to Blender Batch. If on, and Use Blender Compositor is also turned on, all AOVs will be written out as OpenEXR files.",
+            "help": "Only applies to Blender Batch and if you're using RenderMan Displays. If on, and Use Blender Compositor is also turned on, all AOVs will be written out as OpenEXR files.",
             "conditionalVisOps": {
                 "conditionalVis1Path": "spool_style",
                 "conditionalVis2Op": "equalTo",
@@ -1615,7 +1763,7 @@
             "help": ""
         },
         {
-            "panel": "RENDER_PT_renderman_spooling_export_options",
+            "panel": "",
             "page": "",
             "name": "custom_cmd",
             "label": "Custom Render Commands",
@@ -1633,8 +1781,19 @@
             "bl_prop_options": "",
             "default": 1,
             "widget": "checkbox",
-            "help": "Turn this off if you don't want the denoiser to automatically launch. This might be useful if you need the variance files to be generated, but want to denoise the files later. The Denoise option still needs to be on in the RenderMan Displays for the variance file to be generated."
-        },        
+            "help": "Turn this off if you don't want the denoiser to automatically launch. This might be useful if you need the variance files to be generated, but want to denoise the files later. The Denoise option still needs to be on in the RenderMan Displays for the variance file to be generated.",    
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }                    
+        },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
             "page": "Denoising",
@@ -1645,7 +1804,18 @@
             "default": 0.0,
             "min": 0.0,
             "max": 2.0,
-            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising."             
+            "help": "Controls the asymmetry value, 0 is best quality, higher values encourage the denoiser to avoid overblurring, leading to weaker denoising.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1657,7 +1827,18 @@
             "default": [1,1],
             "options": "1x1:[1,1]|2x2:[2,2]|3x3:[3,3]|4x4:[4,4]|5x5:[5,5]",
             "widget": "mapper",            
-            "help": "Denoise the images in tiles. This can be useful if you are denoising fairly large images and want to reduce memory usage."
+            "help": "Denoise the images in tiles. This can be useful if you are denoising fairly large images and want to reduce memory usage.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },               
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1668,7 +1849,18 @@
             "widget": "dirinput",
             "default": "",
             "bl_prop_options": "",
-            "help": "The output directory for the denoised images. If not set, we put the images into a subfolder 'denoised' relative to the input images."             
+            "help": "The output directory for the denoised images. If not set, we put the images into a subfolder 'denoised' relative to the input images.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },        
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1680,7 +1872,18 @@
             "widget": "mapper",
             "bl_prop_options": "",
             "options": "Single Frame:singleframe|Cross Frame:crossframe",
-            "help": "Use single frame or cross frame. Cross frame requires at least 7 frames."
+            "help": "Use single frame or cross frame. Cross frame requires at least 7 frames.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },              
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1691,7 +1894,18 @@
             "bl_prop_options": "",
             "default": 1,
             "widget": "checkbox",
-            "help": "Whether to compute optical flow."
+            "help": "Whether to compute optical flow.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1702,7 +1916,18 @@
             "default": 0,
             "bl_prop_options": "",
             "widget": "checkbox",
-            "help": "Enable versbose output."
+            "help": "Enable versbose output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1712,7 +1937,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as diffuse outputs. Note, we assume channels named 'subsurface' and 'subsurfaceLobe' are part of the diffuse output."
+            "help": "Consider the following comma-separate list of channels as diffuse outputs. Note, we assume channels named 'subsurface' and 'subsurfaceLobe' are part of the diffuse output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },        
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1722,7 +1958,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as specular outputs. Note, we assume channels named 'transmissiveSingleScatterLobe' and 'transmissiveGlassLobe' are part of the specular output."
+            "help": "Consider the following comma-separate list of channels as specular outputs. Note, we assume channels named 'transmissiveSingleScatterLobe' and 'transmissiveGlassLobe' are part of the specular output.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1732,17 +1979,39 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as albedo outputs."
+            "help": "Consider the following comma-separate list of channels as albedo outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }    
         },  
         {
-            "panel": "RENDER_PT_renderman_spooling_export_options",
+            "panel": "",
             "page": "Denoising",
             "name": "ai_denoiser_remap_irradiance",
             "label": "Remap Irradiance",
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as irradiance outputs."
+            "help": "Consider the following comma-separate list of channels as irradiance outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }   
         },
         {
             "panel": "RENDER_PT_renderman_spooling_export_options",
@@ -1752,7 +2021,18 @@
             "type": "string",
             "bl_prop_options": "",
             "default": "",
-            "help": "Consider the following comma-separate list of channels as alpha outputs."
+            "help": "Consider the following comma-separate list of channels as alpha outputs.",
+            "conditionalVisOps": {
+                "conditionalVis1Path": "use_bl_compositor",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "0",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "spool_style",
+                "conditionalVis2Value": "rib"     
+            }   
         }
     ]
 }

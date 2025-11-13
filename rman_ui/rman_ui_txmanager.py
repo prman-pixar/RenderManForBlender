@@ -10,7 +10,7 @@ from ..rfb_utils import object_utils
 from ..rfb_utils.prefs_utils import get_pref, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
-from ..rman_constants import RFB_HELP_URL
+from ..rman_constants import RFB_HELP_URL, RFB_PLATFORM, BLENDER_44
 from .. import rman_render
 from rman_utils.txmanager import txparams
 from rman_utils import txmanager as txmngr
@@ -20,7 +20,7 @@ import hashlib
 import os
 import uuid
 
-__TXMANAGER_WINDOW__ = None 
+TXMANAGER_WINDOW = None 
 
 if not bpy.app.background:
     try:
@@ -46,6 +46,7 @@ if not bpy.app.background:
             mgr = texture_utils.get_txmanager().txmanager
             mgr.reset()
             texture_utils.parse_for_textures(bl_scene)
+            mgr.update_ui_list()
 
         def _append_to_tx_list(file_path_list):
             """Called by the txmanager when extra files are added to the scene list.
@@ -66,17 +67,17 @@ if not bpy.app.background:
             bpy.ops.wm.url_open(url = RFB_HELP_URL)
 
         def create_widget():
-            global __TXMANAGER_WINDOW__
-            if not __TXMANAGER_WINDOW__:
+            global TXMANAGER_WINDOW
+            if not TXMANAGER_WINDOW:
                 import rman_utils.txmanager.ui as rui    
                 from ..rfb_utils import texture_utils    
                 mgr = texture_utils.get_txmanager().txmanager
-                __TXMANAGER_WINDOW__ = rui.TxManagerUI(None, txmanager=mgr, 
+                TXMANAGER_WINDOW = rui.TxManagerUI(None, txmanager=mgr, 
                                                         parse_scene_func=parse_scene,
                                                         append_tx_func=_append_to_tx_list,
                                                         help_func=help_func)
-                mgr.ui = __TXMANAGER_WINDOW__
-            return __TXMANAGER_WINDOW__
+                mgr.ui = TXMANAGER_WINDOW
+            return TXMANAGER_WINDOW
     
 class TxFileItem(PropertyGroup):
     """UIList item representing a TxFile"""
@@ -141,7 +142,7 @@ class TxFileItem(PropertyGroup):
            name="Texture Type",
            items=items,
            description="Texture Type",
-           default=txparams.TX_TYPE_REGULAR)           
+           default=txparams.TX_TYPES.REGULAR)           
 
     items = []
     for item in txparams.TX_WRAP_MODES:
@@ -150,12 +151,12 @@ class TxFileItem(PropertyGroup):
     s_mode: EnumProperty(
         name="S Wrap",
         items=items,
-        default=txparams.TX_WRAP_MODE_PERIODIC)
+        default=txparams.TX_WRAP_MODES.PERIODIC)
 
     t_mode: EnumProperty(
         name="T Wrap",
         items=items,
-        default=txparams.TX_WRAP_MODE_PERIODIC)       
+        default=txparams.TX_WRAP_MODES.PERIODIC)       
 
     items = []
     for item in txparams.TX_FORMATS:
@@ -163,19 +164,20 @@ class TxFileItem(PropertyGroup):
 
     texture_format: EnumProperty(
               name="Format", 
-              default=txparams.TX_FORMAT_PIXAR,
+              default=txparams.TX_FORMATS.OPENEXR,
               items=items,
               description="Texture format")
 
-    items = []
-    items.append(('default', 'default', ''))
-    for item in txparams.TX_DATATYPES:
-        items.append((item, item, ''))
+    items = set()
+    items.add(('default', 'default', ''))
+    items.update(
+        (i, i, '') for i in [*txparams.TX_DATATYPES, *txparams.TX_EXR_DATATYPES]
+    )
 
     data_type: EnumProperty(
             name="Data Type",
-            default=txparams.TX_DATATYPE_FLOAT,
-            items=items,
+            default=txparams.TX_DATATYPES.FLOAT,
+            items=list(items),
             description="The data storage txmake uses")
 
     items = []
@@ -184,7 +186,7 @@ class TxFileItem(PropertyGroup):
 
     resize: EnumProperty(
             name="Resize",
-            default=txparams.TX_RESIZE_UP_DASH,
+            default=txparams.TX_RESIZES.UP_DASH,
             items=items,
             description="The type of resizing flag to pass to txmake")
 
@@ -544,7 +546,7 @@ class PRMAN_OT_Renderman_txmanager_add_texture(Operator):
             item.bumpRough_invertV = bool(bumprough['invertV'])
             item.bumpRough_refit = bool(bumprough['refit'])
         else:
-            params.bumpRough = "-1"
+            item.bumpRough = "-1"
 
         item.tooltip = '\nNode ID: ' + item.nodeID + "\n" + str(txfile)
         # FIXME: should also add the nodes that this texture is referenced in     
@@ -592,7 +594,7 @@ class PRMAN_OT_Renderman_txmanager_refresh(Operator):
                 item.bumpRough_invertV = bool(int(bumprough['invertV']))
                 item.bumpRough_refit = bool(int(bumprough['refit']))
             else:
-                params.bumpRough = "-1"                
+                item.bumpRough = "-1"                
     
             try:
                 item.tooltip = '\n' + item.nodeID + "\n" + str(txfile)
@@ -648,7 +650,8 @@ class PRMAN_PT_Renderman_txmanager_list(_RManPanelHeader, Panel):
         txmanager = texture_utils.get_txmanager().txmanager
         row.operator('rman_txmgr_list.parse_scene', text='Parse Scene')
         row.operator("rman_txmgr_list.clear_unused")
-        row.operator('rman_txmgr_list.reset_state', text='Reset', icon='FILE_REFRESH')         
+        rman_icon = rfb_icons.get_icon('rman_refresh')  
+        row.operator('rman_txmgr_list.reset_state', text='Reset', icon_value=rman_icon.icon_id)  
         row.operator('rman_txmgr_list.pick_images', text='Pick Images', icon='FILE_FOLDER')        
         row.operator('rman_txmgr_list.reconvert_all', text='Reconvert All')         
 
@@ -758,12 +761,14 @@ class PRMAN_OT_Renderman_open_txmanager(Operator):
 
     def invoke(self, context, event):
         if using_qt():
-            global __TXMANAGER_WINDOW__
-            if __TXMANAGER_WINDOW__ and __TXMANAGER_WINDOW__.isVisible():
+            global TXMANAGER_WINDOW
+            if TXMANAGER_WINDOW and TXMANAGER_WINDOW.isVisible():
                 return {'FINISHED'}
 
-            if sys.platform == "darwin":
-                rfb_qt.run_with_timer(__TXMANAGER_WINDOW__, create_widget)   
+            if RFB_PLATFORM == "macOS":
+                rfb_qt.run_with_timer(TXMANAGER_WINDOW, create_widget)  
+            elif BLENDER_44: 
+                rfb_qt.run_with_timer(TXMANAGER_WINDOW, create_widget)
             else:
                 bpy.ops.wm.txm_qt_app_timed()
             mgr = texture_utils.get_txmanager().txmanager
@@ -824,7 +829,7 @@ def index_updated(self, context):
             item.bumpRough_invertV = bool(int(bumprough['invertV']))
             item.bumpRough_refit = bool(int(bumprough['refit']))
         else:
-            params.bumpRough = "-1"  
+            item.bumpRough = "-1"  
 
         item.tooltip = '\nNode ID: ' + item.nodeID + "\n" + str(txfile)                      
 

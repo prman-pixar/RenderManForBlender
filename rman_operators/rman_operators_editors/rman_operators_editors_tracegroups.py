@@ -4,16 +4,17 @@ from ...rman_ui.rman_ui_base import CollectionPanel
 from ...rman_operators.rman_operators_collections import return_empty_list   
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
+from ...rman_constants import RFB_PLATFORM
 import bpy
 import re
 import sys
 
 __TRACE_GROUPS_WINDOW__ = None 
-
+'''
 if not bpy.app.background:
     try:
         from ...rman_ui import rfb_qt as rfb_qt
-        from PySide2 import QtCore, QtWidgets, QtGui 
+        from rman_utils.vendor.Qt import QtCore, QtWidgets, QtGui 
     except:
         rfb_qt = None
 
@@ -200,17 +201,17 @@ if not bpy.app.background:
                     ob.update_tag(refresh={'DATA'})        
 
             def find_item(self, standard_item, ob):
-                '''
-                if standard_item.text() == ob.name:
-                    return standard_item
                 
-                for i in range(0, standard_item.rowCount()):
-                    item = standard_item.child(i)
-                    if item.text() == ob.name:
-                        return item
-                    if item.hasChildren():
-                        return self.find_item(item, ob)
-                '''            
+                #if standard_item.text() == ob.name:
+                #    return standard_item
+                
+                #for i in range(0, standard_item.rowCount()):
+                #    item = standard_item.child(i)
+                #    if item.text() == ob.name:
+                #        return item
+                #    if item.hasChildren():
+                #        return self.find_item(item, ob)
+                            
                 for i in range(0, standard_item.rowCount()):
                     item = standard_item.child(i)
                     if item.text() == ob.name:
@@ -351,7 +352,7 @@ if not bpy.app.background:
                         ob_in_group.ob_pointer = ob      
                         ob.update_tag(refresh={'DATA'})                   
                 self.bl_select_objects(obs)
-                
+'''                
 class RENDERMAN_UL_Object_Group_List(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -506,14 +507,16 @@ class PRMAN_OT_Renderman_Open_Groups_Editor(CollectionPanel, bpy.types.Operator)
 
     def invoke(self, context, event):
 
+        '''
         if using_qt() and show_wip_qt():
             global __TRACE_GROUPS_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__TRACE_GROUPS_WINDOW__, TraceGroupsQtWrapper)   
             else:
                 bpy.ops.wm.trace_groups_qt_app_timed()     
 
             return {'FINISHED'}       
+        '''
 
         wm = context.window_manager
         width = rfb_config['editor_preferences']['tracesets_editor']['width']
@@ -526,8 +529,8 @@ classes = [
     RENDERMAN_UL_Object_Group_List,
 ]
 
-if not bpy.app.background and rfb_qt:
-    classes.append(TraceGroupsQtAppTimed)
+#if not bpy.app.background and rfb_qt:
+#    classes.append(TraceGroupsQtAppTimed)
 
 def register():
     from ...rfb_utils import register_utils

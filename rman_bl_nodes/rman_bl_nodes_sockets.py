@@ -438,6 +438,7 @@ class RendermanNodeSocketFloat(NodeSocketFloat, RendermanSocket):
     renderman_type: StringProperty(default='float')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: FloatProperty(update=update_func)
         
     @classmethod
@@ -451,9 +452,10 @@ class RendermanNodeSocketInt(NodeSocketFloat, RendermanSocket):
     bl_idname = 'RendermanNodeSocketInt'
     bl_label = "Renderman Int"
 
-    renderman_type: StringProperty(default='float')
+    renderman_type: StringProperty(default='int')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: IntProperty(default=0, update=update_func)
         
     @classmethod
@@ -467,9 +469,10 @@ class RendermanNodeSocketString(NodeSocketString, RendermanSocket):
     bl_idname = 'RendermanNodeSocketString'
     bl_label = "Renderman String"
 
-    renderman_type: StringProperty(default='float')
+    renderman_type: StringProperty(default='string')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='', update=update_func)
     is_texture: BoolProperty(default=False)
         
@@ -487,6 +490,7 @@ class RendermanNodeSocketStruct(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='struct')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
     struct_name: StringProperty(default='')
         
@@ -505,6 +509,7 @@ class RendermanNodeSocketVStruct(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='vstruct')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: IntProperty(default=0)
 
     @classmethod
@@ -521,6 +526,7 @@ class RendermanNodeSocketColor(NodeSocketColor, RendermanSocket):
     renderman_type: StringProperty(default='color')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: FloatVectorProperty(size=4, subtype="COLOR", update=update_func)
         
     @classmethod
@@ -537,6 +543,7 @@ class RendermanNodeSocketVector(NodeSocketVector, RendermanSocket):
     renderman_type: StringProperty(default='vector')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: FloatVectorProperty(size=3, subtype="EULER", update=update_func)
         
     @classmethod
@@ -553,6 +560,7 @@ class RendermanNodeSocketNormal(NodeSocketVector, RendermanSocket):
     renderman_type: StringProperty(default='normal')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: FloatVectorProperty(size=3, subtype="EULER", update=update_func)
         
     @classmethod
@@ -569,6 +577,7 @@ class RendermanNodeSocketPoint(NodeSocketVector, RendermanSocket):
     renderman_type: StringProperty(default='point')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: FloatVectorProperty(size=3, subtype="EULER", update=update_func)
         
     @classmethod
@@ -585,6 +594,7 @@ class RendermanNodeSocketLight(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='light')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -601,6 +611,7 @@ class RendermanNodeSocketLightFilter(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='lightfilter')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -617,6 +628,7 @@ class RendermanNodeSocketSampleFilter(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='samplefilter')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -633,6 +645,7 @@ class RendermanNodeSocketDisplayFilter(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='displayfilter')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -649,6 +662,7 @@ class RendermanNodeSocketIntegrator(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='integrator')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -665,6 +679,7 @@ class RendermanNodeSocketProjection(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='projection')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -681,6 +696,7 @@ class RendermanNodeSocketBxdf(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='bxdf')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod
@@ -697,6 +713,7 @@ class RendermanNodeSocketDisplacement(NodeSocketShader, RendermanSocket):
     renderman_type: StringProperty(default='displacement')
     is_array: BoolProperty(default=False)
     array_elem: IntProperty(default=-1)
+    array_size: IntProperty(default=-1)
     default_value: StringProperty(default='')
         
     @classmethod

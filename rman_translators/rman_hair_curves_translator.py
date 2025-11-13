@@ -92,7 +92,7 @@ class RmanHairCurvesTranslator(RmanTranslator):
         
     def get_attributes(self, ob, bl_hair_attributes):
         detail_map = { len(ob.data.points): 'vertex', len(ob.data.curves): 'uniform'}
-        BlAttribute.parse_attributes(bl_hair_attributes, ob, detail_map)
+        BlAttribute.parse_attributes(bl_hair_attributes, ob, detail_map, values_as_list=True)
         if 'color' in bl_hair_attributes:
             # rename color to Cs
             v = bl_hair_attributes['color']

@@ -1,6 +1,7 @@
 from ..rman_constants import RFB_ARRAYS_MAX_LEN, __RMAN_EMPTY_STRING__, __RESERVED_BLENDER_NAMES__
 from ..rfb_logger import rfb_log
 from .property_callbacks import *
+from .string_utils import sanitize_attr_name
 from ..rman_properties.rman_properties_misc import RendermanArrayGroup
 from collections import OrderedDict
 from bpy.props import *
@@ -113,7 +114,8 @@ def generate_colorspace_menu(node, param_name):
         return items
 
     ui_label = "%s_colorspace" % param_name
-    node.__annotations__[ui_label] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))    
+    attr_name = "%s_sticky" % sanitize_attr_name(param_name)
+    node.__annotations__[attr_name] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))    
 
 def generate_uistruct_property(node, name, prop_names, prop_meta):
     prop_meta[name] = {'renderman_type': '', 
@@ -128,11 +130,13 @@ def generate_uistruct_property(node, name, prop_names, prop_meta):
     prop_names.append(name)
 
     ui_label = "%s_sticky" % name
-    node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=False)
+    attr_name = "%s_sticky" % sanitize_attr_name(name)
+    node.__annotations__[attr_name] = BoolProperty(name=ui_label, default=False)
 
 
     ui_label = "%s_uio" % name
-    node.__annotations__[ui_label] = BoolProperty(name=ui_label, default=False)
+    attr_name = "%s_uio" % sanitize_attr_name(name)
+    node.__annotations__[attr_name] = BoolProperty(name=ui_label, default=False)
 
     arraylen_nm = '%s_arraylen' % name
     prop = IntProperty(name=arraylen_nm, 
@@ -171,13 +175,16 @@ def generate_array_property(node, prop_names, prop_meta, node_desc_param, update
                     return False
 
         return True
-
+    
     if not is_array(node_desc_param):
         return False
-
+    
     param_name = node_desc_param._name
     param_label = getattr(node_desc_param, 'label', param_name)
     noconnection = False
+    param_default = getattr(node_desc_param, 'default', None)
+    if not isinstance(param_default, list):
+        param_default = [param_default]
     if hasattr(node_desc_param, 'connectable') and not node_desc_param.connectable:
         noconnection = True
 
@@ -208,12 +215,20 @@ def generate_array_property(node, prop_names, prop_meta, node_desc_param, update
     node.__annotations__[coll_idx_nm] = prop    
 
     ## Not used
+    ## but keep around for older scenes
     arraylen_nm = '%s_arraylen' % param_name
     prop = IntProperty(name=arraylen_nm, 
                         default=0, min=0, max=RFB_ARRAYS_MAX_LEN,
                         description="Size of array",
                         update=update_array_size_func)
     node.__annotations__[arraylen_nm] = prop  
+
+    if node_desc_param.size > 0 or param_default:
+        array_props = node.__annotations__.get('__ARRAYS__', [])
+        array_props.append(param_name)
+        node.__annotations__['__ARRAYS__'] = array_props 
+        prop_meta[param_name]['arraySize'] = node_desc_param.size
+        prop_meta[param_name]['default'] = param_default
             
     setattr(node, param_name, sub_prop_names)   
     return True  
@@ -361,16 +376,65 @@ def generate_property(node, sp, update_function=None, set_function=None, get_fun
         bl_ramp_prop = CollectionProperty(name=bl_ramp_name, type=RendermanBlFloatRamp)
         node.__annotations__[bl_ramp_name] = bl_ramp_prop                   
 
-    elif param_type == 'float':
-        if sp.is_array():
-            prop = FloatProperty(name=param_label,
-                                       default=0.0, precision=prop_precision,
-                                       step=prop_stepsize,
-                                       description=param_help,
-                                       set=set_function,
-                                       get=get_function,
-                                       options=options,
-                                       update=update_function)       
+    elif param_type in ['float', 'float2']:
+        if sp.is_array() or param_type == 'float2':
+            arraySize = sp.size
+            if param_type == 'float2':
+                arraySize = 2
+            if param_widget == "null":
+                prop = FloatProperty(name=param_label,
+                                        default=0.0, precision=prop_precision,
+                                        step=prop_stepsize,
+                                        description=param_help,
+                                        set=set_function,
+                                        get=get_function,
+                                        options=options,
+                                        update=update_function)      
+            elif param_widget == 'mapper':
+                items = []
+                in_items = False
+                if isinstance(sp.options, list):
+                    for k in sp.options:
+                        v = str(k)
+                        items.append((v, k, ''))
+                        if v == str(param_default):
+                            in_items = True                    
+                else:
+                    for k,v in sp.options.items():
+                        v = str(v)
+                        if len(v.split(':')) > 1:
+                            tokens = v.split(':')
+                            v = tokens[1]
+                            k = '%s:%s' % (k, tokens[0])
+                        items.append((str(v), k, ''))
+                        if v == str(param_default):
+                            in_items = True
+                
+                bl_default = ''
+                for item in items:
+                    if item[0] == str(param_default):
+                        bl_default = item[0]
+                        break
+
+                if in_items:
+                    prop = EnumProperty(name=param_label,
+                                        items=items,
+                                        default=bl_default,
+                                        options=options,
+                                        description=param_help, set=set_function, update=update_function)
+            else:        
+                prop = FloatVectorProperty(name=param_label,
+                                        default=param_default, size=arraySize,
+                                        step=prop_stepsize,
+                                        min = param_min,
+                                        max = param_max,
+                                        soft_min=slider_min,
+                                        soft_max=slider_max,                                    
+                                        precision=prop_precision,
+                                        options=options,
+                                        description=param_help, set=set_function, update=update_function)
+            renderman_type = 'float'
+            prop_meta['arraySize'] = arraySize     
         else:
             if param_widget in ['checkbox', 'switch']:
                 
@@ -429,12 +493,59 @@ def generate_property(node, sp, update_function=None, set_function=None, get_fun
 
         renderman_type = 'float'
 
-    elif param_type in ['int', 'integer']:
-        if sp.is_array(): 
-            prop = IntProperty(name=param_label,
-                                default=0,
-                                options=options,
-                                description=param_help, set=set_function, get=get_function, update=update_function)            
+    elif param_type in ['int', 'integer', 'int2']:
+        if sp.is_array() or param_type=='int2':
+            arraySize = sp.size
+            if param_type == 'int2':
+                arraySize = 2 
+            if param_widget == "null":
+                prop = IntProperty(name=param_label,
+                                    default=0,
+                                    options=options,
+                                    description=param_help, set=set_function, get=get_function, update=update_function)            
+            elif param_widget == 'mapper':
+                items = []
+                in_items = False
+                if isinstance(sp.options, list):
+                    for k in sp.options:
+                        v = str(k)
+                        items.append((v, k, ''))
+                        if v == str(param_default):
+                            in_items = True                    
+                else:
+                    for k,v in sp.options.items():
+                        v = str(v)
+                        if len(v.split(':')) > 1:
+                            tokens = v.split(':')
+                            v = tokens[1]
+                            k = '%s:%s' % (k, tokens[0])
+                        items.append((str(v), k, ''))
+                        if v == str(param_default):
+                            in_items = True
+                
+                bl_default = ''
+                for item in items:
+                    if item[0] == str(param_default):
+                        bl_default = item[0]
+                        break
+
+                if in_items:
+                    prop = EnumProperty(name=param_label,
+                                        items=items,
+                                        default=bl_default,
+                                        options=options,
+                                        description=param_help, set=set_function, update=update_function)
+            else:        
+                prop = IntVectorProperty(name=param_label,
+                                        default=param_default, size=arraySize,
+                                        min = param_min,
+                                        max = param_max,
+                                        soft_min=slider_min,
+                                        soft_max=slider_max,                                    
+                                        options=options,
+                                        description=param_help, set=set_function, update=update_function)
+            renderman_type = 'int'
+            prop_meta['arraySize'] = arraySize              
         else:
             param_default = int(param_default) if param_default else 0
 
@@ -603,114 +714,20 @@ def generate_property(node, sp, update_function=None, set_function=None, get_fun
                                    options=options,
                                    description=param_help, set=set_function, get=get_function, update=update_function)
         renderman_type = param_type
-    elif param_type == 'int2':
-        param_type = 'int'
-        is_array = 2
-        if param_widget == 'mapper':
-            items = []
-            in_items = False
-            if isinstance(sp.options, list):
-                for k in sp.options:
-                    v = str(k)
-                    items.append((v, k, ''))
-                    if v == str(param_default):
-                        in_items = True                    
-            else:
-                for k,v in sp.options.items():
-                    v = str(v)
-                    if len(v.split(':')) > 1:
-                        tokens = v.split(':')
-                        v = tokens[1]
-                        k = '%s:%s' % (k, tokens[0])
-                    items.append((str(v), k, ''))
-                    if v == str(param_default):
-                        in_items = True
-            
-            bl_default = ''
-            for item in items:
-                if item[0] == str(param_default):
-                    bl_default = item[0]
-                    break
-
-            if in_items:
-                prop = EnumProperty(name=param_label,
-                                    items=items,
-                                    default=bl_default,
-                                    options=options,
-                                    description=param_help, set=set_function, update=update_function)
-        else:        
-            prop = IntVectorProperty(name=param_label,
-                                    default=param_default, size=2,
-                                    min = param_min,
-                                    max = param_max,
-                                    soft_min=slider_min,
-                                    soft_max=slider_max,                                    
-                                    options=options,
-                                    description=param_help, set=set_function, update=update_function)
-        renderman_type = 'int'
-        prop_meta['arraySize'] = 2   
-
-    elif param_type == 'float2':
-        param_type = 'float'
-        is_array = 2
-        if param_widget == 'mapper':
-            items = []
-            in_items = False
-            if isinstance(sp.options, list):
-                for k in sp.options:
-                    v = str(k)
-                    items.append((v, k, ''))
-                    if v == str(param_default):
-                        in_items = True                    
-            else:
-                for k,v in sp.options.items():
-                    v = str(v)
-                    if len(v.split(':')) > 1:
-                        tokens = v.split(':')
-                        v = tokens[1]
-                        k = '%s:%s' % (k, tokens[0])
-                    items.append((str(v), k, ''))
-                    if v == str(param_default):
-                        in_items = True
-            
-            bl_default = ''
-            for item in items:
-                if item[0] == str(param_default):
-                    bl_default = item[0]
-                    break
-
-            if in_items:
-                prop = EnumProperty(name=param_label,
-                                    items=items,
-                                    default=bl_default,
-                                    options=options,
-                                    description=param_help, set=set_function, update=update_function)
-        else:        
-            prop = FloatVectorProperty(name=param_label,
-                                    default=param_default, size=2,
-                                    step=prop_stepsize,
-                                    min = param_min,
-                                    max = param_max,
-                                    soft_min=slider_min,
-                                    soft_max=slider_max,                                    
-                                    precision=prop_precision,
-                                    options=options,
-                                    description=param_help, set=set_function, update=update_function)
-        renderman_type = 'float'
-        prop_meta['arraySize'] = 2      
 
     # bool property to represent whether this property
     # should be hidden. Needed for conditionalVisOps.
-    hidden_prop_name = '%s_hidden' % param_name
+    param_name_attr = sanitize_attr_name(param_name)
+    hidden_prop_name = '%s_hidden' % param_name_attr
     node.__annotations__[hidden_prop_name] = BoolProperty(name=hidden_prop_name, default=False)
 
     # bool property to represent whether this property
     # should be disabled. Needed for conditionalLockOps.
-    disabled_prop_name = '%s_disabled' % param_name
+    disabled_prop_name = '%s_disabled' % param_name_attr
     node.__annotations__[disabled_prop_name] = BoolProperty(name=disabled_prop_name, default=False)    
 
     # add a property to represent if this property should be stickied
-    sticky_prop_name = "%s_sticky" % param_name
+    sticky_prop_name = "%s_sticky" % param_name_attr
     node.__annotations__[sticky_prop_name] = BoolProperty(name=sticky_prop_name, default=False)            
 
     prop_meta['renderman_type'] = renderman_type

@@ -1,9 +1,8 @@
 from .prefs_utils import get_pref
-from . import filepath_utils
 from ..rfb_logger import rfb_log
 from .. import rfb_logger
 from .. import rman_constants
-from ..rman_constants import RFB_ADDON_PATH, BLENDER_44
+from ..rman_constants import RFB_ADDON_PATH, RFB_PLATFORM
 import os
 import bpy
 import json
@@ -26,6 +25,7 @@ class BuildInfo(object):
         self._name = re_dict['name']
         self._date_string = ('%s %s %s %s at %s' %
                              (re_dict['day'], re_dict['month'], re_dict['date'], re_dict['year'], re_dict['time']))
+        self._is_internal = ('internal' in self._name)
 
     def version(self):
         """return the version string"""
@@ -47,6 +47,9 @@ class BuildInfo(object):
     def id(self):
         """Return the build id"""
         return self._id
+    
+    def is_internal(self):
+        return self._is_internal
 
 __RMAN_ENV_CONFIG__ = None
 
@@ -67,6 +70,10 @@ class RmanEnvConfig(object):
         self.has_xpu_license = False
         self.has_stylized_license = False
         self.has_rps_license = False
+        self.has_license_expired = False
+
+        self.load_error = False
+        self.load_error_message = ""
 
     def config_environment(self):
 
@@ -76,6 +83,7 @@ class RmanEnvConfig(object):
         self._set_localqueue_path()
         self._set_license_app_path()
         self._set_ocio()
+        self._set_rms_script_path()
         self._get_license_info()
 
     def getenv(self, k, default=None):
@@ -85,7 +93,8 @@ class RmanEnvConfig(object):
         os.environ[k] = val
 
     def unsetenv(self, k):
-        os.environ.pop(k)
+        if k in os.environ:
+            os.environ.pop(k)
 
     def copyenv(self):
         return os.environ.copy()
@@ -99,7 +108,7 @@ class RmanEnvConfig(object):
 
     def set_qn_dspy(self, dspy, immediate_close=True):
         ext = '.so'
-        if sys.platform == ("win32"):
+        if RFB_PLATFORM == "windows":
                 ext = '.dll'
         d = os.path.join(self.rmantree, 'lib', 'plugins', 'd_%s%s' % (dspy, ext))
         self.setenv('RMAN_QN_DISPLAY', d)
@@ -110,11 +119,19 @@ class RmanEnvConfig(object):
 
     def get_qn_dspy(self, dspy, immediate_close=True):
         ext = '.so'
-        if sys.platform == ("win32"):
+        if RFB_PLATFORM == "windows":
                 ext = '.dll'
         d = os.path.join(self.rmantree, 'lib', 'plugins', 'd_%s%s' % (dspy, ext))
         return d
 
+    def set_disgust_env(self, filepath=""):
+        if filepath != "":
+            self.setenv('RILEY_CAPTURE_FORMAT', 'python')
+            self.setenv('RILEY_CAPTURE', filepath)
+
+    def unset_disgust_env(self):
+        self.unsetenv('RILEY_CAPTURE_FORMAT')
+        self.unsetenv('RILEY_CAPTURE')
 
     def read_envvars_file(self):
         bl_config_path = bpy.utils.user_resource('CONFIG')
@@ -176,18 +193,11 @@ class RmanEnvConfig(object):
             rman_packages = os.path.join(self.rmantree, 'lib', python_vers, 'site-packages')
         if not os.path.exists(rman_packages):
             return False
-
-        if BLENDER_44:
-            # FIXME: remove this once rman's oslquery is moved
-            sys.path.insert(0, rman_packages)        
-            sys.path.insert(1, os.path.join(self.rmantree, 'bin'))
-            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
-            sys.path.insert(2, pythonbindings)     
-        else:
-            sys.path.append(rman_packages)        
-            sys.path.append(os.path.join(self.rmantree, 'bin'))
-            pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
-            sys.path.append(pythonbindings)     
+        
+        sys.path.append(rman_packages)        
+        sys.path.append(os.path.join(self.rmantree, 'bin'))
+        pythonbindings = os.path.join(self.rmantree, 'bin', 'pythonbindings')
+        sys.path.append(pythonbindings)     
 
         if platform.system() == 'Windows':
             # apparently, we need to do this for windows app versions
@@ -197,7 +207,15 @@ class RmanEnvConfig(object):
             os.add_dll_directory(pythonbindings)
             os.add_dll_directory(os.path.join(self.rmantree, 'lib'))    
 
-        return True                        
+        return True      
+
+    def set_error_message(self, msg="", load_error=True):
+        if msg == "" or msg is None:
+            self.load_error_message = ""
+            self.load_error = False
+        else:
+            self.load_error_message = msg
+            self.load_error = load_error                  
 
     def _append_to_path(self, path):        
         if path is not None:
@@ -270,31 +288,62 @@ class RmanEnvConfig(object):
         if path == '':
             self.setenv('OCIO', self.get_blender_ocio_config())
 
+    def _set_rms_script_path(self):
+        # we set RMS_SCRIPT_PATHS so that we can load our custom envkeys
+
+        rms_path = os.path.join(rman_constants.RFB_ADDON_PATH, 'envkeys')
+        if self.getenv('RMS_SCRIPT_PATHS'):
+            if platform.system() == 'Windows':
+                rms_path = rms_path + ";" + self.getenv('RMS_SCRIPT_PATHS')
+            else:
+                rms_path = rms_path + ":" + self.getenv('RMS_SCRIPT_PATHS')
+        self.setenv('RMS_SCRIPT_PATHS', rms_path)
+
     def _get_license_info(self):
         from rman_utils import license as rman_license_info
 
-        self.license_info = rman_license_info.get_license_info(self.rmantree)
-        self.is_ncr_license = self.license_info.is_ncr_license
-        self.is_valid_license = self.license_info.is_valid_license
-        if self.is_valid_license:
-            self.feature_version = '%d.0' % self.build_info._version_major
-            status = self.license_info.is_feature_available(feature_name='RPS-Stylized', feature_version=self.feature_version)
-            self.has_stylized_license = status.found
-            status = self.license_info.is_feature_available(feature_name='RPS-XPU', feature_version=self.feature_version)
-            self.has_xpu_license =  status.found    
-            status = self.license_info.is_feature_available(feature_name='RPS', feature_version=self.feature_version)
-            self.has_rps_license =  status.found    
+        if self.build_info.is_internal():
+            self.license_info = None
+            self.is_ncr_license = False
+            self.is_valid_license = True
+            self.has_stylized_license = True
+            self.has_rps_license = True
+            self.has_xpu_license = True
+        else:
+            self.license_info = rman_license_info.get_license_info(self.rmantree)
+            self.is_ncr_license = self.license_info.is_ncr_license
+            self.is_valid_license = self.license_info.is_valid_license
+            if self.is_valid_license:
+                self.feature_version = '%d.0' % self.build_info._version_major
+                status = self.license_info.is_feature_available(feature_name='RPS-Stylized')
+                self.has_stylized_license = status.found
+                status = self.license_info.is_feature_available(feature_name='RPS-XPU')
+                self.has_xpu_license =  status.found    
+                status = self.license_info.is_feature_available(feature_name='RPS')
+                self.has_rps_license =  status.found    
+                if status.found:
+                    self.has_license_expired = status.is_expired()
 
     def _is_prman_license_available(self):
         # Return true if there is PhotoRealistic-RenderMan a feature
         # in our license and there seats available
+        if self.build_info.is_internal():
+            return True
         status = self.license_info.is_feature_available(feature_name='PhotoRealistic-RenderMan', force_reread=True)
         if status.found and status.is_available:
             return True
         return False
 
     def get_prman_license_status(self):
-        status = self.license_info.is_feature_available(feature_name='PhotoRealistic-RenderMan', force_reread=True)
+        from rman_utils import license as rman_license_info
+        if self.build_info.is_internal():
+            status = rman_license_info.LicenseFeatureStatus(name='PhotoRealistic-RenderMan')
+            status.is_counted = True
+            status.is_available = True
+            status.found = True
+            status.is_permanent = True
+        else:
+            status = self.license_info.is_feature_available(feature_name='PhotoRealistic-RenderMan', force_reread=True)
         return status
 
 def _parse_version(s):
@@ -418,22 +467,21 @@ def _guess_rmantree():
 
         # check rmantree valid
         if not buildinfo:
-            rfb_log().error(
-                "Error loading addon.  RMANTREE %s is not valid.  Correct RMANTREE setting in addon preferences." % rmantree)
-            __RMAN_ENV_CONFIG__ = None
+            __RMAN_ENV_CONFIG__.set_error_message("Error loading addon.  RMANTREE %s is not valid.  Correct RMANTREE setting in addon preferences." % rmantree)
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)                
             return None
 
         # check if the major version of RenderMan is supported
         if buildinfo._version_major < rman_constants.RMAN_SUPPORTED_VERSION_MAJOR:
-            rfb_log().error("Error loading addon using RMANTREE=%s.  The major version found (%d) is not supported. Minimum version supported is %s." % (rmantree, buildinfo._version_major, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
-            __RMAN_ENV_CONFIG__ = None
+            __RMAN_ENV_CONFIG__.set_error_message("Error loading addon using RMANTREE=%s.  The major version found (%d) is not supported. Minimum version supported is %s." % (rmantree, buildinfo._version_major, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)
             return None
 
         # check if the minor version of RenderMan is supported
         if buildinfo._version_major == rman_constants.RMAN_SUPPORTED_VERSION_MAJOR and buildinfo._version_minor < rman_constants.RMAN_SUPPORTED_VERSION_MINOR:
-            rfb_log().error("Error loading addon using RMANTREE=%s.  The minor version found (%s) is not supported. Minimum version supported is %s." % (rmantree, buildinfo._version_minor, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
-            __RMAN_ENV_CONFIG__ = None
-            return None             
+            __RMAN_ENV_CONFIG__.set_error_message("Error loading addon using RMANTREE=%s.  The minor version found (%s) is not supported. Minimum version supported is %s." % (rmantree, buildinfo._version_minor, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
+            rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)
+            return None   
 
         rfb_log().debug("Guessed RMANTREE: %s" % rmantree)
 
@@ -443,11 +491,22 @@ def _guess_rmantree():
 
     # configure python path
     if not __RMAN_ENV_CONFIG__.config_pythonpath():
-        rfb_log().error("The Python version this Blender uses (%s) is not supported by this version of RenderMan (%s)" % (rman_constants.BLENDER_PYTHON_VERSION, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
-        __RMAN_ENV_CONFIG__ = None
+        __RMAN_ENV_CONFIG__.set_error_message("The Python version this Blender uses (%s) is not supported by this version of RenderMan (%s)" % (rman_constants.BLENDER_PYTHON_VERSION, rman_constants.RMAN_SUPPORTED_VERSION_STRING))
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)
         return None   
 
     __RMAN_ENV_CONFIG__.config_environment()
+    if not __RMAN_ENV_CONFIG__.is_valid_license:
+        __RMAN_ENV_CONFIG__.set_error_message("Cannot find a valid license", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)                 
+
+    elif not __RMAN_ENV_CONFIG__.has_rps_license:
+        __RMAN_ENV_CONFIG__.set_error_message("Cannot find render license", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
+
+    elif  __RMAN_ENV_CONFIG__.has_license_expired:
+        __RMAN_ENV_CONFIG__.set_error_message("License has expired", load_error=False)   
+        rfb_log().error(__RMAN_ENV_CONFIG__.load_error_message)  
 
     return __RMAN_ENV_CONFIG__
 
@@ -472,16 +531,14 @@ def get_installed_rendermans():
 
 def reload_envconfig():
     global __RMAN_ENV_CONFIG__
-    if not _guess_rmantree():
-        return None
+    _guess_rmantree()
     return __RMAN_ENV_CONFIG__    
 
 def envconfig():
 
     global __RMAN_ENV_CONFIG__
     if not __RMAN_ENV_CONFIG__:
-        if not _guess_rmantree():
-            return None
+        _guess_rmantree()
     return __RMAN_ENV_CONFIG__
 
     

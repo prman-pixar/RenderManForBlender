@@ -46,7 +46,7 @@ class RmanFluidTranslator(RmanTranslator):
         sg_node = self.rman_scene.sg_scene.CreateGroup(db_name)
         rman_sg_fluid = RmanSgFluid(self.rman_scene, sg_node, db_name)
         if self.rman_scene.do_motion_blur:
-            rman_sg_fluid.is_deforming = object_utils._is_deforming_(ob)        
+            rman_sg_fluid.is_deforming = object_utils._is_deforming_(ob, self.rman_scene.bl_scene)        
 
         return rman_sg_fluid
 
@@ -204,12 +204,9 @@ class RmanFluidTranslator(RmanTranslator):
         primvar.SetFloatDetail("density", [], "varying")
         primvar.SetFloatDetail("flame", [], "varying")        
         primvar.SetColorDetail("color", [], "varying")   
+        scenegraph_utils.export_vol_aggregate(self.rman_scene.bl_scene, primvar, ob)
         super().export_object_primvars(ob, primvar)               
         rman_sg_fluid.rman_sg_volume_node.SetPrimVars(primvar)
-        
-        attrs = rman_sg_fluid.rman_sg_volume_node.GetAttributes() 
-        scenegraph_utils.export_vol_aggregate(self.rman_scene.bl_scene, attrs, ob)
-        rman_sg_fluid.rman_sg_volume_node.SetAttributes(attrs)  
 
     def update_fluid(self, ob, rman_sg_fluid, fluid_data):
 
@@ -226,9 +223,6 @@ class RmanFluidTranslator(RmanTranslator):
         primvar.SetColorDetail("color", [item for index, item in enumerate(fluid_data.color_grid) if index % 4 != 0], "varying")
         primvar.SetVectorDetail("velocity", fluid_data.velocity_grid, "varying")
         primvar.SetFloatDetail("temperature", fluid_data.temperature_grid, "varying")
+        scenegraph_utils.export_vol_aggregate(self.rman_scene.bl_scene, primvar, ob)
         super().export_object_primvars(ob, primvar)
-        rman_sg_fluid.rman_sg_volume_node.SetPrimVars(primvar)  
-
-        attrs = rman_sg_fluid.rman_sg_volume_node.GetAttributes() 
-        scenegraph_utils.export_vol_aggregate(self.rman_scene.bl_scene, attrs, ob)
-        rman_sg_fluid.rman_sg_volume_node.SetAttributes(attrs)         
+        rman_sg_fluid.rman_sg_volume_node.SetPrimVars(primvar)         

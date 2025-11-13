@@ -53,11 +53,11 @@ def get_light_items():
 def get_lightfilter_items():
     items = []
     i = 0
-    rman_light_icon = get_lightfilter_icon("PxrBlockerLightFilter")
-    dflt = 'PxrBlockerLightFilter'
+    rman_light_icon = get_lightfilter_icon("PxrRodLightFilter")
+    dflt = 'PxrRodLightFilter'
     items.append((dflt, dflt, '', rman_light_icon.icon_id, i))
     for n in rman_bl_nodes.__RMAN_LIGHTFILTER_NODES__:
-        if n.name != dflt:
+        if n.name != dflt and n.name not in ['PxrBlockerLightFilter', 'PxrGoboLightFilter']:
             i += 1
             light_icon = get_lightfilter_icon(n.name)
             description = RMAN_BL_NODE_DESCRIPTIONS.get(n.name, n.name)

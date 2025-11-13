@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 - 2021 Pixar
+# Copyright (c) 2015 - 2025 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,36 +30,21 @@ from .rfb_utils.envconfig_utils import envconfig
 bl_info = {
     "name": "RenderMan For Blender",
     "author": "Pixar",
-    "version": (26, 4, 0),
-    "blender": (2, 93, 0),
+    "version": (27, 0, 0),
+    "blender": (3, 6, 0),
     "location": "Render Properties > Render Engine > RenderMan",
-    "description": "RenderMan 26 integration",
+    "description": "RenderMan 27 integration",
     "doc_url": "https://rmanwiki.pixar.com/display/RFB",
     'warning': '',
     "category": "Render"}
 
 __RMAN_ADDON_LOADED__ = False
 
-def load_node_arrange():
-    '''
-    Make sure that the node_arrange addon is enabled
-    '''
-
-    if addon_utils.check('node_arrange')[1] is False:
-        available = False
-        for m in addon_utils.modules():
-            # check if node_arrange is available
-            # it's been removed as of blender 4.0
-            if m.__name__ == 'node_arrange':
-                available = True
-                break
-        if available:
-            addon_utils.enable('node_arrange')
-
 def load_addon():
     global __RMAN_ADDON_LOADED__
 
-    if envconfig():
+    rman_env = envconfig()
+    if not rman_env.load_error:
         from . import rman_config
         from . import rman_presets
         from . import rman_operators
@@ -86,14 +71,12 @@ def load_addon():
         __RMAN_ADDON_LOADED__ = True
 
     else:
-        rfb_log().error(
-            "Error loading addon.  Correct RMANTREE setting in addon preferences.")
+        rfb_log().error(rman_env.load_error_message)
 
 def register():    
     from . import preferences
     preferences.register()
     load_addon()
-    load_node_arrange()
 
 def unregister():
     global __RMAN_ADDON_LOADED__

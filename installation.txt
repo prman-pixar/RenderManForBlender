@@ -2,14 +2,14 @@ RenderMan for Blender Installation Instructions
 ------------------------------------------
 (NOTE: current **MacOS** support is limited to the **Intel** variant; M1/M2 Macs can still run RenderManForBlender on the Mac/Intel version of Blender)
 
-1.  Install Blender if not already (3.0 recommended)
+1.  Install Blender if not already (4.1 and above is recommended)
 
 2.  Register for the free Non-Commercial Version of RenderMan from Pixar.
 https://renderman.pixar.com/store/intro
 
 3.  Download and install RenderMan Pro Server Package and 
 installation instructions at: http://rendermansite.pixar.com/view/get-renderman 
-You need to install at a minimum RenderMan Pro Server 26.0
+You need to install at a minimum RenderMan Pro Server 27.0
 It is recommended to install RenderMan Pro Server in the default location (or see advanced instructions below)
 
 3.A If on Windows, be sure to restart after installing RenderMan Pro Server
@@ -24,7 +24,7 @@ https://github.com/prman-pixar/RenderManForBlender/releases save the zip file so
 
 ADVANCED:
 RenderMan normally bases everything off a variable RMANTREE which is set to your installation
-folder, eg /Applications/Pixar/RenderManProServer-26.0 on OSX and C:\Program Files\Pixar\RenderManProServer-26.0 on Windows.
+folder, eg /Applications/Pixar/RenderManProServer-27.0 on OSX and C:\Program Files\Pixar\RenderManProServer-27.0 on Windows.
 
 RenderMan for Blender will try and guess the appropriate RenderMan version to use and the location of
 the RMANTREE folder.  If you are installing RenderMan to the standard location you shouldn't have to do anything!

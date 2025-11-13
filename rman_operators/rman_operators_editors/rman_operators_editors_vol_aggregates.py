@@ -5,17 +5,18 @@ from ...rman_operators.rman_operators_collections import return_empty_list
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from ...rfb_utils import scene_utils
 from ... import rfb_icons
+from ...rman_constants import RFB_PLATFORM
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
 import bpy
 import re
 import sys
 
 __VOL_AGGREGATE_WINDOW__ = None 
-
+'''
 if not bpy.app.background:
     try:
         from ...rman_ui import rfb_qt as rfb_qt
-        from PySide2 import QtCore, QtWidgets, QtGui
+        from rman_utils.vendor.Qt import QtCore, QtWidgets, QtGui
     except:
         rfb_qt = None
 
@@ -326,7 +327,7 @@ if not bpy.app.background:
                         ob_in_group.ob_pointer = ob      
                         ob.update_tag(refresh={'DATA'})       
                 self.bl_select_objects(obs)
-
+'''
 class RENDERMAN_UL_Volume_Aggregates_List(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -528,14 +529,16 @@ class PRMAN_OT_Renderman_Open_Volume_Aggregates_Editor(CollectionPanel, bpy.type
                 lg.members_index -= 1              
 
     def invoke(self, context, event):
+        '''
         if using_qt() and show_wip_qt():
             global __VOL_AGGREGATE_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__VOL_AGGREGATE_WINDOW__, VolAggregatesQtWrapper)   
             else:
                 bpy.ops.wm.vol_aggregates_qt_app_timed()     
 
             return {'FINISHED'}               
+        '''
 
         wm = context.window_manager
         width = rfb_config['editor_preferences']['vol_aggregates_editor']['width']
@@ -549,8 +552,8 @@ classes = [
     RENDERMAN_UL_Volume_Aggregates_Objects_List,
 ]
 
-if not bpy.app.background and rfb_qt:
-    classes.append(VolAggregateQtAppTimed)
+# if not bpy.app.background and rfb_qt:
+#    classes.append(VolAggregateQtAppTimed)
 
 def register():
     from ...rfb_utils import register_utils

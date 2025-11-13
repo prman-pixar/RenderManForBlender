@@ -83,6 +83,7 @@ class RfBTxManager(object):
 
     def get_prefs(self):
         prefs = dict()
+        prefs['backend'] = get_pref('rman_txmanager_backend')
         prefs['num_workers'] = get_pref('rman_txmanager_workers')
         prefs['fallback_path'] = string_utils.expand_string(get_pref('path_fallback_textures_path'), 
                                                   asFilePath=True)
@@ -284,6 +285,11 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
                 continue
 
         fpath = bl_prop_info.prop
+
+        ## FIXME: remove once PxrStylized shaders can handle this
+        if fpath.startswith('!!! Full path to'):
+            continue
+        
         if is_library:
             # if this is coming from a library, replace <blend_dir> with the full path
             if ob.library:
@@ -291,6 +297,8 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
             elif ob.library_weak_reference:
                 blend_file = filepath_utils.get_real_path(ob.library_weak_reference.filepath)
             fpath = fpath.replace('<blend_dir>', os.path.dirname(blend_file))
+            # also, replace any <udim> for <UDIM>
+            fpath = fpath.replace('<udim>', '<UDIM>')
 
         category = getattr(node, 'renderman_node_type', 'pattern') 
         get_txmanager().add_texture(node, ob, prop_name, fpath, node_type=node_type, category=category)        
@@ -431,8 +439,6 @@ def load_scene_state():
     """Load the JSON serialization from scene.renderman.txmanagerData and use it
     to update the texture manager.
     """
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = '{}'
@@ -441,11 +447,10 @@ def load_scene_state():
     return state
 
 @persistent
-def txmanager_load_cb(bl_scene):
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return    
+def txmanager_load_cb(bl_scene): 
     get_txmanager().txmanager.reset()
     get_txmanager().txmanager.load_state()
+    get_txmanager().txmanager.update_ui_list()
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = None

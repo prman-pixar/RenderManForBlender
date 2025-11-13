@@ -8,7 +8,12 @@ from collections import OrderedDict
 from ..rfb_logger import rfb_log
 from ..rfb_utils import filepath_utils
 from .prefs_utils import get_pref
+from ..rman_constants import RFB_PLATFORM
 import bpy
+
+# import modules for <expr> tokens to use
+import math
+import random
 
 COUNTERS = None
 
@@ -93,7 +98,7 @@ class StringExpression(object):
             self.tokens.update(tokens)
 
     def update_temp_token(self):
-        if sys.platform == ("win32"):
+        if RFB_PLATFORM == "windows":
             self.tokens['TEMP'] = 'C:/tmp'
         else:
             self.tokens['TEMP'] = '/tmp'

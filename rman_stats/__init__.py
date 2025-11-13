@@ -1,5 +1,3 @@
-from ..rfb_logger import rfb_log
-
 import os
 import json
 import bpy
@@ -9,14 +7,16 @@ import time
 import getpass
 
 from collections import OrderedDict
-import rman_utils.stats_config.core as stcore
 from ..rfb_utils import prefs_utils
 from ..rfb_logger import rfb_log
+from typing import Union
 
 __oneK2__ = 1024.0*1024.0
-__RFB_STATS_MANAGER__ = None
+RFB_STATS_MANAGER = None
 
-__LIVE_METRICS__ = [
+LIVE_METRICS = [
+    ["/rman/riley.variant", "Variant"],
+    ["/system.processTime", "CPU%"],
     ["/system.processMemory", "Memory"],
     ["/rman/renderer@isRendering", None],
     ["/rman/renderer@progress", None],
@@ -36,7 +36,7 @@ __LIVE_METRICS__ = [
     ['/rman/raytracing/photon.numRays', "Photon Rays"]
 ]
 
-__TIMER_STATS__ = [
+TIMER_STATS = [
     '/rman/shading/hit/bxdf:time.total',
     "/rman.timeToFirstRaytrace",
     "/rman.timeToFirstPixel", 
@@ -46,13 +46,17 @@ __TIMER_STATS__ = [
     '/rman/raytracing/intersection/allhits:time.total',
 ]
 
-__BASIC_STATS__ = [
+BASIC_STATS = [
+    "Variant",
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays"
 ]
 
-__MODERATE_STATS__ = [
+MODERATE_STATS = [
+    "Variant",
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays",
@@ -62,7 +66,9 @@ __MODERATE_STATS__ = [
     "Camera Rays",    
 ]
 
-__MOST_STATS__ = [
+MOST_STATS = [
+    "Variant",
+    "CPU%",
     "Memory",
     "Rays/Sec",
     "Total Rays",
@@ -76,7 +82,9 @@ __MOST_STATS__ = [
     "Photon Rays"    
 ]
 
-__ALL_STATS__ = [
+ALL_STATS = [
+    "Variant",
+    "CPU%",
     "Memory",
     "First Ray",
     "First Iteration",
@@ -97,11 +105,148 @@ class RfBBaseMetric(object):
     def __init__(self, key, label):
         self.key = key
         self.label = label
+
+class RfBLiveStatsClient(object):
+    """ WebSocketStatsClient access for live stats streaming
+
+    NOTE: this is just a copy of LiveStatsClient that's in
+    stportal/core/datamanager.py. We want to make our own because
+    we need a client that doesn't have any Qt in it.
+
+    """
+    def __init__(self):
+
+        # Set up WebSocketStatsClient to be connected on request
+        self._wsc = None
+
+        # The server ID will need to be supplied when a connection is requested
+        self._connected_server_id = None
+
+        # TODO RMAN-18591: Should get these from config object
+        # self._port = 0
+        self._host = "127.0.0.1"
+
+        self.createWebSocketStatsClientInstance()
+
+    def createWebSocketStatsClientInstance(self):
+        try:
+            # Stats library bindings ($RMANTREE/bin/pythonbindings)
+            from rman import Stats
+            self._wsc = Stats.WebSocketStatsClient()
+        except (ImportError, RuntimeError) as exc:
+            rfb_log().warning("Could not create live stats client, "
+                            "live stream disabled: %r", exc)
+            raise          
+
+    def is_valid(self):
+        if self._wsc is None:
+            return False
+        return True
+
+    def connectToServer(self, server_id: str):
+        """ Asynchronously request a connection to a live stats server.
+
+            Calls the stats client connection method which will send an
+            asynchronous request for a connection to the server associated
+            with the given 'server_id' string. Internally this is a new
+            connection thread which will then begin an asynchronous process
+            of connecting to the server.
+
+            wsc.ConnectToServer (C++: WebSocketStatsClient::ConnectToServer)
+            returns immediately. The data poll timer callback will check the
+            connection status and spin up data collection once it sees that
+            the connection is live.
+
+            :param server_id: String ID of requested server
+        """
+        # Nothing to do if the server ID is invalid
+        if not server_id:
+            return
+                 
+        # Nothing to do if already connected to this server
+        if self._wsc.IsConnected() and server_id == self._connected_server_id:
+            return
+
+        # Keep track of current server
+        self._connected_server_id = server_id
+
+        # Asynchronous request
+        rfb_log().debug('Requesting connection to server: %s', server_id)
+        self._wsc.ConnectToServer(self._host, server_id)
+
+    def disconnectFromServer(self):
+        """ Disconnect from currently active server.
+
+            This will post an asynchronous request then block waiting for the
+            async queue to clear.
+            When we return from this method the client is fully disconnected.
+        """
+        if self._wsc.IsConnected():
+            rfb_log().debug('Client disconnecting')
+            self._wsc.DisconnectFromServer()
+            self._connected_server_id = None
+        else:
+            # Usually gets disconnected when server changes to None but we
+            # may get a second request to disconnect for other reasons
+            rfb_log().debug('Client already disconnected')
+
+    def getConnectedServerId(self) -> Union[str, None]:
+        """ Get the ID of the currently connected server.
+            :return: Server ID string or empty string if live connection
+                     is not active.
+        """
+        if self._wsc.IsConnected():
+            return self._connected_server_id
+        else:
+            return None
+
+    def clientConnected(self) -> bool:
+        """ Check connection state.
+
+            :return: True if the WebSocketStatsClient connection is active,
+                     False otherwise.
+        """
+        return self._wsc and self._wsc.IsConnected()
+
+    def failedToConnect(self) -> bool:
+        """ Check if there is a connection failure in the client.
+            :return: True if we've created a WebSocketStatsClient and if
+            the attempt to connect failed. Useful for UI warnings.
+        """
+        return self._wsc and self._wsc.FailedToConnect()
+
+    def connectionStatusString(self) -> str:
+        """ Get a string describing current connection status.
+            Useful for UI display when "FailedToConnect" is true.
+            :return: Client status as a string
+        """
+        return self._wsc.ConnectionStatusString()
+
+    def enableMetric(self, name: str, interval: int = 250):
+        """ Asynchronous request to observe a metric.
+
+            Send asynchronous message to server which will register interest
+            in this metric. If metric is available the WebSocketStatsClient
+            will automatically begin receiving data. The payload data from
+            the metrics is cached and can be retrieved using getLatestData()
+
+            :param name: Full name of metric to be observed
+            :param interval: Requested sampling interval
+        """
+        if self._wsc:
+            self._wsc.EnableMetric(name, interval)
+
+    def getLatestData(self) -> str:
+        """ Get current payload data from WebSocketStatsClient cache.
+            :return: String containing the latest metric payloads in JSON format.
+        """
+        return self._wsc.PullData()
+
 class RfBStatsManager(object):
 
     def __init__(self, rman_render):
-        global __RFB_STATS_MANAGER__
-        global __LIVE_METRICS__
+        global RFB_STATS_MANAGER
+        global LIVE_METRICS
 
         self.mgr = None
         self.rman_render = rman_render
@@ -113,13 +258,13 @@ class RfBStatsManager(object):
         self._prevTotalRaysValid = True
         self._isRendering = False
 
-        for name,label in __LIVE_METRICS__:
+        for name,label in LIVE_METRICS:
             if name:
                 self.render_stats_names[name] = label
             if label:
                 self.render_live_stats[label] = '--'                
 
-        self.export_stat_label = ''
+        self.export_stat_label = 'Exporting'
         self.export_stat_progress = 0.0
 
         self._integrator = 'PxrPathTracer'
@@ -138,7 +283,7 @@ class RfBStatsManager(object):
         self.rman_stats_session_config = None        
 
         self.init_stats_session()
-        __RFB_STATS_MANAGER__ = self
+        RFB_STATS_MANAGER = self
 
     def __del__(self):
         if self.boot_strap_thread.is_alive():
@@ -147,8 +292,8 @@ class RfBStatsManager(object):
 
     @classmethod
     def get_stats_manager(self):
-        global __RFB_STATS_MANAGER__
-        return __RFB_STATS_MANAGER__        
+        global RFB_STATS_MANAGER
+        return RFB_STATS_MANAGER        
 
     def reset(self):
         for label in self.render_live_stats.keys():
@@ -163,12 +308,11 @@ class RfBStatsManager(object):
     def create_stats_manager(self): 
         if self.mgr:
             return
-
+        
         try:
-            self.mgr = stcore.StatsManager(                          
-                        # sync live stats server ID betw UI (client) & plugin (server)
-                        host_assign_server_id_func=self.assign_server_id_func)
-            self.is_valid = self.mgr.is_valid
+            self.mgr = RfBLiveStatsClient()
+            self.is_valid = self.mgr.is_valid()
+            
         except Exception as e:
             rfb_log().error(str(e))
             self.mgr = None
@@ -178,11 +322,9 @@ class RfBStatsManager(object):
 
         self.rman_stats_session_config = rman.Stats.SessionConfig(self.rman_stats_session_name)
 
-        # look for a custom stats.ini file
-        rman_stats_config_path = os.environ.get('RMAN_STATS_CONFIG_PATH', None)
-        if rman_stats_config_path:
-            if os.path.exists(os.path.join(rman_stats_config_path, 'stats.ini')):
-                self.rman_stats_session_config.LoadConfigFile(rman_stats_config_path, 'stats.ini')
+        # load the default stats.ini config file
+        # TODO RMAN-23901: add custom path/name or move this to the ctor
+        self.rman_stats_session_config.LoadConfigFile('', 'stats.ini')
 
         # add listener plugin path
         listenerPath = os.path.join(os.environ.get("RMANTREE"), "lib/plugins/listeners")
@@ -196,51 +338,25 @@ class RfBStatsManager(object):
         self.update_session_config()     
 
     def stats_add_session(self):
-        self.rman_stats_session = rman.Stats.AddSession(self.rman_stats_session_config)  
+        self.rman_stats_session = rman.Stats.AddSession(self.rman_stats_session_config)
+        self.rman_stats_session_name = self.rman_stats_session.GetName()
 
     def stats_remove_session(self):
         rman.Stats.RemoveSession(self.rman_stats_session)  
 
     def update_session_config(self, force_enabled=False):
-
-        self.web_socket_enabled = True # we are always enabled
-        self.web_socket_port = prefs_utils.get_pref('rman_roz_webSocketServer_Port', default=0)
-
-        if force_enabled:
-            self.web_socket_enabled = True
-
-        config_dict = dict()
-        config_dict["logLevel"] = int(prefs_utils.get_pref('rman_roz_logLevel', default='3'))
-        config_dict["webSocketPort"] = self.web_socket_port
-        config_dict["liveStatsEnabled"] = self.web_socket_enabled
-
-        config_str = json.dumps(config_dict)
-        self.rman_stats_session_config.Update(config_str)
-        if self.rman_stats_session:
-            self.rman_stats_session.Update(self.rman_stats_session_config)   
-
-        # update stats manager config for connecting client to server
-        self.mgr.config["webSocketPort"] = self.web_socket_port
-        self.mgr.serverId = self.web_socket_server_id
-
         # update what stats to draw
         print_level = int(prefs_utils.get_pref('rman_roz_stats_print_level', default='1'))
         if print_level == 1:
-            self.stats_to_draw = __BASIC_STATS__
+            self.stats_to_draw = BASIC_STATS
         elif print_level == 2:
-            self.stats_to_draw = __MODERATE_STATS__
+            self.stats_to_draw = MODERATE_STATS
         elif print_level == 3:
-            self.stats_to_draw = __MOST_STATS__            
+            self.stats_to_draw = MOST_STATS            
         elif print_level == 4:
-            self.stats_to_draw = __ALL_STATS__
+            self.stats_to_draw = ALL_STATS
         else:
             self.stats_to_draw = list()        
-
-        if self.web_socket_enabled:
-            #self.attach()
-            pass
-        else:
-            self.disconnect()
 
     def assign_server_id_func(self):
         """ If we have an active render get the serverId string that was used for the
@@ -248,34 +364,38 @@ class RfBStatsManager(object):
             Note: This is called by live stats UI polling method to determine current
             live stats server so it should be kept as simple as possible.
 
-            Returns: Server ID string, or None if a render is not running or if
-            the serverId is not found.
+            Returns: A tuple containing:
+            (bool: is live stats supported, i.e. USD version is recent enough,
+            str:  renderer name, 'prman' currently,
+            str:  server ID, None if no render or not supported)
         """
 
-        # No stats if no render
-        if not self.rman_render.rman_running:
-            return None
-        
-        return self.web_socket_server_id            
+        live_stats_supported = True
+        renderer = 'prman'
+        serverId = self.web_socket_server_id
+        if not self.rman_render.rman_context.is_render_running():
+            serverId = None
+
+        return (live_stats_supported, renderer, serverId)
 
 
     def boot_strap(self):
+        
         while not self.mgr.clientConnected():
-            time.sleep(0.01)
             if self.boot_strap_thread_kill:
                 rfb_log().debug("Bootstrap thread killed")
                 return
+            self.mgr.connectToServer(self.web_socket_server_id) # keep trying to connect
+            time.sleep(0.1)
             if self.mgr.failedToConnect():
                 rfb_log().debug('Failed to connect to stats server: %s' % self.mgr.connectionStatusString())
-                self.mgr.connectToServer() # keep trying to connect
-                continue
 
         if self.mgr.clientConnected():
             rfb_log().debug("Connected to stats server. Declare interest")
-            for name,label in __LIVE_METRICS__:
+            for name,label in LIVE_METRICS:
                 # Declare interest
                 if name:
-                    self.mgr.enableMetric(name) 
+                    self.mgr.enableMetric(name, 100)         
 
     def kill_boostap_thread(self):
         # if the bootstrap thread is still running, kill it
@@ -290,13 +410,7 @@ class RfBStatsManager(object):
 
         if not self.mgr:
             return False
-
-        if (self.mgr.clientConnected()):
-            return True
-
-        # Manager will connect based on given configuration & serverId
-        self.mgr.connectToServer()
-
+        
         # Check if the boostrapping thread is still running
         # Shouldn't really need this, but let's just be sure.
         self.kill_boostap_thread()
@@ -314,7 +428,8 @@ class RfBStatsManager(object):
         return True
 
     def is_connected(self):
-        return (self.web_socket_enabled and self.mgr and self.mgr.clientConnected())
+        return (self.mgr and self.mgr.clientConnected())
+        # return (self.web_socket_enabled and self.mgr and self.mgr.clientConnected())
 
     def disconnect(self):
         if self.is_connected():
@@ -338,7 +453,7 @@ class RfBStatsManager(object):
         except KeyError:
             # could not find the metric name in the JSON
             # try re-registering it again
-            self.mgr.enableMetric(name)
+            self.mgr.enableMetric(name, 100)
             return None
 
     def update_payloads(self):
@@ -366,7 +481,16 @@ class RfBStatsManager(object):
                 if not dat:
                     continue
 
-                if name == "/system.processMemory":
+                if name == "/system.processTime":
+                    # Payload has 4 floats: user, sys, current%, avg%
+                    timePayload = dat["payload"]
+                    currentPerc = (float)(timePayload[2])
+                    avgPerc = (float)(timePayload[3])
+
+                    # Set consistent fixed point output in string
+                    self.render_live_stats[label] = '{:,.2f}% (Avg {:,.2f}%)'.format(currentPerc, avgPerc)
+
+                elif name == "/system.processMemory":
                     # Payload has 3 floats: max, resident, XXX
                     # Convert resident mem to MB : payload[1] / 1024*1024;
                     memPayload = dat["payload"]
@@ -407,7 +531,7 @@ class RfBStatsManager(object):
                 elif name == "/rman/renderer@progress":
                     progressVal = int(float(dat['payload']))
                     self._progress = progressVal                      
-                elif name in __TIMER_STATS__:
+                elif name in TIMER_STATS:
                     fval = float(dat['payload'])
                     if fval >= 60.0:
                         txt = '%d min %.04f sec' % divmod(fval, 60.0)
@@ -432,17 +556,38 @@ class RfBStatsManager(object):
     def set_export_stats(self, label, progress):
         self.export_stat_label = label
         self.export_stat_progress = progress
+        if self.rman_render.progress_bar_app:
+            self.rman_render.progress_bar_window.update_progress(self.export_stat_label, self.export_stat_progress * 100)       
+            self.rman_render.progress_bar_app.processEvents()
 
     def draw_stats(self):
-        if self.rman_render.rman_is_exporting:
+        if self.rman_render.rman_context.is_exporting_state():
             self.draw_export_stats()
         else:
             self.draw_render_stats()        
 
+    def draw_message(self, msg):
+        if self.rman_render.rman_context.is_interactive_running():
+            pass
+        else:
+            message = ''
+            if self.is_connected():                  
+                message = msg                            
+            else:
+                message = '(no stats connection) '          
+
+            try:
+                self.rman_render.bl_engine.update_stats(message, "%d%%" % self._progress)  
+                progress = float(self._progress) / 100.0  
+                self.rman_render.bl_engine.update_progress(progress)
+            except ReferenceError as e:
+                rfb_log().error("Error calling update stats (%s). Aborting..." % str(e))
+                return           
+
     def draw_export_stats(self):
         if self.rman_render.bl_engine:
             try:
-                if self.rman_render.rman_interactive_running:
+                if self.rman_render.rman_context.is_interactive_running():
                     progress = int(self.export_stat_progress*100)
                     self.rman_render.bl_engine.update_stats('RenderMan (Stats)', "\n%s: %d%%" % (self.export_stat_label, progress))
                 else:
@@ -454,10 +599,10 @@ class RfBStatsManager(object):
                 rfb_log().debug("Cannot update progress")        
 
     def draw_render_stats(self):
-        if not self.rman_render.rman_running:
+        if not self.rman_render.rman_context.is_render_running():
             return
            
-        if self.rman_render.rman_interactive_running:
+        if self.rman_render.rman_context.is_interactive_running():
             message = '\n%s, %d, %d%%' % (self._integrator, self._decidither, self._res_mult)
             if self.is_connected():
                 for label in self.stats_to_draw:
@@ -473,7 +618,7 @@ class RfBStatsManager(object):
         else:
             message = ''
             if self.is_connected():
-                for label in __BASIC_STATS__:
+                for label in BASIC_STATS:
                     data = self.render_live_stats[label]
                     message = message + '%s: %s ' % (label, data)       
                 # iterations                    

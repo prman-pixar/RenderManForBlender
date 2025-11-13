@@ -106,14 +106,8 @@ class RmanScene(object):
         self.rm_rl = None
 
         self.do_motion_blur = False
-        self.rman_bake = False
-        self.is_interactive = False
-        self.external_render = False
-        self.is_viewport_render = False
-        self.is_swatch_render = False
         self.scene_solo_light = False
         self.scene_any_lights = False
-        self.is_xpu = False
 
         self.rman_materials = dict()
         self.rman_translators = dict()
@@ -140,7 +134,40 @@ class RmanScene(object):
 
         self.create_translators()
 
-
+    @property
+    def external_render(self):
+        return self.rman_render.rman_context.is_external()
+    
+    @property 
+    def rman_bake(self):
+        return self.rman_render.rman_context.is_bake_mode()
+    
+    @property
+    def is_rib_mode(self):
+        return self.rman_render.rman_context.is_rib_mode()
+    
+    @property
+    def is_interactive(self):
+        return self.rman_render.rman_context.is_interactive_running()
+    
+    @property
+    def is_viewport_render(self):
+        return self.rman_render.rman_context.is_viewport_rendering()
+    
+    @property
+    def is_swatch_render(self):
+        return self.rman_render.rman_context.is_swatch_rendering()
+    
+    @property
+    def is_xpu(self):
+        return self.rman_render.rman_context.is_xpu()
+    
+    @property
+    def use_blender_light_link(self):
+        if not rman_constants.BLENDER_41:
+            return False
+        return self.bl_scene.renderman.use_blender_light_link == '1'
+        
     def create_translators(self):
         # Create our dictionary of translators. The object type is determined
         # by the "_detect_primitive_" function in rfb_utils/object_utils.py
@@ -194,7 +221,6 @@ class RmanScene(object):
         self.render_default_light = False
         self.world_df_node = None
         self.default_light = None
-        self.is_xpu = False
         self.num_object_instances = 0
         self.num_objects_in_viewlayer = 0
         self.objects_in_viewlayer.clear()
@@ -212,31 +238,24 @@ class RmanScene(object):
         self.bl_view_layer = depsgraph.view_layer_eval
         self._find_renderman_layer()       
 
-    def export_for_final_render(self, depsgraph, sg_scene, bl_view_layer, is_external=False):
+    def export_for_final_render(self, depsgraph, sg_scene, bl_view_layer):
         self.sg_scene = sg_scene
         self.context = bpy.context
         self.bl_scene = depsgraph.scene_eval
         self.bl_view_layer = bl_view_layer
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = is_external
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = self.bl_scene.renderman.motion_blur
-        self.export()
+        return self.export()
 
-    def export_for_bake_render(self, depsgraph, sg_scene, bl_view_layer, is_external=False):
+    def export_for_bake_render(self, depsgraph, sg_scene, bl_view_layer):
         self.sg_scene = sg_scene
         self.context = bpy.context
         self.bl_scene = depsgraph.scene_eval
         self.bl_view_layer = bl_view_layer
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = is_external
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = self.bl_scene.renderman.motion_blur
-        self.rman_bake = True
 
         if self.bl_scene.renderman.hider_type == 'BAKE_BRICKMAP_SELECTED':
             self.export_bake_brickmap_selected()
@@ -250,17 +269,9 @@ class RmanScene(object):
         self.bl_scene = depsgraph.scene_eval
         self._find_renderman_layer()
         self.depsgraph = depsgraph
-        self.external_render = False
-        self.is_interactive = True
-        self.is_viewport_render = False
-        self.rman_bake = False
-
-        if self.ipr_render_into == 'blender':
-            self.is_viewport_render = True
-
         self.do_motion_blur = False
 
-        self.export()
+        return self.export()
 
     def export_for_rib_selection(self, context, sg_scene):
         self.reset()
@@ -271,10 +282,6 @@ class RmanScene(object):
         self.depsgraph = context.evaluated_depsgraph_get()
         self.bl_view_layer = self.depsgraph.view_layer_eval
         self._find_renderman_layer()
-        self.rman_bake = False
-        self.external_render = False
-        self.is_interactive = False
-        self.is_viewport_render = False
 
         self.export_root_sg_node()
         self.export_materials([m for m in self.depsgraph.ids if isinstance(m, bpy.types.Material)])
@@ -285,12 +292,7 @@ class RmanScene(object):
         self.context = bpy.context #None
         self.bl_scene = depsgraph.scene_eval
         self.depsgraph = depsgraph
-        self.external_render = False
-        self.is_interactive = False
-        self.is_viewport_render = False
         self.do_motion_blur = False
-        self.rman_bake = False
-        self.is_swatch_render = True
         self.export_swatch_render_scene()
 
     def export(self):
@@ -298,8 +300,6 @@ class RmanScene(object):
         self.reset()
 
         self.render_default_light = self.bl_scene.renderman.render_default_light
-        if sys.platform != "darwin":
-            self.is_xpu = (self.bl_scene.renderman.renderVariant != 'prman')
 
         # update variables
         string_utils.set_var('scene', self.bl_scene.name.replace(' ', '_'))
@@ -324,7 +324,8 @@ class RmanScene(object):
         self.scene_any_lights = self._scene_has_lights()
 
         rfb_log().debug("Calling export_data_blocks()")
-        self.export_data_blocks()
+        if not self.export_data_blocks():
+            return False
 
         self.export_searchpaths()
         self.export_global_options()
@@ -343,7 +344,8 @@ class RmanScene(object):
 
         if self.do_motion_blur:
             rfb_log().debug("Calling export_instances_motion()")
-            self.export_instances_motion()
+            if not self.export_instances_motion():
+                return False
 
         self.rman_render.stats_mgr.set_export_stats("Finished Export", 1.0)
         self.num_object_instances = len(self.depsgraph.object_instances)
@@ -355,6 +357,8 @@ class RmanScene(object):
             self.export_viewport_stats()
         else:
             self.export_stats()
+
+        return True
 
     def export_bake_render_scene(self):
         self.reset()
@@ -512,6 +516,17 @@ class RmanScene(object):
 
         self.export_data_blocks()
 
+    def cancel_requested(self):
+        try:
+            if self.rman_render.bl_engine and self.rman_render.bl_engine.test_break():
+                return True
+        except ReferenceError as e:
+            rfb_log().debug('Cannot check test_break(): %s' % str(e))
+            pass
+        if self.rman_render.rman_context.is_canceled_state():
+            return True
+        return False        
+
     def set_root_lightlinks(self, rixattrs=None):
         rm = self.bl_scene.renderman
         root_sg = self.get_root_sg_node()
@@ -519,30 +534,33 @@ class RmanScene(object):
         if rixattrs is None:
             attrs = root_sg.GetAttributes()    
         all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]            
+        if not rm.use_blender_light_link:
 
-        if rm.invert_light_linking:
-            all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
-            for ll in rm.light_links:
-                light_ob = ll.light_ob
-                light_nm = string_utils.sanitize_node_name(light_ob.name)
-                light_props = shadergraph_utils.get_rman_light_properties_group(light_ob)
-                if light_props.renderman_light_role == 'RMAN_LIGHT':
-                    if light_nm in all_lights:
-                        all_lights.remove(light_nm)
-                elif light_nm in all_lightfilters:
-                    all_lightfilters.remove(light_nm)
+            if rm.invert_light_linking:
+                all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
+                for ll in rm.light_links:
+                    light_ob = ll.light_ob
+                    light_nm = string_utils.sanitize_node_name(light_ob.name)
+                    light_props = shadergraph_utils.get_rman_light_properties_group(light_ob)
+                    if light_props.renderman_light_role == 'RMAN_LIGHT':
+                        if light_nm in all_lights:
+                            all_lights.remove(light_nm)
+                    elif light_nm in all_lightfilters:
+                        all_lightfilters.remove(light_nm)
 
-            if all_lights:
-                attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, ' '. join(all_lights) )
+                if all_lights:
+                    attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, ' '. join(all_lights) )
+                else:
+                    attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, '*')
+
+                if all_lightfilters:
+                    attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ' '. join(all_lightfilters) )
+                else:
+                    attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, '*')
             else:
-                attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, '*')
-
-            if all_lightfilters:
-                attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ' '. join(all_lightfilters) )
-            else:
-                attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, '*')
-        else:
-            attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ','. join(all_lightfilters) )
+                attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ','. join(all_lightfilters) )
+        # else:
+        #    attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ','. join(all_lightfilters) )
 
         if rixattrs is None:
             root_sg.SetAttributes(attrs)           
@@ -607,28 +625,15 @@ class RmanScene(object):
 
     def get_rman_sg_instance(self, ob_inst, rman_sg_node, instance_parent, psys, create=True):  
         group_db_name = object_utils.get_group_db_name(ob_inst) 
-        rman_parent_node = None
-        if psys and instance_parent:
-            rman_parent_node = self.get_rman_prototype(object_utils.prototype_key(instance_parent), ob=instance_parent, create=True)
-            if rman_parent_node:
-                if group_db_name in rman_parent_node.instances:
-                    return rman_parent_node.instances[group_db_name]
-        else:
-            if group_db_name in rman_sg_node.instances:
-                return rman_sg_node.instances[group_db_name]
+        if group_db_name in rman_sg_node.instances:
+            return rman_sg_node.instances[group_db_name]
 
         rman_sg_group = None
         if create:
             rman_group_translator = self.rman_translators['GROUP']
             rman_sg_group = rman_group_translator.export(None, group_db_name)
             rman_sg_group.sg_node.AddChild(rman_sg_node.sg_node)       
-
-            if rman_parent_node:
-                # this is an instance that comes from a particle system
-                # add this instance to the rman_sg_node that owns the particle system        
-                rman_parent_node.instances[group_db_name] = rman_sg_group
-            else:       
-                rman_sg_node.instances[group_db_name] = rman_sg_group                   
+            rman_sg_node.instances[group_db_name] = rman_sg_group
 
         return rman_sg_group       
 
@@ -667,26 +672,44 @@ class RmanScene(object):
                 # the material of the object
                 self.attach_material(ob_eval, rman_sg_group)        
         elif psys:
-            self.attach_particle_material(psys.settings, instance_parent, ob_eval, rman_sg_group)
+            self.attach_particle_material(psys, instance_parent, ob_eval, rman_sg_group)
             rman_sg_group.bl_psys_settings = psys.settings.original     
         elif ob_eval.renderman.rman_material_override:
             self.attach_material(ob_eval, rman_sg_group) 
         else:
-            rman_sg_group.sg_node.SetMaterial(None)                   
+            rman_sg_group.sg_node.SetMaterial(None)        
+            rman_sg_group.is_meshlight = rman_sg_node.is_meshlight           
 
         if is_empty_instancer:
             # if this is an empty instancer, add as a child to the empty instancer
             parent_proto_key = object_utils.prototype_key(instance_parent)
             rman_parent_node = self.get_rman_prototype(parent_proto_key, ob=instance_parent, create=True)             
             rman_parent_node.sg_attributes.AddChild(rman_sg_group.sg_node)
+            rman_sg_group.is_meshlight = rman_parent_node.is_meshlight
         else:
             rman_sg_node.sg_attributes.AddChild(rman_sg_group.sg_node)
 
         # check if instance has transform motion
-        if self.do_motion_blur and object_utils.is_transforming(ob_eval):
+        if self.do_motion_blur: 
             mb_segs = self.bl_scene.renderman.motion_segments
-            if ob_eval.renderman.motion_segments_override:
-                mb_segs = ob_eval.renderman.motion_segments
+            if ob_inst.is_instance:
+                # this is an instance
+                # check if we need to blur 
+                if psys:
+                    if psys.settings.renderman.motion_segments_override:
+                        mb_segs = psys.settings.renderman.motion_segments
+                elif is_empty_instancer:
+                    if instance_parent.renderman.motion_segments_override:
+                        mb_segs = instance_parent.renderman.motion_segments                   
+                elif ob_inst.instance_object.renderman.motion_segments_override:
+                    mb_segs = ob_inst.instance_object.renderman.motion_segments
+            else:
+                if object_utils.is_transforming(ob_eval):
+                    if ob_eval.renderman.motion_segments_override:
+                        mb_segs = ob_eval.renderman.motion_segments
+                else:
+                    mb_segs = 1
+
             if mb_segs > 1:
                 subframes = scene_utils._get_subframes_(mb_segs, self.bl_scene)
                 rman_sg_group.motion_steps = subframes
@@ -706,9 +729,11 @@ class RmanScene(object):
     def export_data_blocks(self, selected_objects=False, objects_list=False):
         total = len(self.depsgraph.object_instances)
         for i, ob_inst in enumerate(self.depsgraph.object_instances):
+            if self.cancel_requested():
+                return False
             ob = ob_inst.object
             rfb_log().debug("   Exported %d/%d instances... (%s)" % (i, total, ob.name))
-            self.rman_render.stats_mgr.set_export_stats("Exporting instances",i/total)
+            self.rman_render.stats_mgr.set_export_stats("Exporting (%s)" % ob.name,i/total)
             if ob.type in ('CAMERA'):
                 continue
 
@@ -743,16 +768,13 @@ class RmanScene(object):
                 continue
 
             self.export_instance(ob_eval, ob_inst, rman_sg_node, rman_type, instance_parent, psys)
+        return True
 
     def export_data_block(self, proto_key, ob):
         rman_type = object_utils._detect_primitive_(ob)
 
         if rman_type == "META":
-            if rman_constants.META_AS_MESH:
-                return None
-            # only add the meta instance that matches the family name
-            if ob.name_full != object_utils.get_meta_family(ob):
-                return None
+            return None
 
         if proto_key in self.rman_prototypes:
             return self.rman_prototypes[proto_key]
@@ -770,24 +792,10 @@ class RmanScene(object):
         rman_sg_node.rman_type = rman_type
         self.rman_prototypes[proto_key] = rman_sg_node
 
-        # motion blur
-        # we set motion steps for this object, even if it's not moving
-        # it could be moving as part of a particle system
-        #
-        # FIXME: remove the checking of transform motion here, this should
-        # and is already being done in export_instance.
-        mb_segs = -1
+        # set deformation motion segments
         mb_deform_segs = -1
         if self.do_motion_blur:
-            mb_segs = self.bl_scene.renderman.motion_segments
             mb_deform_segs = self.bl_scene.renderman.deform_motion_segments
-            if ob.renderman.motion_segments_override:
-                mb_segs = ob.renderman.motion_segments
-            if mb_segs > 1:
-                subframes = scene_utils._get_subframes_(mb_segs, self.bl_scene)
-                rman_sg_node.motion_steps = subframes
-                self.motion_steps.update(subframes)
-
             if ob.renderman.motion_segments_override:
                 mb_deform_segs = ob.renderman.deform_motion_segments
 
@@ -796,14 +804,12 @@ class RmanScene(object):
                 rman_sg_node.deform_motion_steps = subframes
                 self.motion_steps.update(subframes)
 
-        if rman_sg_node.is_transforming or rman_sg_node.is_deforming:
-            if mb_segs > 1 or mb_deform_segs > 1:
-                self.moving_objects[ob.name_full] = ob
+            if rman_sg_node.is_deforming:
+                if mb_deform_segs > 1:
+                    self.moving_objects[ob.name_full] = ob
 
-            if mb_segs < 1:
-                rman_sg_node.is_transforming = False
-            if mb_deform_segs < 1:
-                rman_sg_node.is_deforming = False
+                if mb_deform_segs < 1:
+                    rman_sg_node.is_deforming = False        
 
         translator.update(ob, rman_sg_node)
         
@@ -860,19 +866,17 @@ class RmanScene(object):
 
     def export_instances_motion(self, selected_objects=False):
         origframe = self.bl_scene.frame_current
-
-        mb_segs = self.bl_scene.renderman.motion_segments
-        origframe = self.bl_scene.frame_current
-
         motion_steps = sorted(list(self.motion_steps))
 
         first_sample = False
         delta = 0.0
         if len(motion_steps) > 0:
             delta = -motion_steps[0]
-        psys_translator = self.rman_translators['PARTICLES']
         rman_group_translator = self.rman_translators['GROUP']
+        deform_sampled = dict() # dictionary to know what segment we've already sampled for deform blur
         for samp, seg in enumerate(motion_steps):
+            if self.cancel_requested():
+                return False            
             first_sample = (samp == 0)
             if seg < 0.0:
                 self.rman_render.bl_engine.frame_set(origframe - 1, subframe=1.0 + seg)
@@ -882,12 +886,11 @@ class RmanScene(object):
             self.depsgraph.update()
             time_samp = seg + delta # get the normlized version of the segment
             total = len(self.depsgraph.object_instances)
-            objFound = False
 
             # update camera
             if not first_sample and self.main_camera.is_transforming and seg in self.main_camera.motion_steps:
                 cam_translator =  self.rman_translators['CAMERA']
-                idx = 0
+                idx = -1
                 for i, s in enumerate(self.main_camera.motion_steps):
                     if s == seg:
                         idx = i
@@ -896,6 +899,8 @@ class RmanScene(object):
 
             rfb_log().debug(" Export Sample: %i" % samp)
             for i, ob_inst in enumerate(self.depsgraph.object_instances):
+                if self.cancel_requested():
+                    return False                
                 if selected_objects and not self.is_instance_selected(ob_inst):
                     continue
 
@@ -916,28 +921,10 @@ class RmanScene(object):
                 if rman_type in object_utils._RMAN_NO_INSTANCES_:
                     continue
 
-                # check particles for motion
-                '''
-                for psys in ob.particle_systems:
-                    ob_psys = self.rman_particles.get(proto_key, None)
-                    if not ob_psys:
+                # if an object is not an instance, check if it's a moving object
+                if not ob_inst.is_instance:
+                    if ob.name_full not in self.moving_objects:
                         continue
-                    rman_sg_particles = ob_psys.get(psys.settings.original, None)
-                    if not rman_sg_particles:
-                        continue
-                    if not seg in rman_sg_particles.motion_steps:
-                        continue
-                    idx = 0
-                    for i, s in enumerate(rman_sg_particles.motion_steps):
-                        if s == seg:
-                            idx = i
-                            break
-                    psys_translator.export_deform_sample(rman_sg_particles, ob, psys, idx)
-                '''
-
-                # object is not moving and not part of a particle system
-                if ob.name_full not in self.moving_objects and not psys:
-                    continue
 
                 rman_sg_node = self.get_rman_prototype(proto_key, ob=ob)
                 if not rman_sg_node:
@@ -945,37 +932,40 @@ class RmanScene(object):
 
                 rman_sg_group = self.get_rman_sg_instance(ob_inst, rman_sg_node, instance_parent, psys)
                 if not rman_sg_group:
-                    continue
+                    continue         
 
                 # transformation blur
-                if seg in rman_sg_group.motion_steps:
+                if rman_sg_group.is_transforming and seg in rman_sg_group.motion_steps:
                     idx = 0
                     for i, s in enumerate(rman_sg_group.motion_steps):
                         if s == seg:
                             idx = i
                             break
 
-                    if rman_sg_group.is_transforming or psys:
-                        if first_sample:
-                            rman_group_translator.update_transform_num_samples(rman_sg_group, rman_sg_group.motion_steps ) 
-                        rman_group_translator.update_transform_sample( ob_inst, rman_sg_group, idx, time_samp)
+                    if first_sample:
+                        rman_group_translator.update_transform_num_samples(rman_sg_group, rman_sg_group.motion_steps ) 
+                    rman_group_translator.update_transform_sample( ob_inst, rman_sg_group, idx, time_samp)
 
                 # deformation blur
-                if rman_sg_node.is_deforming and seg in rman_sg_node.deform_motion_steps:
+                sampled = deform_sampled.get(rman_sg_node, list())
+                if rman_sg_node.is_deforming and seg in rman_sg_node.deform_motion_steps and seg not in sampled:
                     rman_type = rman_sg_node.rman_type
                     if rman_type in ['MESH', 'FLUID', 'CURVES']:
-                        translator = self.rman_translators.get(rman_type, None)
-                        if translator:
+                        translator = self.rman_translators.get(rman_type, None)                        
+                        if translator :
                             deform_idx = 0
                             for i, s in enumerate(rman_sg_node.deform_motion_steps):
                                 if s == seg:
                                     deform_idx = i
                                     break
                             translator.export_deform_sample(rman_sg_node, ob, deform_idx)
+                            sampled.append(seg)
+                            deform_sampled[rman_sg_node] = sampled
 
         self.rman_render.bl_engine.frame_set(origframe, subframe=0)
         rfb_log().debug("   Finished exporting motion instances")
         self.rman_render.stats_mgr.set_export_stats("Finished exporting motion instances", 100)
+        return True
 
     def export_defaultlight(self):
         # Export a headlight light if needed
@@ -1037,38 +1027,48 @@ class RmanScene(object):
             self.get_root_sg_node().AddChild(rman_sg_node.sg_node)
             self.get_root_sg_node().AddCoordinateSystem(rman_sg_node.sg_node)
 
-    def attach_material(self, ob, rman_sg_node, sg_node=None):
+    def get_rman_sg_material(self, ob, psys=None, parent=None):
+        # return the rman_sg_material node for this object
+        if psys:
+            psys_settings = psys.settings
+            if not object_utils.is_particle_instancer(psys=None, particle_settings=psys_settings):
+                return (None, None)
+            
+            if psys_settings.renderman.override_instance_material:
+                mat_idx = psys_settings.material - 1
+                if mat_idx < len(parent.material_slots):
+                    mat = parent.material_slots[mat_idx].material
+                    rman_sg_material = self.rman_materials.get(mat.original, None)
+                    if rman_sg_material:
+                        return (mat, rman_sg_material)
+                return (None, None)
+            
         mat = object_utils.get_active_material(ob)
         if mat:
             rman_sg_material = self.rman_materials.get(mat.original, None)
             if rman_sg_material and rman_sg_material.sg_node:
-                if sg_node is None:
-                    sg_node = rman_sg_node.sg_node
-                scenegraph_utils.set_material(sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-                rman_sg_node.is_meshlight = rman_sg_material.has_meshlight
+                return (mat, rman_sg_material)
+        return (None, None)        
 
-    def attach_particle_material(self, psys_settings, parent, ob, group):
+    def attach_material(self, ob, rman_sg_node, sg_node=None):
+        mat, rman_sg_material = self.get_rman_sg_material(ob)
+        if not rman_sg_material:
+            return
+        if sg_node is None:
+            sg_node = rman_sg_node.sg_node
+        scenegraph_utils.set_material(sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
+        rman_sg_node.is_meshlight = rman_sg_material.has_meshlight
+
+    def attach_particle_material(self, psys, parent, ob, group):
         # This function should only be used by particle instancing.
         # For emitters and hair, the material attachment is done in either
         # the emitter translator or hair translator directly
 
-        if not object_utils.is_particle_instancer(psys=None, particle_settings=psys_settings):
+        mat, rman_sg_material = self.get_rman_sg_material(ob, psys=psys, parent=parent)
+        if not rman_sg_material:
             return
-
-        if psys_settings.renderman.override_instance_material:
-            mat_idx = psys_settings.material - 1
-            if mat_idx < len(parent.material_slots):
-                mat = parent.material_slots[mat_idx].material
-                rman_sg_material = self.rman_materials.get(mat.original, None)
-                if rman_sg_material:
-                    scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-        else:
-            mat = object_utils.get_active_material(ob)
-            if mat:
-                rman_sg_material = self.rman_materials.get(mat.original, None)
-                if rman_sg_material and rman_sg_material.sg_node:
-                    scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
-                    group.is_meshlight = rman_sg_material.has_meshlight
+        scenegraph_utils.set_material(group.sg_node, rman_sg_material.sg_node, rman_sg_material, mat=mat, ob=ob)
+        group.is_meshlight = rman_sg_material.has_meshlight
 
     def check_light_local_view(self, ob, rman_sg_node):
         if self.is_interactive and self.context.space_data:
@@ -1102,7 +1102,7 @@ class RmanScene(object):
         RMAN_SHADERPATH = envconfig().getenv('RMAN_SHADERPATH', '')
         RMAN_TEXTUREPATH = envconfig().getenv('RMAN_TEXTUREPATH', '')
         RMAN_RIXPLUGINPATH = envconfig().getenv('RMAN_RIXPLUGINPATH', '')
-        if sys.platform == ("win32"):
+        if rman_constants.RFB_PLATFORM == "windows":
             # substitute ; for : in paths
             RMAN_SHADERPATH = RMAN_SHADERPATH.replace(';', ':')
             RMAN_TEXTUREPATH = RMAN_TEXTUREPATH.replace(';', ':')
@@ -1181,7 +1181,7 @@ class RmanScene(object):
             property_utils.set_rioption_bl_prop(options, prop_name, meta, rm)
 
         # threads
-        if not self.external_render:
+        if not self.is_rib_mode:
             options.SetInteger(self.rman.Tokens.Rix.k_limits_threads, rm.threads)
 
         # pixelfilter
@@ -1205,6 +1205,7 @@ class RmanScene(object):
         # Always turn off xml stats when in interactive
         if self.is_interactive:
             options.SetInteger(self.rman.Tokens.Rix.k_statistics_level, 0)
+            options.SetInteger(self.rman.Tokens.Rix.k_statistics_jsonEnabled, 0)
 
         # Set bucket shape
         bucket_order = rm.opt_bucket_order.lower()
@@ -1299,7 +1300,7 @@ class RmanScene(object):
                 self.rman_cameras[main_cam.original] = self.main_camera
         else:
             if self.is_interactive:
-                main_cam = self.context.space_data.camera
+                main_cam = getattr(self.context.space_data, 'camera', main_cam)
             db_name = object_utils.get_db_name(main_cam)
             rman_sg_camera = cam_translator.export(main_cam, db_name)
             self.main_camera = rman_sg_camera
@@ -1353,16 +1354,26 @@ class RmanScene(object):
         for bl_df_node in shadergraph_utils.find_displayfilter_nodes(world):
             if not bl_df_node.is_active:
                 continue
+            shader_name = bl_df_node.bl_label
+            
+            if not rm.render_rman_stylized:               
+                # don't emit stylized filters, if render_rman_stylized is false
+                if self.is_xpu and shader_name in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                    continue
+                elif shader_name in rman_constants.RMAN_STYLIZED_FILTERS:
+                    continue
 
-            # don't emit stylized filters, if render_rman_stylized is false
-            if bl_df_node.bl_label in rman_constants.RMAN_STYLIZED_FILTERS and not rm.render_rman_stylized:
-                continue
+            elif self.is_xpu:
+                if shader_name not in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                    continue
+                elif shader_name in rman_constants.RMAN_STYLIZED_FILTERS:
+                    continue
 
             df_name = bl_df_node.name.replace('.', '_')
 
-            rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", bl_df_node.bl_label, df_name)
+            rman_df_node = self.rman.SGManager.RixSGShader("DisplayFilter", shader_name, df_name)
             rman_sg_node = RmanSgNode(self, rman_df_node, "")
-            property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_df_node, ob=world)
+            property_utils.property_group_to_rixparams(bl_df_node, rman_sg_node, rman_df_node, ob=world, force_write=self.is_xpu)
             display_filter_names.append(df_name)
             displayfilters_list.append(rman_df_node)
 
@@ -1399,10 +1410,14 @@ class RmanScene(object):
             if not bl_sf_node.is_active:
                 continue
             sf_name = bl_sf_node.name.replace('.', '_')
+            shader_name =  bl_sf_node.bl_label
 
-            rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", bl_sf_node.bl_label, sf_name)
+            if not self.is_xpu and shader_name in rman_constants.RMAN_STYLIZED_XPU_FILTERS:
+                continue
+                
+            rman_sf_node = self.rman.SGManager.RixSGShader("SampleFilter", shader_name, sf_name)
             rman_sg_node = RmanSgNode(self, rman_sf_node, "")
-            property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world)
+            property_utils.property_group_to_rixparams(bl_sf_node, rman_sg_node, rman_sf_node, ob=world, force_write=self.is_xpu)
             sample_filter_names.append(sf_name)
             samplefilters_list.append(rman_sf_node)
 
@@ -1592,8 +1607,14 @@ class RmanScene(object):
             if dspydriver_params:
                 display.params.Inherit(dspydriver_params)
             display.params.SetString("mode", channels)
-            if display_driver == "it":
+            if display_driver == "it" or (display_driver == "quicklyNoiseless" and self.ipr_render_into == "it"):
+                # include dspyParams if the display driver is "it", or display_driver == "quicklyNoiseless" and 
+                # the user selected to IPR to "it"
                 dspy_info = display_utils.make_dspy_info(self.bl_scene, self.is_interactive)
+                if rm.rfb_disgust:
+                    # if debug logging is turned on make dspy_info empty
+                    # the disgust trace seems to handle multi-line strings weirdly
+                    dspy_info = ""
                 port = self.rman_render.it_port
                 dspy_callback = "dspyRender"
                 if self.is_interactive:

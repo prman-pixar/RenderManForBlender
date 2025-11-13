@@ -197,10 +197,10 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
     def get_rman_light_filter_shaders(self, context):
         items = []
         i = 0
-        rman_light_icon = rfb_icons.get_lightfilter_icon("_PxrBlockerLightFilter")
-        items.append(('PxrBlockerLightFilter', 'PxrBlockerLightFilter', '', rman_light_icon.icon_id, i))
+        rman_light_icon = rfb_icons.get_lightfilter_icon("_PxrRodLightFilter")
+        items.append(('PxrRodLightFilter', 'PxrRodLightFilter', '', rman_light_icon.icon_id, i))
         for n in rman_bl_nodes.__RMAN_LIGHTFILTER_NODES__:
-            if n.name != 'PxrBlockerLightFilter':
+            if n.name not in ['PxrRodLightFilter', 'PxrBlockerLightFilter', 'PxrGoboLightFilter']:
                 i += 1
                 light_icon = rfb_icons.get_lightfilter_icon(n.name)
                 items.append( (n.name, n.name, '', light_icon.icon_id, i))
@@ -298,6 +298,26 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
                                         description="The opaqueness of the cone angle drawn in the viewport"
     )    
 
+    def get_vp_scale(self):
+        from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
+
+        nm = self.get_light_node_name()
+        val = self.get('rman_vp_scale', 1.0)        
+        scale = rfb_config['vp_light_scale'].get(nm, {'scale': 1.0})["scale"]
+        return val * scale
+
+    rman_vp_scale: FloatProperty(name="Viewport Scale",
+                                        default=1.0,
+                                        min=1.0,
+                                        max=100.0,                                
+                                        precision=3,
+                                        description="Scale of the drawing of the light in the viewport. This is useful for scaling infinite lights, such as PxrDomeLight. Does not affect the size of the light in the renderer."
+    )    
+
+    rman_vp_draw_texture: BoolProperty(
+        name="Draw Texture",
+        description="If on, draw the light as textured light in the viewport. Note, the 'Draw Textured Lights' pref takes precedence over this control.",
+        default=True)
 
     light_primary_visibility: BoolProperty(
         name="Light Primary Visibility",

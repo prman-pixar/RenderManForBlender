@@ -9,7 +9,7 @@ from .rfb_utils import filepath_utils
 from .rfb_utils import string_utils
 from .rfb_utils.envconfig_utils import envconfig
 from .rfb_utils import display_utils
-from .rfb_utils import scene_utils
+from .rfb_utils import render_utils
 from .rfb_utils.prefs_utils import get_pref
 from .rman_config import __RFB_CONFIG_DICT__ as rfb_config
 from .rfb_logger import rfb_log
@@ -31,7 +31,7 @@ class RmanSpool(object):
             self.is_localqueue = (self.bl_scene.renderman.queuing_system == 'lq')
             self.is_tractor = (self.bl_scene.renderman.queuing_system == 'tractor')
 
-    def add_job_level_attrs(self, job):
+    def add_job_level_attrs(self, job, bl_scene=None):
         dirmaps = get_pref('rman_tractor_dirmaps', [])
         for dirmap in dirmaps:
             job.newDirMap(src=dirmap.from_path,
@@ -50,6 +50,16 @@ class RmanSpool(object):
             envkeys.append('rmantree=%s' % envconfig().rmantree)
         else:
             envkeys.append('prman-%s' % rman_vers)
+
+        if bl_scene and bl_scene.renderman.rfb_disgust:
+            # set disgust trace
+            disgust_trace = string_utils.get_disgust_filename()
+            if self.is_localqueue:
+                # LocalQueue doesn't support the setenv key
+                envkeys.append('riley_capture=%s' % disgust_trace)
+            elif self.is_tractor:
+                envkeys.append('setenv RILEY_CAPTURE_FORMAT=python')
+                envkeys.append('setenv RILEY_CAPTURE=%%D(%s)' % disgust_trace)
         
         user_envkeys = self.tractor_cfg.get('envkeys', get_pref('rman_tractor_envkeys'))
         job.envkey = envkeys + user_envkeys.split()
@@ -111,7 +121,7 @@ class RmanSpool(object):
             args.append('-recover')
             args.append('%r')
 
-        scene_utils.set_render_variant_spool(self.bl_scene, args, self.is_tractor)
+        render_utils.set_render_variant_spool(self.bl_scene, args, self.is_tractor)
 
     def add_preview_task(self, task, imgs):
         if imgs is None:
@@ -402,9 +412,9 @@ class RmanSpool(object):
         if rm.ai_denoiser_remap_albedo:
             command.argv.append('--albedo')
             command.argv.append(rm.ai_denoiser_remap_albedo)
-        if rm.ai_denoiser_remap_irradiance:
-            command.argv.append('--irradiance')
-            command.argv.append(rm.ai_denoiser_remap_irradiance)
+        #if rm.ai_denoiser_remap_irradiance:
+        #    command.argv.append('--irradiance')
+        #    command.argv.append(rm.ai_denoiser_remap_irradiance)
         if rm.ai_denoiser_remap_alpha:
             command.argv.append('--alpha')
             command.argv.append(rm.ai_denoiser_remap_alpha) 
@@ -550,7 +560,7 @@ class RmanSpool(object):
         
         job.serialsubtasks = True
         job.service = 'PixarRender'
-        self.add_job_level_attrs(job)
+        self.add_job_level_attrs(job, scene)
 
         threads = self.bl_scene.renderman.batch_threads
         anim = (frame_begin != frame_end)
@@ -616,7 +626,7 @@ class RmanSpool(object):
             args.append(jobfile)
             rfb_log().info('Spooling job to LocalQueue: %s.', jobfile)
             subprocess.Popen(args, env=env)
-        else:
+        elif self.is_tractor:
             # spool to tractor
             tractor_engine = get_pref("rman_tractor_hostname")
             tractor_port = str(get_pref("rman_tractor_port"))

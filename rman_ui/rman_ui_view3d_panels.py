@@ -155,11 +155,12 @@ class PRMAN_PT_Renderman_UI_Panel(bpy.types.Panel, _RManPanelHeader):
                 row.label(text="Depth Of Field :")
 
                 row = box.row(align=True)
-                row.prop(context.object.data.dof, "focus_object", text="")
-                #row.prop(context.object.data.cycles, "aperture_type", text="")
+                row.prop(context.object.data.renderman, "rman_focus_object", text="")
 
                 row = box.row(align=True)
-                row.prop(context.object.data.dof, "focus_distance", text="Distance")
+                if not context.object.data.renderman.rman_focus_object:
+                    row.prop(context.object.data.renderman, "rman_focus_distance", text="")
+
 
             else:
                 row = layout.row(align=True)
@@ -242,7 +243,9 @@ class PRMAN_PT_Renderman_UI_Panel(bpy.types.Panel, _RManPanelHeader):
         op.module = "RenderManForBlender"
         rman_pack_scene = rfb_icons.get_icon('rman_package_scene')
         box.operator("renderman.scene_package", icon_value=rman_pack_scene.icon_id)
-        box.operator("renderman.upgrade_scene", icon='FILE_REFRESH')
+        rman_icon = rfb_icons.get_icon('rman_refresh')
+        box.operator("renderman.upgrade_scene", icon_value=rman_icon.icon_id)  
+        box.operator("renderman.find_and_replace", icon='VIEWZOOM')
 
         layout.separator()
         # RenderMan Doc
@@ -268,13 +271,19 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
         rr = RmanRender.get_rman_render()
         prefs = prefs_utils.get_addon_prefs()
         if prefs_utils.using_qt():
+            from ..rman_stats.operators import STATS_WINDOW
+            visible = False
+            if STATS_WINDOW:
+                visible = STATS_WINDOW.isVisible()
             layout.separator()
-            layout.operator("renderman.rman_open_stats")  
+            row = layout.row()
+            row.operator("renderman.rman_open_stats")  
+            row.enabled = not visible
             layout.prop(prefs, 'rman_roz_stats_print_level')        
         else:    
             layout.prop(prefs, 'rman_roz_stats_print_level')    
-            server_id = rr.stats_mgr.assign_server_id_func()
-            if server_id:
+            server_id = rr.stats_mgr.web_socket_server_id
+            if rr.rman_context.is_render_running() and server_id:
                 layout.label(text='Connected: %s' % server_id)
             else:
                 layout.label(text='No render active')            
@@ -283,8 +292,8 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
 
             for label in rr.stats_mgr.stats_to_draw:
                 data = rr.stats_mgr.render_live_stats[label]        
-                box.label(text='%s: %s' % (label, data))        
-            if rr.rman_running:   
+                box.label(text='%s: %s' % (label, data))            
+            if rr.rman_context.is_render_running():
                 box.prop(rm, 'roz_stats_iterations', slider=True, text='Iterations (%d / %d)' % (rr.stats_mgr._iterations, rr.stats_mgr._maxSamples))
                 box.prop(rm, 'roz_stats_progress', slider=True)            
             '''
@@ -293,7 +302,7 @@ class RENDER_PT_renderman_live_stats(bpy.types.Panel, _RManPanelHeader):
                     for label in rr.stats_mgr.stats_to_draw:
                         data = rr.stats_mgr.render_live_stats[label]        
                         box.label(text='%s: %s' % (label, data))        
-                    if rr.rman_running:   
+                    if rr.rman_context.is_render_running():
                         box.prop(rm, 'roz_stats_iterations', slider=True, text='Iterations (%d / %d)' % (rr.stats_mgr._iterations, rr.stats_mgr._maxSamples))
                         box.prop(rm, 'roz_stats_progress', slider=True)
                 

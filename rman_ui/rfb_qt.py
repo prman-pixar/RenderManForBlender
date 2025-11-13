@@ -1,13 +1,16 @@
+'''
 try: 
-    from PySide2 import QtCore, QtWidgets 
+    from rman_utils.vendor.Qt import QtCore, QtWidgets 
     import functools
 except ModuleNotFoundError:
     raise    
 except ImportError:
     raise
-
+'''
+    
 import bpy
 import sys
+from ..rman_constants import RFB_PLATFORM, QT_RMAN_PLTF, QT_RMAN_BASE_CSS
 
 """
 -------------------------------------------------
@@ -47,156 +50,6 @@ isort:skip_file
 
 """
 
-## CSS copied from $RMANTREE/bin/rman_utils/rman_assets/common/ui_style.py
-__rmanPltF__ = {'bg': (68, 68, 68),
-                'darkbg': (43, 43, 43),
-                'alternatebg': (53, 53, 53),
-                'lightbg': (78, 78, 78),
-                'tipbg': (58, 58, 58),
-                'tiptext': (192, 192, 192),
-                'text': (200, 200, 200),
-                'textselected': (225, 225, 225),
-                'orange': (229, 154, 0),
-                'blue': (118, 149, 229),
-                'bluehover': (81, 95, 125),
-                'handle': (93, 93, 93)}
-
-__BASE_CSS__ = '''
-    QWidget {
-        background: %(bg)s;
-    } 
-    QPushButton {
-        border-radius: 2px;
-        color: %(text)s;
-        background-color: #5D5D5D;
-        min-height: 18px;
-        margin-left: 5px;
-        margin-right: 5px;
-        margin-top: 1px;
-        padding-left: 3px;
-        padding-right: 3px;
-    }
-    QPushButton:hover {
-        background-color: #5D5D5D;
-        color: %(textselected)s;
-    }    
-    QPushButton:pressed {
-        background-color: rgba(32, 64, 128, 255);
-        color: %(textselected)s;
-    }     
-    QFrame {
-        background-color: %(darkbg)s;
-        border-width: 2px;
-        border-radius: 4px;
-        margin: 0px;
-    }    
-    QLabel {
-        background: %(bg)s;
-        color: %(text)s;
-    }    
-    QGroupBox {
-        background: %(bg)s;
-        color: %(text)s;
-    }        
-    QSplitter {
-        border-style: none;
-        background-color: %(bg)s;
-    }
-    QSplitter::handle {
-        background-color: %(bg)s;
-    }
-    QSplitter::handle:hover {
-        background-color: %(bluehover)s;
-    }    
-    QMenuBar {
-        border-width: 0px;
-        border-image: none;
-        color: %(text)s;
-    }
-    QMenuBar::item {
-        color: %(text)s;
-        background-color: %(bg)s;
-    }   
-    QMenuBar::item::selected {
-        background-color: %(bg)s;
-        color: %(textselected)s;
-    }
-    QMenu {
-        background-color: %(bg)s;
-        color: %(text)s;
-    }
-    QMenu::item::selected {
-        background-color: %(bg)s;
-        color: %(textselected)s;
-    }    
-    QToolTip {
-        background-color: %(tipbg)s;
-        color: %(tiptext)s;
-        border: 3px solid %(bluehover)s;
-        border-radius: 3px;
-        padding: 4px;
-    }
-    QProgressBar {
-        border: 1px solid %(bg)s;
-    }
-    QProgressBar::chunk {
-        background-color: %(blue)s;
-    }    
-    QLineEdit {
-        background-color: %(darkbg)s;
-        background-image: none;
-        color: %(text)s;
-    }    
-    QHeaderView {
-        background-color: %(darkbg)s;
-        border-color: %(darkbg)s;
-    }
-    QHeaderView::section {
-        background-color: %(darkbg)s;
-        background-image: none;
-        border-image: none;
-        border-color:  %(darkbg)s;
-        color: %(blue)s;
-        font-weight: bold;
-    }       
-    QTreeWidget {
-        margin: 0px;
-        padding: 0px;
-        border-width: 2px;
-        border-radius: 4px;
-        border-color: %(darkbg)s;
-        color: %(text)s;
-        background-color: %(darkbg)s;
-        alternate-background-color: %(alternatebg)s;        
-        min-width: 138px;
-    }
-    QTreeView {
-        margin: 0px;
-        padding: 0px;
-        border-width: 2px;
-        border-radius: 4px;
-        border-color: %(darkbg)s;
-        color: %(text)s;
-        background-color: %(darkbg)s;
-        alternate-background-color: %(alternatebg)s;
-        min-width: 138px;
-    }    
-    QListWidget {
-        margin: 0px;
-        padding: 0px;
-        border-width: 2px;
-        border-radius: 4px;
-        border-color: %(darkbg)s;
-        color: %(text)s;
-        background-color: %(darkbg)s;
-        alternate-background-color: %(alternatebg)s;        
-        min-width: 138px;
-    }     
-    QDoubleSpinBox {
-        color: %(text)s;   
-    }
-'''
-
 class RfbBaseQtAppTimed(bpy.types.Operator):
     """Run a Qt app inside of Blender, without blocking Blender."""
 
@@ -205,6 +58,7 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
     _timer = None
 
     def __init__(self, *args, **kwargs):
+        from rman_utils.vendor.Qt import QtWidgets
         super().__init__(*args, **kwargs)
         self._app = (QtWidgets.QApplication.instance()
                      or QtWidgets.QApplication(sys.argv))
@@ -229,10 +83,10 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
         # we don't seem to be inheriting the style sheet correctly
         # from the children widgets
         sh = self._window.styleSheet()
-        plt = dict(__rmanPltF__)
+        plt = dict(QT_RMAN_PLTF)
         for nm, rgb in plt.items():
             plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
-        css = __BASE_CSS__ % plt
+        css = QT_RMAN_BASE_CSS % plt
         sh += css        
         self._app.setStyleSheet(sh)    
         
@@ -250,24 +104,33 @@ class RfbBaseQtAppTimed(bpy.types.Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
 
-class RmanQtWrapper(QtWidgets.QDialog):
+def get_rman_qt_wrapper():
+    try:
+        from rman_utils.vendor.Qt import QtWidgets, QtCore
+        class RmanQtWrapper(QtWidgets.QDialog):
 
-    def __init__(self):
-        super().__init__()        
-        if sys.platform == "darwin":
-            self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        else:
-            self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)         
+            def __init__(self):
+                super().__init__()        
+                if RFB_PLATFORM == "macOS":
+                    self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                else:
+                    self.setWindowState(self.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)         
 
-        bg_role = self.backgroundRole()
-        plt = self.palette()
-        bg_color = plt.color(bg_role)  
-        bg_color.setRgb(__rmanPltF__['bg'][0], __rmanPltF__['bg'][1], __rmanPltF__['bg'][2])
-        plt.setColor(bg_role, bg_color)                  
-        self.setPalette(plt)               
+                bg_role = self.backgroundRole()
+                plt = self.palette()
+                bg_color = plt.color(bg_role)  
+                bg_color.setRgb(QT_RMAN_PLTF['bg'][0], QT_RMAN_PLTF['bg'][1], QT_RMAN_PLTF['bg'][2])
+                plt.setColor(bg_role, bg_color)                  
+                self.setPalette(plt)               
 
-    def closeEvent(self, event):
-        event.accept()
+            def closeEvent(self, event):
+                event.accept()
+
+        return RmanQtWrapper
+    except ModuleNotFoundError:
+        return None    
+    except ImportError:
+        return
 
 def process_qt_events(app, window):
     """Run `processEvents()` on the Qt app."""
@@ -278,10 +141,20 @@ def process_qt_events(app, window):
     return 0.01  # Run again after 0.001 seconds
         
 def run_with_timer(window, cls):
+    from rman_utils.vendor.Qt import QtWidgets
+    import functools
+
     """Run the app with the new `bpy.app.timers` in Blender 2.80."""
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     if not window:
         window = cls()
+        sh = window.styleSheet()
+        plt = dict(QT_RMAN_PLTF)
+        for nm, rgb in plt.items():
+            plt[nm] = 'rgb(%d, %d, %d)' %  (rgb[0], rgb[1], rgb[2])
+        css = QT_RMAN_BASE_CSS % plt
+        sh += css        
+        app.setStyleSheet(sh)          
     window.show()
     bpy.app.timers.register(functools.partial(process_qt_events, app, window))
     return window

@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 - 2021 Pixar
+# Copyright (c) 2015 - 2025 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ from .rfb_utils import envconfig_utils
 from .rfb_utils import register_utils
 from . import rfb_logger
 from . import rfb_icons
+from . import rman_constants
 
 # Defaults for our preferences.
 # Append to this dictionary whenever a new preference is added.
@@ -44,7 +45,8 @@ __DEFAULTS__ = {
     'rman_xpu_cpu_devices': [],
     'draw_panel_icon': True,
     'path_fallback_textures_path': os.path.join('<OUT>', 'textures'),        
-    'path_fallback_textures_path_always': False,            
+    'path_fallback_textures_path_always': False,
+    'rman_txmanager_backend': 'OpenImageIO',
     'rman_txmanager_keep_extension': True,
     'rman_txmanager_workers': 2,       
     'rman_txmanager_tex_extensions': 'tex tx txr ptx ptex ies',
@@ -92,7 +94,7 @@ __DEFAULTS__ = {
     'rman_roz_webSocketServer_Port': 0, 
     'rman_roz_stats_print_level': '1',
     'rman_enhance_zoom_factor': 5,
-    'rman_parent_lightfilter': False,
+    'rman_parent_lightfilter': True,
     'rman_tractor_hostname': 'tractor-engine',
     'rman_tractor_port': 80,
     'rman_tractor_local_user': True,
@@ -110,7 +112,8 @@ __DEFAULTS__ = {
     'rman_tractor_whenerror': '',
     'rman_tractor_whenalways': '',
     'rman_tractor_dirmaps': [],
-    'rman_single_node_view': True
+    'rman_single_node_view': True,
+    'rman_show_no_connect_params': False,
 }
 
 class RendermanPreferencePath(bpy.types.PropertyGroup):
@@ -190,24 +193,23 @@ class RendermanPreferences(AddonPreferences):
             for i in range(count):
                 desc = rman.pxrcore.GpgpuDescriptor()
                 rman.pxrcore.GetGpgpuDescriptor(rman.pxrcore.k_cuda, i, desc)
-                gpu_device_names.append(desc.name)
+                device_name = '(%d) %s' % (i, desc.name)
+                gpu_device_names.append(device_name)
 
                 found = False
                 for device in self.rman_xpu_gpu_devices:
-                    if device.name == desc.name:
+                    rfb_logger.rfb_log().info("\tCheck %s" % device.name)
+                    if device.name == device_name and device.version_major == desc.major and device.version_minor == desc.minor:
                         found = True
                         break
 
                 if not found:
                     device = self.rman_xpu_gpu_devices.add()
-                    device.name = desc.name
+                    device.name = device_name
                     device.version_major = desc.major
                     device.version_minor = desc.minor
                     device.id = i
-                    if len(self.rman_xpu_gpu_devices) == 1:
-                        # always use the first one, if this is our first time adding
-                        # gpus
-                        device.use = True
+                    device.use = True
 
             # now, try and remove devices that no longer exist
             name_list = [device.name for device in self.rman_xpu_gpu_devices]
@@ -239,7 +241,7 @@ class RendermanPreferences(AddonPreferences):
         items = []
         items.append(('-1', 'None', ''))
         for device in self.rman_xpu_gpu_devices:
-            items.append(('%d' % device.id, '%s (%d.%d)' % (device.name, device.version_major, device.version_minor), ''))
+            items.append(('%d' % device.id, '%s' % (device.name), ''))
                   
         return items
 
@@ -304,6 +306,16 @@ class RendermanPreferences(AddonPreferences):
         description="Always use the fallback texture path regardless",
         default=False)            
 
+    rman_txmanager_backend: EnumProperty(
+        name="Backend",
+        description="Backend executable called by the texture manager. Select oiiotool to use OpenImageIO, select txmake for legacy backend.",
+        items=[
+            ("OpenImageIO", "OpenImageIO", ""),
+            ("Legacy", "Legacy", ""),
+        ],
+        default="OpenImageIO",
+    )
+
     rman_txmanager_keep_extension: BoolProperty(
         name='Keep original extension',
         default=True,
@@ -318,7 +330,7 @@ class RendermanPreferences(AddonPreferences):
     )  
 
     rman_txmanager_tex_extensions: StringProperty(
-        name='Texture Extensions',
+        name='Ignore Texture Extensions',
         description="Any file with one of these extensions will not be converted by the texture manager and used as-is. Entries should be space-delimited.",
         default='tex tx txr ptx ptex ies',
     )      
@@ -602,7 +614,7 @@ class RendermanPreferences(AddonPreferences):
 
     rman_parent_lightfilter: BoolProperty(
         name="Parent Filter to Light",
-        default=False,
+        default=True,
         description="If on, and a light is selected, attaching a light filter will parent the light filter to the selected light."
     )                      
 
@@ -711,6 +723,12 @@ class RendermanPreferences(AddonPreferences):
         description="If enabled, the Material tab will only show the current selected node, rather than embedding all of the connected nodes."
     )
 
+    rman_show_no_connect_params: BoolProperty(
+        name='Show Non Connectable Params',
+        default=False,
+        description="If enabled, show non-connectable parameters for nodes in the shader editor graph. You can always view these in the Node tab on the right, in the shader graph"
+    )
+
     def draw_xpu_devices(self, context, layout):
         if self.rman_xpu_device == 'CPU':
             device = self.rman_xpu_cpu_devices[0]
@@ -719,14 +737,14 @@ class RendermanPreferences(AddonPreferences):
             if len(self.rman_xpu_gpu_devices) < 1:
                 layout.label(text="No compatible GPU devices found.", icon='INFO')
             else:
-                '''
                 ## TODO: For when XPU can support multiple gpu devices...
                 for device in self.rman_xpu_gpu_devices:
                     layout.prop(device, 'use', text='%s (%d.%d)' % (device.name, device.version_major, device.version_minor))
+                
                 '''
-
                 # Else, we only can select one GPU
                 layout.prop(self, 'rman_xpu_gpu_selection')
+                '''
 
                 
 
@@ -742,22 +760,24 @@ class RendermanPreferences(AddonPreferences):
         col = row.column()
         col.prop(self, 'rmantree_method')
 
+        rman_env = envconfig_utils.envconfig()
         if self.rmantree_method == 'MANUAL':
             col.prop(self, "path_rmantree")
-            if envconfig_utils.envconfig() is None:
+            if rman_env.load_error: # is None:
                 row = layout.row()
                 row.alert = True
-                row.label(text='Error in RMANTREE. Reload addon to reset.', icon='ERROR')
+                row.label(text=rman_env.load_error_message, icon='ERROR')
                 return
         else:
             if self.rmantree_method == 'DETECT':  
                 col.prop(self, 'rmantree_choice')
-            if envconfig_utils.envconfig() is None:
+            if rman_env.load_error_message !="" :
                 row = layout.row()
                 row.alert = True
-                row.label(text='Error in RMANTREE. Reload addon to reset.', icon='ERROR')
-                return                
-            col.label(text="RMANTREE: %s" % envconfig_utils.envconfig().rmantree)    
+                row.label(text=rman_env.load_error_message, icon='ERROR')
+                if rman_env.load_error:
+                    return                
+            col.label(text="RMANTREE: %s" % rman_env.rmantree)    
 
         # Behavior Prefs
         row = layout.row()
@@ -774,9 +794,10 @@ class RendermanPreferences(AddonPreferences):
         col.prop(self, 'rman_parent_lightfilter')
         col.prop(self, 'rman_editor')      
         col.prop(self, 'rman_enhance_zoom_factor')
+        col.prop(self, 'rman_show_no_connect_params')
 
         # XPU Prefs
-        if sys.platform != ("darwin") and envconfig_utils.envconfig().has_xpu_license:
+        if rman_constants.RFB_PLATFORM != "macOS" and rman_env.has_xpu_license:
             row = layout.row()
             row.label(text='XPU', icon_value=rman_r_icon.icon_id)
             row = layout.row()
@@ -806,6 +827,7 @@ class RendermanPreferences(AddonPreferences):
         col = row.column()
         col.prop(self, 'path_fallback_textures_path')
         col.prop(self, 'path_fallback_textures_path_always')
+        col.prop(self, "rman_txmanager_backend")
         col.prop(self, "rman_txmanager_workers")
         col.prop(self, "rman_txmanager_keep_extension")
         col.prop(self, "rman_txmanager_tex_extensions")

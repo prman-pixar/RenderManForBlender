@@ -625,7 +625,7 @@ class PRMAN_OT_Force_Material_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             mat = getattr(context, "material", None)
             if mat:
                 rr.rman_scene_sync.update_material(mat)
@@ -639,7 +639,7 @@ class PRMAN_OT_Force_Light_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             light = getattr(context, "light")
             if light:
                 users = context.blend_data.user_map(subset={light}, value_types={'OBJECT'})
@@ -655,7 +655,7 @@ class PRMAN_OT_Force_LightFilter_Refresh(bpy.types.Operator):
     
     def execute(self, context):
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             light_filter = getattr(context, "light_filter")
             if light_filter:
                 users = context.blend_data.user_map(subset={light_filter}, value_types={'OBJECT'})
@@ -889,7 +889,82 @@ class PRMAN_OT_Convert_BlImage_Nodes(bpy.types.Operator):
             nt.nodes.remove(n)
 
         return {"FINISHED"}    
+    
+class PRMAN_OT_Arrange_Nodes(bpy.types.Operator):
+    bl_idname = "node.rman_arrange_nodes"
+    bl_label = "Auto Arrange Nodes"
+    bl_description = "Arrange nodes in the graph."
+    bl_options = {"INTERNAL"}
 
+    def arrange_nodes(self, node_list, mid_node_location):
+        # arrange all the nodes at the current depth of the tree
+
+        y_spacing = 50 
+        start_location = 0
+        list_size = len(node_list)
+        x_offset = 0
+
+        # figure out which node should be in the middle
+        mid_node_idx = int(list_size * 0.5)
+        mid_node = node_list[mid_node_idx]
+        mid_node.location[1] = mid_node_location
+
+        # now, arrange the nodes that should be below the middle node
+        start_location = mid_node.location[1] - ((mid_node.dimensions[1]) + y_spacing)
+        for i in range(mid_node_idx+1,list_size):
+            n = node_list[i]
+            n.location[1] = start_location
+            start_location -= (n.dimensions[1] + y_spacing)
+            if n.dimensions[0] > x_offset:
+                x_offset = n.dimensions[0]
+
+        # now, arrange the nodes that should be above the middle node
+        start_location = mid_node.location[1] + y_spacing
+        for i in range(mid_node_idx-1, -1, -1):
+            n = node_list[i]
+            n.location[1] = start_location + n.dimensions[1]
+            start_location = n.location[1] + y_spacing       
+            if n.dimensions[0] > x_offset:
+                x_offset = n.dimensions[0]            
+
+        # finally, arrange nodes in the next depth of the tree
+        connected_list = self.gather_nodes(node_list, x_offset)
+        if len(connected_list) > 0:
+            self.arrange_nodes(connected_list, mid_node_location) 
+
+    def gather_nodes(self, node_list, x_offset=0):
+        # gather all of the connected nodes, that are connected
+        # to the nodes in node_list. Also, space them out in the x dimension
+        x_spacing = 50 + x_offset
+        connected_list = list()
+        for base_node in node_list:
+            for socket in base_node.inputs:
+                if socket.is_linked:
+                    n = socket.links[0].from_node
+                    n.location[0] = base_node.location[0]
+                    n.location[0] -= (x_spacing + n.dimensions[0])
+                    connected_list.append(n)             
+
+        return connected_list
+
+    def execute(self, context):
+        node_list = list()
+        node_tree = context.space_data.edit_tree
+
+        # gather a list of all the terminal nodes
+        # in the graph
+        for n in node_tree.nodes:
+            is_terminal_node = False
+            for socket in n.outputs:
+                if socket.is_linked:
+                    is_terminal_node = True
+                    break
+            if not is_terminal_node:
+                n.location[0] = 0
+                node_list.append(n)
+        if len(node_list) > 0:
+            self.arrange_nodes(node_list, 0) 
+        return {"FINISHED"}             
 
 classes = [
     SHADING_OT_convert_all_renderman_nodetree,
@@ -911,7 +986,8 @@ classes = [
     PRMAN_OT_Select_Nodetree_Reset,
     PRMAN_MT_Select_Nodetree_Downstream,
     PRMAN_MT_Select_Nodetree_Upstream,
-    PRMAN_OT_Convert_BlImage_Nodes    
+    PRMAN_OT_Convert_BlImage_Nodes,
+    PRMAN_OT_Arrange_Nodes   
 ]
 
 def register():

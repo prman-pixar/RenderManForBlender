@@ -21,6 +21,10 @@ class StringExprTest(unittest.TestCase):
         s = "<expr[<f> % 10]: %04d>"
         expanded_str = string_utils.expand_string(s, frame=1)
         self.assertEqual(expanded_str, compare)
+        compare = "4"
+        s = "<expr[int(math.pow(2,2))]: %d>"
+        expanded_str = string_utils.expand_string(s, frame=1)
+        self.assertEqual(expanded_str, compare)        
         token_dict = {'expr': '*'}
         expanded_str = string_utils.expand_string(s, frame=1, token_dict=token_dict)
         self.assertEqual(expanded_str, '*')
