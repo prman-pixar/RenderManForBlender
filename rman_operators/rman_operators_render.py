@@ -3,7 +3,6 @@ from ..rman_render import RmanRender
 from ..rfb_logger import rfb_log
 import bpy
 import os
-import time
 import shutil
 import webbrowser
 
@@ -24,6 +23,10 @@ class PRMAN_OT_RendermanBake(bpy.types.Operator):
     bl_label = "Baking"
     bl_description = "Bake pattern nodes and/or illumination to 2D and 3D formats."
     bl_options = {'INTERNAL'}    
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.renderman.can_render    
             
     def execute(self, context):
 
@@ -61,7 +64,7 @@ class PRMAN_OT_RendermanBakeSelectedBrickmap(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.object is not None and context.scene.renderman.can_render
             
     def execute(self, context):
 
@@ -133,6 +136,11 @@ class PRMAN_OT_BatchRender(bpy.types.Operator):
         rm = context.scene.renderman
         if rm.queuing_system != 'none':
             from .. import rman_spool
+
+            bl_scene_file = bpy.data.filepath
+            if bl_scene_file == '':
+                self.report({'ERROR'}, "Current blend file must be saved first")
+                return            
             
             depsgraph = context.evaluated_depsgraph_get()
 
@@ -143,10 +151,9 @@ class PRMAN_OT_BatchRender(bpy.types.Operator):
             rr.rman_scene.bl_view_layer = depsgraph.view_layer
             rr.rman_scene.bl_frame_current = rr.rman_scene.bl_scene.frame_current
             rr.rman_scene._find_renderman_layer()
-            rr.rman_scene.external_render = True
+            rr.rman_scene.enable_external_rendering = True
             spooler = rman_spool.RmanSpool(rr, rr.rman_scene, depsgraph)
 
-            bl_scene_file = bpy.data.filepath
             pid = os.getpid()
             timestamp = int(time.time())
             _id = 'pid%s_%d' % (str(pid), timestamp)
@@ -219,7 +226,14 @@ class PRMAN_OT_StartInteractive(bpy.types.Operator):
     render_to_it: bpy.props.BoolProperty(default=False)
 
     @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        return scene.renderman.can_render    
+
+    @classmethod
     def description(cls, context, properties): 
+        if not context.scene.renderman.can_render:
+            return "License error. Cannot render."
         if properties.render_to_it:
             return "Start IPR and render to 'it'"
         return cls.bl_description
@@ -239,6 +253,19 @@ class PRMAN_OT_StartInteractive(bpy.types.Operator):
                 view.shading.type = 'RENDERED'
 
         return {'FINISHED'}
+    
+class PRMAN_OT_RestartInteractive(bpy.types.Operator):
+
+    ''''''
+    bl_idname = "renderman.restart_ipr"
+    bl_label = "Restart Interactive Rendering"
+    bl_description = "Stop and then restart IPR"
+    bl_options = {'INTERNAL'}    
+
+    def invoke(self, context, event=None):
+        from ..rfb_utils import render_utils
+        render_utils.restart_viewport(context)
+        return {'FINISHED'}    
 
 class PRMAN_OT_StopInteractive(bpy.types.Operator):
 
@@ -255,6 +282,7 @@ class PRMAN_OT_StopInteractive(bpy.types.Operator):
             rr.stop_render(stop_draw_thread=False)
         elif context.space_data.type == 'VIEW_3D':
             context.space_data.shading.type = 'SOLID'
+            rr.stop_render(stop_draw_thread=True)
         else:
             for window in bpy.context.window_manager.windows:
                 for area in window.screen.areas:
@@ -263,7 +291,9 @@ class PRMAN_OT_StopInteractive(bpy.types.Operator):
                             if space.type == 'VIEW_3D':
                                 if space.shading.type == 'RENDERED':    
                                     space.shading.type = 'SOLID'
+            rr.stop_render(stop_draw_thread=True)
 
+        
         return {'FINISHED'}
 
 class PRMAN_OT_StopRender(bpy.types.Operator):
@@ -350,6 +380,7 @@ classes = [
     PRMAN_OT_StartInteractive,
     PRMAN_OT_StopInteractive,
     PRMAN_OT_StopRender,
+    PRMAN_OT_RestartInteractive,
     PRMAN_OT_AttachStatsRender,
     PRMAN_OT_DisconnectStatsRender,
     PRMAN_OT_UpdateStatsConfig,

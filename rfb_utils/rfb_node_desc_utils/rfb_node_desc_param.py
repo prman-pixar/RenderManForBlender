@@ -20,9 +20,27 @@ def blender_finalize(obj):
     """Post-process some parameters for Blender.
     """
 
-    if hasattr(obj, 'type') and obj.type in ['int', 'matrix']:
-        # these are NEVER connectable
-        obj.connectable = False
+    if hasattr(obj, 'type'):
+        if obj.type in ['int', 'matrix', 'string']:
+            # these are NEVER connectable
+            obj.connectable = False
+
+        # if we get a float/int array or size=2, force it to
+        # float2/int2)
+        '''
+        if obj.type in ['float', 'int'] and obj.is_array() and obj.size == 2:
+            if obj.type == 'float':
+                obj.type = 'float2' 
+            else:
+                obj.type = 'int2'
+            obj.size = None
+        '''
+
+        # temporary, remove this once PxrStylize shaders can reference RMANTREE path themselves
+        if obj.type == "string" and hasattr(obj, "default") and type(obj.default) is str:
+            obj.default = obj.default.replace("!!! Full path to RenderManProServer-XX.X", "$RMANTREE")
+            obj.default = obj.default.replace("!!! Full path to your RenderManProServer-XX.X", "$RMANTREE")
+
 
     if hasattr(obj, 'help') and obj.help is not None:
         obj.help = obj.help.replace('\\"', '"')

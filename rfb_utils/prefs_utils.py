@@ -1,5 +1,9 @@
 from ..rman_constants import RFB_PREFS_NAME, BLENDER_PYTHON_VERSION_MAJOR, BLENDER_PYTHON_VERSION_MINOR
 import bpy
+import sys
+import os
+
+IMPORT_QT_SUCCEED = None
 
 def get_addon_prefs():
     try:
@@ -12,23 +16,29 @@ def get_addon_prefs():
                 return v
         return None
     
-def _have_pyside2():
-    # FIXME: remove once we have a solution for PySide2 for python 3.11
-    if BLENDER_PYTHON_VERSION_MAJOR >=3 and BLENDER_PYTHON_VERSION_MINOR >= 11:
-        return False    
-    return True
+def _have_pyside():
+    global IMPORT_QT_SUCCEED
+    if IMPORT_QT_SUCCEED is None:
+        for p in sys.path:
+            for root, dirnames, files in os.walk(p):
+                for d in dirnames:
+                    if 'PySide' in d:
+                        IMPORT_QT_SUCCEED = True
+                        break
+
+    return IMPORT_QT_SUCCEED
 
 def using_qt():
     if bpy.app.background:
         return False
-    if not _have_pyside2():
+    if not _have_pyside():
         return False
     return get_pref('rman_ui_framework') == 'QT'
 
 def show_wip_qt():
     if bpy.app.background:
         return False
-    if not _have_pyside2():
+    if not _have_pyside():
         return False        
     return get_pref('rman_show_wip_qt')
 

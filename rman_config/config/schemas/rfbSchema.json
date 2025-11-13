@@ -77,6 +77,16 @@
             "required": [
             ]
         },
+        "node_size_preference": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "properties": {
+                "default": {
+                    "type": ["number"]
+                }
+            }                               
+        },
         "bxdf_viewport_color_map": {
             "type": "object",
             "properties": {
@@ -103,6 +113,14 @@
                 }                               
             }
         },
+        "vp_light_scale": {
+            "type": "object",
+            "properties": {
+                "scale": {
+                    "type": "number"
+                }
+            }
+        },        
         "editor_preference": {
             "type": "object",
             "properties": {
@@ -171,6 +189,14 @@
                 }
             }
         },
+        "vp_light_scale": {
+            "type": "object",
+            "patternProperties": {
+                "[A-Za-z0-9_-]+": {
+                    "$ref": "#/definitions/vp_light_scale"
+                }
+            }
+        },        
         "editor_preferences": {
             "type": "object",
             "patternProperties": {
@@ -187,7 +213,15 @@
                 }
             }
         },      
-        "tractor_cfg": {"$ref": "#/definitions/tractor_cfg" }       
+        "tractor_cfg": {"$ref": "#/definitions/tractor_cfg" },   
+        "node_size_preferences": {
+            "type": "object",
+            "patternProperties": {
+                "[A-Za-z0-9_-]+": {
+                    "$ref": "#/definitions/node_size_preference"
+                }
+            }
+        }
     },
     "additionalProperties": false
 }

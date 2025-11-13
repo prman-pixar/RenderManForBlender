@@ -17,7 +17,8 @@ EXT_MAP = {'it': 'it', 'openexr': 'exr',
         }
 
 # regex to capture whitespace, '.', ':', '[', ']'
-__NODE_NAME_REGEXP__ = r'\s+|\.+|:|\[|\]'        
+NODE_NAME_REGEXP = r'\s+|\.+|:|\[|\]\#'        
+ATTR_NAME_REGEXP = r'\s+|\.+|:|\[|\]|\(|\)|\-|\/|\+'        
 
 class SceneStringConverter(object):
     """Class maintaining an up-to-date StringExpression object.
@@ -47,16 +48,13 @@ class SceneStringConverter(object):
             self.expr.bl_scene = bpy.context.scene
             self.expr.update_out_token()    
 
-        if token_dict:
-            self.update_tokens(token_dict)
-
         if frame is not None:
             self.expr.set_frame_context(frame)
 
         if display:
             self.set_display(display)
 
-        return self.expr.expand(string, asFilePath=asFilePath)
+        return self.expr.expand(string, objTokens=token_dict, asFilePath=asFilePath)
 
     def update(self, bl_scene=None):
         """Create a new StringExpression and configures it for the current state
@@ -191,6 +189,13 @@ def get_unique_group_name(group_node):
             break    
     return group_node_name
 
+def get_disgust_filename():
+    bl_scene_file = bpy.data.filepath
+    bl_filename = None
+    if bl_scene_file != '':
+        bl_filename = os.path.splitext(bl_scene_file)[0] + '.debug.py'    
+    return bl_filename
+
 @persistent
 def update_blender_tokens_cb(bl_scene):
     from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
@@ -285,5 +290,9 @@ def getattr_recursive(ptr, attrstring):
     return ptr    
 
 def sanitize_node_name(node):
-    global __NODE_NAME_REGEXP__
-    return re.sub(__NODE_NAME_REGEXP__, '_', node)
+    global NODE_NAME_REGEXP
+    return re.sub(NODE_NAME_REGEXP, '_', node)
+
+def sanitize_attr_name(s):
+    global ATTR_NAME_REGEXP
+    return re.sub(ATTR_NAME_REGEXP, '_', s)

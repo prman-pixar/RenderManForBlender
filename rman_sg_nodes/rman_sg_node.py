@@ -58,7 +58,7 @@ class RmanSgNode(object):
         self.sg_attributes = None 
 
     def __del__(self):
-        if self.rman_scene.rman_render.rman_running and self.rman_scene.rman_render.sg_scene:
+        if self.rman_scene.rman_render.rman_context.is_render_running() and self.rman_scene.rman_render.sg_scene:
             with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
                 #rfb_log().debug("Deleting dag node: %s" % self.db_name)
                 self.instances.clear()
@@ -71,7 +71,7 @@ class RmanSgNode(object):
         self.sg_attributes = self.rman_scene.sg_scene.CreateGroup(ob.name)
 
     def clear_instances(self):
-        if self.rman_scene.rman_render.rman_running:
+        if self.rman_scene.rman_render.rman_context.is_render_running():
             self.instances.clear()
 
     @property

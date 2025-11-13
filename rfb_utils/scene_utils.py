@@ -1,12 +1,11 @@
 from . import shadergraph_utils
 from . import object_utils
-from . import prefs_utils
 from . import string_utils
+from .envconfig_utils import envconfig
 from ..rman_constants import RMAN_GLOBAL_VOL_AGGREGATE
 from ..rfb_logger import rfb_log
 import bpy
-import sys
-
+import math
 
 # ------------- Atom's helper functions -------------
 GLOBAL_ZERO_PADDING = 5
@@ -31,7 +30,7 @@ DUPLI_PREFIX = "dupli_"
 DUPLI_SOURCE_PREFIX = "dup_src_"
 
 RMAN_VOL_TYPES = ['RI_VOLUME', 'OPENVDB', 'FLUID']
-
+    
 class BlAttribute:
     '''
     A class to represent Blender's bpy.types.Attribute
@@ -45,7 +44,139 @@ class BlAttribute:
         self.values = []
 
     @staticmethod
-    def parse_attributes(attrs_dict, ob, detail_map, detail_default='vertex'):
+    def parse_attribute(attr, detail_map, detail_default='vertex', values_as_list=False):
+        import numpy as np
+
+        rman_attr = None
+        if attr.data_type == 'FLOAT2':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'float2'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*2, dtype=np.float32)
+            attr.data.foreach_get('vector', values)
+            if values_as_list:
+                values = np.reshape(values, (npoints, 2))
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values
+
+        elif attr.data_type in ['INT32_2D', 'INT16_2D']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer2d'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*2, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            if values_as_list:
+                values = np.reshape(values, (npoints, 2))
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values    
+
+        elif attr.data_type == 'FLOAT_VECTOR':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'vector'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*3, dtype=np.float32)
+            attr.data.foreach_get('vector', values)
+            if values_as_list:
+                values = np.reshape(values, (npoints, 3))
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values
+        
+        elif attr.data_type in ['BYTE_COLOR', 'FLOAT_COLOR']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            if attr.name == 'color':
+                rman_attr.rman_name = 'Cs'
+            rman_attr.rman_type = 'color'
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints*4, dtype=np.float32)
+            attr.data.foreach_get('color', values)
+            delete_alpha = np.arange(3, values.size, 4)
+            values = np.delete(values, delete_alpha)
+            if values_as_list:
+                values = np.reshape(values, (npoints, 3))
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values            
+            rman_attr.values = values
+
+        elif attr.data_type == 'FLOAT':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'float'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.float32)
+            attr.data.foreach_get('value', values)
+            if values_as_list:
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values                     
+        elif attr.data_type in ['INT8', 'INT']:
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            if values_as_list:
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values
+        elif attr.data_type == 'BOOLEAN':
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'integer'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            if values_as_list:
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values     
+        elif attr.data_type == 'STRING':
+            detail = detail_map.get(len(attr.data), detail_default) 
+            if detail not in ["uniform", "constant"]:
+                rfb_log().debug("Unsupported string domain type: %s" % attr.domain)
+                return None
+            rman_attr = BlAttribute()
+            rman_attr.rman_name = attr.name
+            rman_attr.rman_type = 'string'
+            rman_attr.array_len = -1
+
+            npoints = len(attr.data)
+            values = np.zeros(npoints, dtype=np.int32)
+            attr.data.foreach_get('value', values)
+            if values_as_list:
+                rman_attr.values = values.tolist()                
+            else:
+                rman_attr.values = values     
+        else:    
+            rfb_log().debug("Unsupported data type: %s" % attr.data_type)                  
+
+        if rman_attr:
+            rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)    
+            detail = detail_map.get(len(attr.data), detail_default)                
+            rman_attr.rman_detail = detail            
+
+        return rman_attr
+
+    @staticmethod
+    def parse_attributes(attrs_dict, ob, detail_map, detail_default='vertex', values_as_list=False):
         '''
         Helper function to parse an array of Blender's bpy.types.Attribute
 
@@ -56,74 +187,36 @@ class BlAttribute:
             detail_default (str): default detail if we cannot determine what the detail should
                                   be from detail_map
         '''
-        import numpy as np
 
         for attr in ob.data.attributes:
             if attr.name.startswith('.'):
                 continue
-            rman_attr = None
-            if attr.data_type == 'FLOAT2':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'float2'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*2, dtype=np.float32)
-                attr.data.foreach_get('vector', values)
-                values = np.reshape(values, (npoints, 2))
-                rman_attr.values = values.tolist()
-
-            elif attr.data_type == 'FLOAT_VECTOR':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'vector'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*3, dtype=np.float32)
-                attr.data.foreach_get('vector', values)
-                values = np.reshape(values, (npoints, 3))
-                rman_attr.values = values.tolist()
-            
-            elif attr.data_type in ['BYTE_COLOR', 'FLOAT_COLOR']:
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                if attr.name == 'color':
-                    rman_attr.rman_name = 'Cs'
-                rman_attr.rman_type = 'color'
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints*4, dtype=np.float32)
-                attr.data.foreach_get('color', values)
-                values = np.reshape(values, (npoints, 4))
-                rman_attr.values .extend(values[0:, 0:3].tolist())
-
-            elif attr.data_type == 'FLOAT':
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'float'
-                rman_attr.array_len = -1
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints, dtype=np.float32)
-                attr.data.foreach_get('value', values)
-                rman_attr.values = values.tolist()                          
-            elif attr.data_type in ['INT8', 'INT']:
-                rman_attr = BlAttribute()
-                rman_attr.rman_name = attr.name
-                rman_attr.rman_type = 'integer'
-                rman_attr.array_len = -1
-
-                npoints = len(attr.data)
-                values = np.zeros(npoints, dtype=np.int32)
-                attr.data.foreach_get('value', values)
-                rman_attr.values = values.tolist()                
-            
+            rman_attr = BlAttribute.parse_attribute(attr, detail_map=detail_map, detail_default=detail_default, values_as_list=values_as_list)
             if rman_attr:
-                rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)
                 attrs_dict[attr.name] = rman_attr     
-                detail = detail_map.get(len(attr.data), detail_default)                
-                rman_attr.rman_detail = detail
 
+    @staticmethod
+    def set_rman_primvar(primvar, rman_attr):
+        if isinstance(rman_attr.values, list):
+            values = rman_attr.values
+        else:
+            values = rman_attr.values.data
+        if rman_attr.rman_type == "float":
+            primvar.SetFloatDetail(rman_attr.rman_name, values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == "float2":
+            primvar.SetFloatArrayDetail(rman_attr.rman_name, values, 2, rman_attr.rman_detail)
+        elif rman_attr.rman_type == "vector":
+            primvar.SetVectorDetail(rman_attr.rman_name, values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'color':
+            primvar.SetColorDetail(rman_attr.rman_name, values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'integer':
+            primvar.SetIntegerDetail(rman_attr.rman_name, values, rman_attr.rman_detail)
+        elif rman_attr.rman_type == 'integer2d':
+            primvar.SetIntegerArrayDetail(rman_attr.rman_name, values, 2, rman_attr.rman_detail)            
+        elif rman_attr.rman_type == 'string':
+            primvar.SetStringDetail(rman_attr.rman_name, values, rman_attr.rman_detail)
+
+    
     @staticmethod
     def set_rman_primvars(primvar, bl_attributes):
         '''
@@ -137,16 +230,7 @@ class BlAttribute:
         for nm, rman_attr in bl_attributes.items():
             if rman_attr.rman_detail is None:
                 continue
-            if rman_attr.rman_type == "float":
-                primvar.SetFloatDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == "float2":
-                primvar.SetFloatArrayDetail(rman_attr.rman_name, rman_attr.values, 2, rman_attr.rman_detail)
-            elif rman_attr.rman_type == "vector":
-                primvar.SetVectorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == 'color':
-                primvar.SetColorDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
-            elif rman_attr.rman_type == 'integer':
-                primvar.SetIntegerDetail(rman_attr.rman_name, rman_attr.values, rman_attr.rman_detail)
+            BlAttribute.set_rman_primvar(primvar, rman_attr)
 
 # ------------- Filtering -------------
 def is_visible_layer(scene, ob):
@@ -179,12 +263,13 @@ def add_global_vol_aggregate():
     rm.vol_aggregates.move(len(rm.vol_aggregates)-1, 0)
 
 
-def should_use_bl_compositor(bl_scene):
+def should_use_bl_compositor(bl_scene, bl_view_layer=None):
     '''
     Check if we should use the Blender compositor
 
     Args:
         bl_scene (bpy.types.Scene) - the Blender scene
+        bl_view_layer (bpy.types.ViewLayer) - view layer
 
     Returns:
         (bool) - true if we should use the compositor; false if not
@@ -195,7 +280,7 @@ def should_use_bl_compositor(bl_scene):
     if not bpy.app.background:
         return (rm.render_into == 'blender')
 
-    if not display_utils.using_rman_displays():
+    if not display_utils.using_rman_displays(bl_view_layer=bl_view_layer):
         return True
 
     if not rm.use_bl_compositor:
@@ -217,113 +302,6 @@ def any_areas_shading():
                     if space.type == 'VIEW_3D' and space.shading.type == 'RENDERED':
                         return True
     return False           
-
-def get_render_variant(bl_scene):
-    #if bl_scene.renderman.is_ncr_license and bl_scene.renderman.renderVariant != 'prman':
-    if not bl_scene.renderman.has_xpu_license and bl_scene.renderman.renderVariant != 'prman':
-        rfb_log().warning("Your RenderMan license does not include XPU. Reverting to RIS.")
-        return 'prman'
-
-    if sys.platform == ("darwin") and bl_scene.renderman.renderVariant != 'prman':
-        rfb_log().warning("XPU is not implemented on OSX: using RIS...")
-        return 'prman'
-
-    return bl_scene.renderman.renderVariant    
-
-def set_render_variant_config(bl_scene, config, render_config):
-    variant = get_render_variant(bl_scene)
-    if variant.startswith('xpu'):
-        variant = 'xpu'
-    config.SetString('rendervariant', variant)
-
-    if variant == 'xpu':
-
-        '''
-        ## TODO: For when XPU can support multiple gpu devices...
-
-        xpu_gpu_devices = prefs_utils.get_pref('rman_xpu_gpu_devices')
-        gpus = list()
-        for device in xpu_gpu_devices:
-            if device.use:
-                gpus.append(device.id)
-        if gpus:
-            render_config.SetIntegerArray('xpu:gpuconfig', gpus, len(gpus))    
-
-        # For now, there is only one CPU
-        xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-        device = xpu_cpu_devices[0]
-
-        render_config.SetInteger('xpu:cpuconfig', int(device.use))
-
-        if not gpus and not device.use:
-            # Nothing was selected, we should at least use the cpu.
-            print("No devices were selected for XPU. Defaulting to CPU.")
-            render_config.SetInteger('xpu:cpuconfig', 1)
-        '''
-
-        # Else, we only support selecting one GPU
-        xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
-        if xpu_gpu_device > -1:
-            render_config.SetIntegerArray('xpu:gpuconfig', [xpu_gpu_device], 1)
-
-        # For now, there is only one CPU
-        xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-        if len(xpu_cpu_devices) > 0:
-            device = xpu_cpu_devices[0]
-            render_config.SetInteger('xpu:cpuconfig', int(device.use))    
-
-            if xpu_gpu_device == -1 and not device.use:
-                # Nothing was selected, we should at least use the cpu.
-                print("No devices were selected for XPU. Defaulting to CPU.")
-                render_config.SetInteger('xpu:cpuconfig', 1)                         
-        else:
-            render_config.SetInteger('xpu:cpuconfig', 1)         
-
-def set_render_variant_spool(bl_scene, args, is_tractor=False):
-    variant = get_render_variant(bl_scene)
-    if variant.startswith('xpu'):
-        variant = 'xpu'
-    args.append('-variant')
-    args.append(variant)
-
-    if variant == 'xpu':
-        device_list = list()
-        if not is_tractor:
-            '''
-            ## TODO: For when XPU can support multiple gpu devices...
-            xpu_gpu_devices = prefs_utils.get_pref('rman_xpu_gpu_devices')
-            for device in xpu_gpu_devices:
-                if device.use:
-                    device_list.append('gpu%d' % device.id)
-
-            xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-            device = xpu_cpu_devices[0]
-
-            if device.use or not device_list:
-                device_list.append('cpu')
-            '''
-            xpu_gpu_device = int(prefs_utils.get_pref('rman_xpu_gpu_selection'))
-            if xpu_gpu_device > -1:
-                device_list.append('gpu%d' % xpu_gpu_device)
-
-            xpu_cpu_devices = prefs_utils.get_pref('rman_xpu_cpu_devices')
-            if len(xpu_cpu_devices) > 0:
-                device = xpu_cpu_devices[0]
-
-                if device.use or xpu_gpu_device < 0:
-                    device_list.append('cpu')            
-            else:
-                device_list.append('cpu')      
-
-        else:
-            # Don't add the gpu list if we are spooling to Tractor
-            # There is no way for us to know what is available on the blade,
-            # so just ask for CPU for now.
-            device_list.append('cpu')
-
-        if device_list:
-            device_list = ','.join(device_list)
-            args.append('-xpudevices:%s' % device_list)  
 
 def get_all_portals(light_ob):
     """Return a list of portals
@@ -651,16 +629,34 @@ def set_lightlinking_properties(ob, light_ob, illuminate, update_light=True):
 
     return changed
 
-def reset_workspace(scene):
+def reset_workspace(scene, replace_filename=False):
+    ''' 
+    Set all output paths in the workspace to default.
+
+    Arguments:
+        replace_filename (bool) - if True, also replace the tokenized filename to the
+        default, otherwise we leave the filename alone
+    '''
+    import os
     from .. import rman_config    
     
-    # Set all output paths to default.
     # There doesn't seem to be a way to set properties back to default, so do it manually
     rmcfg = rman_config.__RMAN_CONFIG__.get('rman_properties_scene', None)
     for param_name, ndp in rmcfg.params.items():
         if ndp.panel != 'RENDER_PT_renderman_workspace':
             continue
-        setattr(scene.renderman, param_name, ndp.default)    
+        if ndp.widget in ["dirinput", "fileinput"]:
+            if replace_filename:
+                setattr(scene.renderman, param_name, ndp.default)
+            else:
+                filename = os.path.basename(getattr(scene.renderman, param_name))
+                filepath = os.path.dirname(ndp.default)
+                setattr(scene.renderman, param_name, os.path.join(filepath, filename))     
+        else:
+            dflt = ndp.default
+            if ndp.widget in ['checkbox', 'switch']:
+                dflt = bool(dflt)
+            setattr(scene.renderman, param_name, dflt)
 
 def use_renderman_textures(context, force_colorspace=True, blocking=True):
     '''
@@ -695,7 +691,59 @@ def use_renderman_textures(context, force_colorspace=True, blocking=True):
                             if params['ocioconvert'] != colorspace and force_colorspace:
                                 texture_utils.update_txfile_colorspace(txfile, colorspace, blocking=blocking)
                         setattr(node, prop_name, txfile.get_output_texture())
-                        continue                  
+                        continue        
+
+def get_resolution(render):
+    image_scale = render.resolution_percentage * 0.01
+    width = int(render.resolution_x * image_scale)
+    height = int(render.resolution_y * image_scale)
+
+    return [width, height]              
+
+def get_render_borders(render, height, width):
+    size_x = width
+    size_y = height
+    start_x = 0
+    end_x = width
+    start_y = 0
+    end_y = height        
+    if render and render.use_border: 
+        res_x = width
+        res_y = height
+        
+        min_x = render.border_min_x
+        max_x = render.border_max_x
+        min_y = render.border_min_y
+        max_y = render.border_max_y            
+
+        crop_res_x = math.ceil(res_x * (max_x - min_x))
+        crop_res_y = math.ceil(res_y * (max_y - min_y))
+
+        start_y = int(res_y * min_y)
+        start_x = int(res_x * min_x)
+        end_y = start_y + crop_res_y
+        end_x = start_x + crop_res_x
+
+        size_x = crop_res_x
+        size_y = crop_res_y       
+        
+    return [size_x, size_y, start_y, end_y, start_x, end_x]
+
+    start_x = 0
+    end_x = width
+    start_y = 0
+    end_y = height 
+    if render and render.use_border:
+        if render.border_min_y > 0.0:
+            start_y = round(height * render.border_min_y)-1
+        if render.border_max_y > 0.0:                        
+            end_y = round(height * render.border_max_y)-2
+        if render.border_min_x > 0.0:
+            start_x = round(width * render.border_min_x)-1
+        if render.border_max_x < 1.0:
+                end_x = round(width * render.border_max_x)-2       
+
+    return (start_x, end_x, start_y, end_y)
 
 def is_renderable(scene, ob):
     return (is_visible_layer(scene, ob) and not ob.hide_render) or \

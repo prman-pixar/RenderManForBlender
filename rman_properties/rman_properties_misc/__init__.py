@@ -172,7 +172,8 @@ class RendermanMeshPrimVar(bpy.types.PropertyGroup):
     data_source: EnumProperty(
         name="Data Source",
         description="Blender data type to export as the primitive variable",
-        items=[('VERTEX_GROUP', 'Vertex Group', ''),
+        items=[('ATTRIBUTES', 'Attributes', ''),
+               ('VERTEX_GROUP', 'Vertex Group', ''),
                ('VERTEX_COLOR', 'Vertex Color', ''),
                ('VERTEX_ATTR_COLOR', 'Vertex Attr Color', ''),
                ('UV_TEXTURE', 'UV Texture', '')

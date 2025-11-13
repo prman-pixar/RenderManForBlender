@@ -37,7 +37,8 @@ class PRMAN_OT_Renderman_mesh_reference_pose(bpy.types.Operator):
 
         rman_mesh = mesh_utils.get_mesh(mesh, get_normals=True)
         if self.add_Pref or self.add_WPref:
-            for P in rman_mesh.P:
+            Plist = rman_mesh.P.reshape((-1,3))
+            for P in Plist:
                 rp = rm.reference_pose.add()
                 if self.add_Pref:
                     rp.has_Pref = True
@@ -50,7 +51,8 @@ class PRMAN_OT_Renderman_mesh_reference_pose(bpy.types.Operator):
                     rp.rman__WPref = v
 
         if self.add_Nref or self.add_WNref:
-            for N in rman_mesh.N:
+            Nlist = rman_mesh.N.reshape((-1,3))
+            for N in Nlist:
                 rp = rm.reference_pose_normals.add()
                 if self.add_Nref:
                     rp.has_Nref = True

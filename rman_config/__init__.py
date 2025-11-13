@@ -3,6 +3,7 @@ from ..rfb_utils.rfb_node_desc_utils.conditional_visibility import build_condvis
 from ..rfb_utils.prefs_utils import get_pref
 from ..rfb_utils import filepath_utils
 from ..rfb_utils.envconfig_utils import envconfig
+from ..rfb_utils.string_utils import sanitize_attr_name
 from ..rfb_logger import rfb_log
 from bpy.props import StringProperty, BoolProperty
 import json
@@ -68,8 +69,9 @@ class RmanBasePropertyGroup:
                 if page_name not in page_names:
                     page_names.append(page_name)
                     ui_label = "%s_uio" % page_name
-                    dflt = getattr(ndp, 'page_open', True)                
-                    cls.__annotations__[ui_label] = BoolProperty(name=ui_label, default=dflt)            
+                    dflt = getattr(ndp, 'page_open', True)  
+                    page_name_attr = sanitize_attr_name(ui_label)            
+                    cls.__annotations__[page_name_attr] = BoolProperty(name=ui_label, default=dflt)            
 
         for param_name, ndp in config.params.items():
             update_func = None
@@ -133,24 +135,26 @@ class RmanConfig:
 
     def _parse_json_file(self):
 
-        jdata = json.load(open(self.jsonfile))
-        mandatoryAttrList = ['name']
-        for attr in mandatoryAttrList:
-            setattr(self, attr, jdata[attr])
+        #jdata = json.load(open(self.jsonfile))
+        with open(self.jsonfile) as f:
+            jdata = json.load(f)
+            mandatoryAttrList = ['name']
+            for attr in mandatoryAttrList:
+                setattr(self, attr, jdata[attr])
 
-        for attr in __OPTIONAL_ATTRS__:
-            val = jdata.get(attr, None)
-            if val:
-                setattr(self, attr, val)
+            for attr in __OPTIONAL_ATTRS__:
+                val = jdata.get(attr, None)
+                if val:
+                    setattr(self, attr, val)
 
-        if 'params' in jdata:
-            for pdata in jdata['params']:
-                try:
-                    param = RfbNodeDescParamJSON(pdata, build_condvis_expr)
-                except:
-                    rfb_log().error('FAILED to parse param: %s' % pdata)
-                    raise
-                self.params[param.name] = param
+            if 'params' in jdata:
+                for pdata in jdata['params']:
+                    try:
+                        param = RfbNodeDescParamJSON(pdata, build_condvis_expr)
+                    except:
+                        rfb_log().error('FAILED to parse param: %s' % pdata)
+                        raise
+                    self.params[param.name] = param
 
 def _uniquify_list(seq):
     """Remove duplicates while preserving order."""
@@ -206,22 +210,23 @@ def read_rfbconfig_file(fpath, config_dict):
         try:
             fdict = json.load(fhdl)
         except ValueError as err:
-            __log__.error('failed to parse json file %s: %s' %
+            rfb_log().error('failed to parse json file %s: %s' %
                           (fpath, err))
             fdict = None
     if fdict:
         config_dict = recursive_updater(fdict, config_dict)    
 
 def configure_channels(jsonfile):
-    jdata = json.load(open(jsonfile))
+    with open(jsonfile) as f:
+        jdata = json.load(f)
 
-    if 'channels' in jdata:
-        __RMAN_DISPLAY_CHANNELS__.update(jdata['channels'])  
-    else:
-        rfb_log().error("Could not find 'channels' list in JSON file: %s" % jsonfile)
+        if 'channels' in jdata:
+            __RMAN_DISPLAY_CHANNELS__.update(jdata['channels'])  
+        else:
+            rfb_log().error("Could not find 'channels' list in JSON file: %s" % jsonfile)
 
-    if 'displays' in jdata:
-        __RMAN_DISPLAY_TEMPLATES__.update(jdata['displays'])
+        if 'displays' in jdata:
+            __RMAN_DISPLAY_TEMPLATES__.update(jdata['displays'])
 
 
 def get_factory_config_path():
@@ -319,6 +324,10 @@ def apply_args_overrides(name, node_desc):
     for ndp_org in node_desc.params:
         ndp = rman_config.params.get(ndp_org.name, None)
         if ndp:        
+            #ndp_type = getattr(ndp, 'type', '')
+            #if ndp_type != '' and ndp_type != ndp_org.type:
+                # if the types don't match, don't allow the override
+            #    continue
             for attr in __ALLOWABLE_ATTR_OVERRIDES__:
                 val = getattr(ndp, attr, None)
                 if val is not None:

@@ -5,6 +5,7 @@ from . import object_utils
 from .prefs_utils import get_pref
 from ..rman_constants import (
     RMAN_STYLIZED_FILTERS, 
+    RMAN_STYLIZED_XPU_FILTERS,
     RMAN_STYLIZED_PATTERNS, 
     RMAN_UTILITY_PATTERN_NAMES, 
     RFB_FLOAT3,
@@ -234,8 +235,6 @@ def get_socket_type(node, socket):
 
 def get_node_name(node, prefix=""):
     nm = node.name
-    if node.label != "":
-        nm = node.label
     if prefix != "":
         return string_utils.sanitize_node_name('%s_%s' % (prefix, nm))
     return string_utils.sanitize_node_name('%s' % nm)
@@ -295,7 +294,9 @@ def is_socket_float3_type(socket):
     else:
         return socket.type in ['RGBA', 'VECTOR'] 
 
-def set_solo_node(node, nt, solo_node_name, refresh_solo=False, solo_node_output=''):
+def set_solo_node(node, selected_node, material, refresh_solo=False, solo_node_output=''):
+
+    nt = material.node_tree
     def hide_all(nt, node):
         if not get_pref('rman_solo_collapse_nodes'):
             return
@@ -332,20 +333,41 @@ def set_solo_node(node, nt, solo_node_name, refresh_solo=False, solo_node_output
                     hide = getattr(output, 'prev_hidden', False)
                     output.hide = hide
 
+    def reset_solo(nt):
+        '''
+        Loop through all of the nodes and set solo_node to False
+        '''
+        for n in nt.nodes:
+            if n.bl_idname == 'ShaderNodeGroup':
+                reset_solo(n.node_tree)
+            elif hasattr(n, 'solo_node'):
+                n.solo_node = False
+
     if refresh_solo:
-        node.solo_nodetree = None
-        node.solo_node_name = ''
+        node.solo_material = None
         node.solo_node_output = ''
+        if node.solo_node_on:
+            reset_solo(nt)
         unhide_all(nt)
+        node.solo_node_on = False
         return
 
-    if solo_node_name:
-        node.solo_nodetree = nt
-        node.solo_node_name = solo_node_name
+    if selected_node:
+        selected_node.solo_node = True
+        node.solo_material = material
         node.solo_node_output = solo_node_output
-        solo_node = nt.nodes[solo_node_name]
-        hide_all(nt, solo_node)
-
+        if node.solo_node_on:
+            reset_solo(nt)
+        hide_all(nt, selected_node)
+        node.solo_node_on = True
+    else:
+        node.solo_material = None
+        node.solo_node_output = ''
+        if node.solo_node_on:
+            reset_solo(nt)        
+        unhide_all(nt)
+        node.solo_node_on = False
+        return
 
 # do we need to convert this socket?
 def do_convert_socket(from_socket, to_socket):
@@ -361,6 +383,28 @@ def find_node_input(node, name):
 
     return None
 
+def find_solo_node(nt):
+    '''
+    Given a node tree, find the node that has "solo_node" set to True. We return
+    a node tree in the tuple because the solo node could be inside a group node
+
+    Args:
+        nt (bpy.types.ShaderNodeTree): the input nodetree we want to look in
+
+    Returns:
+        (tuple): a bpy.types.Node and bpy.types.NodeTree
+    '''
+    for node in nt.nodes:
+        if node.bl_idname == 'ShaderNodeGroup':
+            # for some reason, we can't seem to find the solo node during IPR
+            # if we don't use node_tree.original
+            (solo_node, solo_nodetree) = find_solo_node(node.node_tree.original)
+            if solo_node:
+                return (solo_node, solo_nodetree)
+        elif hasattr(node, 'solo_node') and node.solo_node:
+            return (node, nt)
+    return (None, None)
+    
 
 def find_node(material, nodetype):
     if material and material.node_tree:
@@ -469,11 +513,20 @@ def gather_nodes(node, for_solo_node=False):
                     nodes.append(sub_node)
 
             
-            if link.from_node.bl_idname == 'NodeReroute':
-                continue
-
             if node.bl_idname == 'NodeReroute':
                 continue
+
+            if link.from_node.bl_idname == 'NodeReroute':
+                # if the from node is a reroute node
+                # look for the incoming node
+                found = False
+                while found is False:
+                    incoming_socket = from_node.inputs[0]
+                    link = incoming_socket.links[0]
+                    from_node = link.from_node
+                    if from_node.bl_idname == 'NodeReroute':
+                        continue
+                    found = True
             
             # if this is a float->float3 type or float3->float connections, insert
             # either PxrToFloat3 or PxrToFloat conversion nodes         
@@ -902,8 +955,19 @@ def find_all_stylized_filters(world):
         if socket.is_linked:
             link = socket.links[0]
             node = link.from_node    
-            if node.bl_label in RMAN_STYLIZED_FILTERS:
+            if node.bl_label in RMAN_STYLIZED_FILTERS+RMAN_STYLIZED_XPU_FILTERS:
                 nodes.append(node)
+
+    output = find_node(world, 'RendermanSamplefiltersOutputNode')
+    if not output:
+        return nodes   
+
+    for i, socket in enumerate(output.inputs):
+        if socket.is_linked:
+            link = socket.links[0]
+            node = link.from_node    
+            if node.bl_label in RMAN_STYLIZED_FILTERS+RMAN_STYLIZED_XPU_FILTERS:
+                nodes.append(node)                
 
     return nodes
                           
@@ -998,6 +1062,11 @@ def create_bxdf(bxdf):
         lama_node = nt.nodes.new('%sBxdfNode' % bxdf)
         lama_node.location = srf.location
         lama_node.location[0] -= 300
+
+        if bxdf in ['LamaSSS', 'LamaTricolorSSS']:
+            # this is one of the SSS lama nodes
+            # turn on computeSubsurface
+            setattr(srf, 'computeSubsurface', 1)
 
         nt.links.new(lama_node.outputs[0], srf.inputs['materialFront'])
         lama_node.update_mat(mat)

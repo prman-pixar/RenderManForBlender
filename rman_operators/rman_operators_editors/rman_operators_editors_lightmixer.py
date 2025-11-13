@@ -5,6 +5,7 @@ from ...rfb_utils import scene_utils
 from ...rfb_utils import shadergraph_utils
 from ...rfb_logger import rfb_log
 from ... import rfb_icons
+from ...rman_constants import RFB_PLATFORM
 from ...rfb_utils.prefs_utils import using_qt, show_wip_qt
 from ...rman_operators.rman_operators_collections import return_empty_list   
 from ...rman_config import __RFB_CONFIG_DICT__ as rfb_config
@@ -13,11 +14,11 @@ import re
 import sys
 
 __LIGHT_MIXER_WINDOW__ = None 
-
+'''
 if not bpy.app.background:
     try:
         from ...rman_ui import rfb_qt as rfb_qt
-        from PySide2 import QtCore, QtWidgets, QtGui 
+        from rman_utils.vendor.Qt import QtCore, QtWidgets, QtGui 
     except:
         rfb_qt = None
 
@@ -650,7 +651,7 @@ if not bpy.app.background:
                     self.remove_light_btn.setEnabled(False)
                     return
                 self.remove_light_btn.setEnabled(True)
-
+'''
 class RENDERMAN_UL_LightMixer_Group_Members_List(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -774,19 +775,21 @@ class PRMAN_OT_Renderman_Open_Light_Mixer_Editor(CollectionPanel, bpy.types.Oper
         else:
             self.check_light_mixer_links(context)
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None         
 
     def invoke(self, context, event):
+        '''
         if using_qt() and show_wip_qt():
             global __LIGHT_MIXER_WINDOW__
-            if sys.platform == "darwin":
+            if RFB_PLATFORM == "macOS":
                 rfb_qt.run_with_timer(__LIGHT_MIXER_WINDOW__, LightMixerQtWrapper)   
             else:
                 bpy.ops.wm.light_mixer_qt_app_timed()     
 
             return {'FINISHED'}       
-
+        '''
 
         wm = context.window_manager
         width = rfb_config['editor_preferences']['lightmixer_editor']['width']
@@ -861,8 +864,8 @@ classes = [
     RENDERMAN_UL_LightMixer_Group_Members_List
 ]
 
-if not bpy.app.background and rfb_qt:
-    classes.append(LightMixerQtAppTimed)
+# if not bpy.app.background and rfb_qt:
+#    classes.append(LightMixerQtAppTimed)
 
 def register():
     from ...rfb_utils import register_utils

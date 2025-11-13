@@ -22,7 +22,7 @@ class RmanPointsTranslator(RmanTranslator):
         P = mesh_utils.get_mesh_points_(mesh)
 
         primvar = rman_sg_points.sg_node.GetPrimVars()
-        npoints = len(P)
+        npoints = int(len(P) / 3 )
 
         if rman_sg_points.npoints != npoints:
             primvar.SetTimes([])
@@ -46,7 +46,7 @@ class RmanPointsTranslator(RmanTranslator):
         P = mesh_utils.get_mesh_points_(mesh)
 
         # if this is empty continue:
-        if not P or len(P) < 1:
+        if P is None or len(P) < 1:
             if not input_mesh:
                 ob.to_mesh_clear()
             rman_sg_points.sg_node = None
@@ -54,14 +54,14 @@ class RmanPointsTranslator(RmanTranslator):
             rman_sg_points.is_deforming = False
             return None        
 
-        npoints = len(P)
+        npoints = int(len(P) /3 )
         rman_sg_points.sg_node.Define(npoints)
         rman_sg_points.npoints = npoints
 
         primvar = rman_sg_points.sg_node.GetPrimVars()
         primvar.Clear()      
 
-        super().set_primvar_times(rman_sg_points.motion_steps, steps)
+        super().set_primvar_times(rman_sg_points.motion_steps, primvar)
 
         primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, P, "vertex")
         primvar.SetFloatDetail(self.rman_scene.rman.Tokens.Rix.k_constantwidth, rm.primitive_point_width, "constant")

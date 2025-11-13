@@ -96,11 +96,13 @@ class NODE_OT_remove_displayfilter_node_socket(bpy.types.Operator):
     bl_description = 'Remove this displayfilter socket.'
 
     index: IntProperty(default=-1)
+    do_delete: BoolProperty(default=False)
 
     def execute(self, context):
         if hasattr(context, 'node'):
             world = context.scene.world
             node = context.node
+            nt = world.node_tree
         else:
             world = context.scene.world
             rm = world.renderman
@@ -114,6 +116,10 @@ class NODE_OT_remove_displayfilter_node_socket(bpy.types.Operator):
             node.remove_input()
         else:
             socket = node.inputs[self.index]
+            if socket.is_linked and self.properties.do_delete:
+                link = socket.links[0]
+                input_node = link.from_node  
+                nt.nodes.remove(input_node)
             node.remove_input_index(socket)
             
         world.update_tag()            
@@ -550,29 +556,19 @@ class NODE_OT_rman_node_set_solo(bpy.types.Operator):
     bl_label = "Set Node Solo"
     bl_description = "Solo a node in material shader tree"
 
-    solo_node_name: StringProperty(default="")
     refresh_solo: BoolProperty(default=False)
 
     def invoke(self, context, event):
         nt = context.nodetree
+        mat = context.material
         output_node = context.node
-        selected_node = None
+        selected_node = getattr(context, "selected_node", None)
 
         if self.refresh_solo:
-            set_solo_node(output_node, nt, '', refresh_solo=True)
+            set_solo_node(output_node, None, mat, refresh_solo=True)
             return {'FINISHED'}           
-
-        if self.solo_node_name:
-            set_solo_node(output_node, nt, self.solo_node_name, refresh_solo=False)
-            return {'FINISHED'}        
-
-        selected_node = find_selected_pattern_node(nt)
-
-        if not selected_node:
-            self.report({'ERROR'}, "Pattern node not selected")
-            return {'FINISHED'}   
             
-        set_solo_node(output_node, nt, selected_node.name, refresh_solo=False)   
+        set_solo_node(output_node, selected_node, mat, refresh_solo=False)   
 
         return {'FINISHED'}        
 
@@ -582,13 +578,11 @@ class NODE_OT_rman_node_set_solo_output(bpy.types.Operator):
     bl_description = "Select output for solo node"
 
     solo_node_output: StringProperty(default="")
-    solo_node_name: StringProperty(default="")
 
     def invoke(self, context, event):
         node = getattr(context, 'node', None) 
         if node:
             node.solo_node_output = self.solo_node_output
-            node.solo_node_name = self.solo_node_name
 
         return {'FINISHED'}         
 

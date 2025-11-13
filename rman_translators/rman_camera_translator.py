@@ -183,12 +183,34 @@ class RmanCameraTranslator(RmanTranslator):
             bl_cam_props.view_camera_zoom = region_data.view_camera_zoom
             bl_cam_props.view_camera_offset = tuple(region_data.view_camera_offset)
 
+            cam = None
+            use_camera = False
+            use_perspective = False
             if region_data.view_perspective == 'CAMERA':
-                ob = self.rman_scene.bl_scene.camera    
+                ob = self.rman_scene.bl_scene.camera
                 if self.rman_scene.context.space_data.use_local_camera:
-                    ob = self.rman_scene.context.space_data.camera      
+                    ob = self.rman_scene.context.space_data.camera
+                if ob.type == "CAMERA":
+                    cam = ob.data
+                    use_camera = True
+                else:
+                    # this isn't a camera treat it as if
+                    # view_perspective == 'PERSP'
+                    cam = None
+                    use_perspective = True
+            elif region_data.view_perspective ==  'PERSP': 
+                ob = self.rman_scene.context.space_data.camera 
+                cam = None
+                if ob:
+                    cam = ob.data
+                use_perspective = True
+            else:
+                ob = self.rman_scene.context.space_data.camera 
+                cam = None
+                if ob:
+                    cam = ob.data
 
-                cam = ob.data
+            if use_camera:
                 r = self.rman_scene.bl_scene.render
 
                 xaspect, yaspect, aspectratio = camera_utils.render_get_aspect_(r, cam, x=width, y=height)
@@ -247,7 +269,7 @@ class RmanCameraTranslator(RmanTranslator):
                 bl_cam_props.aperture_roundness = cam.renderman.rman_aperture_roundness
                 bl_cam_props.aperture_density = cam.renderman.rman_aperture_density
 
-            elif region_data.view_perspective ==  'PERSP': 
+            elif use_perspective: 
                 if self.rman_scene.is_viewport_render and self.rman_scene.context.space_data.use_render_border:
                     space = self.rman_scene.context.space_data
                     min_x = space.render_border_min_x
@@ -256,10 +278,6 @@ class RmanCameraTranslator(RmanTranslator):
                     max_y = 1.0 - space.render_border_max_y
                     bl_cam_props.crop_window = [min_x, max_x, min_y, max_y]
 
-                ob = self.rman_scene.context.space_data.camera 
-                cam = None
-                if ob:
-                    cam = ob.data
                 r = self.rman_scene.bl_scene.render
 
                 xaspect, yaspect, aspectratio = camera_utils.render_get_aspect_(r, cam, x=width, y=height)          
@@ -303,10 +321,6 @@ class RmanCameraTranslator(RmanTranslator):
                 prop.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_ScreenWindow, sw, 4)    
 
             else: 
-                ob = self.rman_scene.context.space_data.camera 
-                cam = None
-                if ob:
-                    cam = ob.data
                 
                 r = self.rman_scene.bl_scene.render
 
@@ -445,13 +459,32 @@ class RmanCameraTranslator(RmanTranslator):
         updated = False
 
         bl_cam_props = deepcopy(rman_sg_camera.bl_cam_props)
+        cam = None
+        use_camera = False
+        use_perspective = False
         if rman_sg_camera.bl_cam_props.view_perspective == 'CAMERA':
             if ob is None:
                 ob = self.rman_scene.bl_scene.camera    
                 if self.rman_scene.context.space_data.use_local_camera:
                     ob = self.rman_scene.context.space_data.camera                
             ob = ob.original
-            cam = ob.data
+            if ob.type == "CAMERA":
+                cam = ob.data
+                use_camera = True
+            else:
+                # this isn't a camera treat it as if
+                # view_perspective == 'PERSP'
+                cam = None
+                use_perspective = True
+        elif rman_sg_camera.bl_cam_props.view_perspective ==  'PERSP':
+            if ob is None:
+                ob = self.rman_scene.context.space_data.camera 
+            cam = None
+            if ob:
+                cam = ob.data
+            use_perspective = True
+
+        if use_camera:
             rman_sg_camera.bl_camera = ob
             cam_rm = cam.renderman
 
@@ -487,12 +520,7 @@ class RmanCameraTranslator(RmanTranslator):
 
                 self._set_dof(ob, rman_sg_camera, cam, projparams)            
 
-        elif rman_sg_camera.bl_cam_props.view_perspective ==  'PERSP': 
-            if ob is None:
-                ob = self.rman_scene.context.space_data.camera 
-            cam = None
-            if ob:
-                cam = ob.data
+        elif use_perspective: 
             rman_sg_camera.bl_camera = ob
             
             aspectratio = rman_sg_camera.bl_cam_props.aspectratio
@@ -548,7 +576,7 @@ class RmanCameraTranslator(RmanTranslator):
         if cam_rm.rman_use_dof:
             rman_sg_camera.use_focus_object = cam_rm.rman_focus_object
             if cam_rm.rman_focus_object:
-                dof_focal_distance = (ob.location - cam_rm.rman_focus_object.location).length
+                dof_focal_distance = (ob.matrix_world.translation - cam_rm.rman_focus_object.matrix_world.translation).length
                 rman_sg_camera.bl_cam_props.dof_focal_length = dof_focal_distance
                 rman_sg_node = self.rman_scene.get_rman_prototype(object_utils.prototype_key(cam_rm.rman_focus_object))
                 if rman_sg_node:
@@ -597,7 +625,13 @@ class RmanCameraTranslator(RmanTranslator):
             res_y = resolution[1] * (self.rman_scene.bl_scene.render.border_max_y -
                                     self.rman_scene.bl_scene.render.border_min_y)
 
-            options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (int(res_x), int(res_y)), 2)
+            if self.rman_scene.rman_render.bl_rr_helper:
+                res_x = self.rman_scene.rman_render.bl_rr_helper.size_x
+                res_y = self.rman_scene.rman_render.bl_rr_helper.size_y
+                options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (res_x, res_y), 2)
+            else:
+                options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (round(res_x), round(res_y)), 2)
+
             options.SetFloat(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatPixelAspectRatio, 1.0)        
         else:            
             options.SetIntegerArray(self.rman_scene.rman.Tokens.Rix.k_Ri_FormatResolution, (resolution[0], resolution[1]), 2)
@@ -672,6 +706,7 @@ class RmanCameraTranslator(RmanTranslator):
         elif cam.type == 'PERSP':
             rman_sg_camera.projection_shader = self.rman_scene.rman.SGManager.RixSGShader("Projection", "PxrCamera", "proj")
             self._set_fov(ob, rman_sg_camera, cam, aspectratio, rman_sg_camera.projection_shader.params)
+            self._set_dof(ob, rman_sg_camera, cam, rman_sg_camera.projection_shader.params)
             self.set_tilt_shift_focus(ob, cam, rman_sg_camera.projection_shader.params)
                      
         elif cam.type == 'PANO':

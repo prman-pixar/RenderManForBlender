@@ -505,6 +505,18 @@
             "channelSource": "incidentRaySpread",
             "group": "Data AOVs"
          },
+         "motionFore": {
+            "description": "Forward 2D raster-space motion vector",
+            "channelType": "vector",
+            "channelSource": "motionFore",
+            "group": "Data AOVs"
+         }, 
+         "motionBack": {
+            "description": "Backward 2D raster-space motion vector",
+            "channelType": "vector",
+            "channelSource": "motionBack",
+            "group": "Data AOVs"
+         },                 
         "mpSize": {
             "description": "Size of the micropolygon that the ray hit",
             "channelType": "float",
@@ -665,96 +677,131 @@
             "channelSource": "lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;CU4L",
             "group": "User Lobes"
         },
-        "NPRlineOut": {
+        "NPRshadow": {
             "channelType": "color",
-            "channelSource": "NPRlineOut",
-            "group": "NPR"
-        },
-        "NPRcurvature": {
+            "channelSource": "lpe:shadows;C[DS]+<L.>",
+            "group": "Stylized"
+        },       
+        "NPRtoonOut": {
             "channelType": "color",
-            "channelSource": "NPRcurvature",
-            "group": "NPR"
-        },
-        "NPRoutline": {
-            "channelType": "color",
-            "channelSource": "NPRoutline",
-            "group": "NPR"
-        },
-        "NPRlineNZ": {
-            "channelType": "color",
-            "channelSource": "NPRlineNZ",
-            "group": "NPR"
-        },
-        "NPRsections": {
-            "channelType": "color",
-            "channelSource": "NPRsections",
-            "group": "NPR"
-        },
-        "NPRlineCamdist": {
-            "channelType": "color",
-            "channelSource": "NPRlineCamdist",
-            "group": "NPR"
-        },
-        "NPRmask": {
-            "channelType": "color",
-            "channelSource": "NPRmask",
-            "group": "NPR"
-        },
-        "NPRlineAlbedo": {
-            "channelType": "color",
-            "channelSource": "NPRlineAlbedo",
-            "group": "NPR"
-        },
-        "NPRlineWidth": {
-            "channelType": "color",
-            "channelSource": "NPRlineWidth",
-            "group": "NPR"
-        },
-        "NPRlineOutAlpha": {
-            "channelType": "color",
-            "channelSource": "NPRlineOutAlpha",
-            "group": "NPR"
-        },
-        "NPRtextureCoords": {
-            "channelType": "color",
-            "channelSource": "NPRtextureCoords",
-            "group": "NPR"
-        },
-        "NPRPtriplanar": {
-            "channelType": "color",
-            "channelSource": "NPRPtriplanar",
-            "group": "NPR"
-        },
-        "NPRNtriplanar": {
-            "channelType": "color",
-            "channelSource": "NPRNtriplanar",
-            "group": "NPR"
-        },        
-        "NPRalbedo": {
-            "channelType": "color",
-            "channelSource": "NPRalbedo",
-            "group": "NPR"
+            "channelSource": "NPRtoonOut",
+            "group": "Stylized"
         },
         "NPRhatchOut": {
             "channelType": "color",
             "channelSource": "NPRhatchOut",
-            "group": "NPR"
-        },        
-        "NPRtoonOut": {
+            "group": "Stylized"
+        },         
+        "NPRhatchTriplanar1to3": {
             "channelType": "color",
-            "channelSource": "NPRtoonOut",
-            "group": "NPR"
+            "channelSource": "NPRhatchTriplanar1to3",
+            "group": "Stylized"
         },
+        "NPRhatchTriplanar4to6": {
+            "channelType": "color",
+            "channelSource": "NPRhatchTriplanar4to6",
+            "group": "Stylized"
+        },
+        "NPRhatchTriplanar7to8": {
+            "channelType": "color",
+            "channelSource": "NPRhatchTriplanar7to8",
+            "group": "Stylized"
+        },                    
+        "NPRlineOut": {
+            "channelType": "color",
+            "channelSource": "NPRlineOut",
+            "group": "Stylized"
+        },
+        "NPRcurvature": {
+            "channelType": "color",
+            "channelSource": "NPRcurvature",
+            "group": "Stylized"
+        },
+        "NPRnormals": {
+            "channelType": "color",
+            "channelSource": "NPRnormals",
+            "group": "Stylized"
+        },        
+        "NPRoutline": {
+            "channelType": "color",
+            "channelSource": "NPRoutline",
+            "group": "Stylized"
+        },
+        "NPRlineNZ": {
+            "channelType": "color",
+            "channelSource": "NPRlineNZ",
+            "group": "Stylized"
+        },
+        "NPRsections": {
+            "channelType": "color",
+            "channelSource": "NPRsections",
+            "group": "Stylized"
+        },
+        "NPRlineCamdist": {
+            "channelType": "color",
+            "channelSource": "NPRlineCamdist",
+            "group": "Stylized"
+        },
+        "NPRmask": {
+            "channelType": "color",
+            "channelSource": "NPRmask",
+            "group": "Stylized"
+        },
+        "NPRlineAlbedo": {
+            "channelType": "color",
+            "channelSource": "NPRlineAlbedo",
+            "group": "Stylized"
+        },
+        "NPRlineWidth": {
+            "channelType": "color",
+            "channelSource": "NPRlineWidth",
+            "group": "Stylized"
+        },
+        "NPRlineOutAlpha": {
+            "channelType": "color",
+            "channelSource": "NPRlineOutAlpha",
+            "group": "Stylized"
+        },
+        "NPRtextureCoords": {
+            "channelType": "color",
+            "channelSource": "NPRtextureCoords",
+            "group": "Stylized"
+        },
+        "NPRPtriplanar": {
+            "channelType": "color",
+            "channelSource": "NPRPtriplanar",
+            "group": "Stylized"
+        },
+        "NPRNtriplanar": {
+            "channelType": "color",
+            "channelSource": "NPRNtriplanar",
+            "group": "Stylized"
+        },        
+        "NPRalbedo": {
+            "channelType": "color",
+            "channelSource": "NPRalbedo",
+            "group": "Stylized"
+        },    
+        "NPRalbedo2": {
+            "channelType": "color",
+            "channelSource": "NPRalbedo2",
+            "group": "Stylized"
+        },
+        "NPRalbedo3": {
+            "channelType": "color",
+            "channelSource": "NPRalbedo3",
+            "group": "Stylized"
+        },        
         "NPRdistort": {
             "channelType": "color",
             "channelSource": "NPRdistort",
-            "group": "NPR"
+            "group": "Stylized"
         },
-        "NPRshadow": {
+        "NPRpainterly": {
             "channelType": "color",
-            "channelSource": "lpe:shadows;C[DS]+<L.>",
-            "group": "NPR"
-        }
+            "channelSource": "NPRpainterly",
+            "group": "Stylized"
+        }        
     },
     "displays": {
         "Default": {
@@ -814,11 +861,16 @@
                 "albedo",
                 "P",
                 "Nn",
+                "Tn",
                 "sampleCount",
                 "directSpecular",
+                "motionFore",
                 "NPRshadow",
                 "NPRtoonOut",
                 "NPRhatchOut",
+                "NPRhatchTriplanar1to3",
+                "NPRhatchTriplanar4to6",
+                "NPRhatchTriplanar7to8",
                 "NPRlineOut",
                 "NPRlineOutAlpha",
                 "NPRoutline",
@@ -828,12 +880,16 @@
                 "NPRlineAlbedo",
                 "NPRlineWidth",
                 "NPRmask",
-                "NPRcurvature",
+                "NPRcurvature",                
+                "NPRnormals",
                 "NPRalbedo",
+                "NPRalbedo2",
+                "NPRalbedo3",
                 "NPRtextureCoords",
                 "NPRPtriplanar",
                 "NPRNtriplanar",
-                "NPRdistort"
+                "NPRdistort",
+                "NPRpainterly"
             ]
         }        
     }

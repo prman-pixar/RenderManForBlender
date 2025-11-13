@@ -323,8 +323,12 @@ class PRMAN_OT_RM_Add_bxdf(bpy.types.Operator):
         return info
 
     def execute(self, context):
-        selection = bpy.context.selected_objects if hasattr(
-            bpy.context, 'selected_objects') else []
+        selected_object = getattr(context, "selected_obj", None)
+        if selected_object:
+            selection = [selected_object]
+        else:
+            selection = bpy.context.selected_objects if hasattr(
+                bpy.context, 'selected_objects') else []
         bxdf_name = self.properties.bxdf_name
         mat = shadergraph_utils.create_bxdf(bxdf_name)
         for obj in selection:

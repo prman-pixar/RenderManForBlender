@@ -1,11 +1,8 @@
 from .rman_mesh_translator import RmanMeshTranslator
 from ..rman_sg_nodes.rman_sg_curve import RmanSgCurve
 from ..rfb_utils import object_utils
-from ..rfb_utils import string_utils
 from ..rfb_utils import property_utils
 
-import bpy
-import math
 import numpy as np
 
 def get_bspline_curve(curve):
@@ -23,15 +20,16 @@ def get_bspline_curve(curve):
 
         spline.points.foreach_get('co', pts)
         spline.points.foreach_get('radius', width)
-        pts = np.reshape(pts, (npoints, 4))
         width = np.where(width >= 1.0, width*0.01, 0.01)
 
-        P.extend(pts[0:, 0:3].tolist())
+        delete_w = np.arange(3, pts.size, 4)
+        pts = np.delete(pts, delete_w)
+        P.extend(pts.tolist())
         widths.append(width.tolist())
         nvertices.append(npoints)
         name = spline.id_data.name
 
-    index = np.arange(num_curves).tolist()
+    index = np.arange(num_curves)
     
     return (P, num_curves, nvertices, widths, index, name)
 
@@ -50,15 +48,16 @@ def get_curve(curve):
 
         spline.points.foreach_get('co', pts)
         spline.points.foreach_get('radius', width)
-        pts = np.reshape(pts, (npoints, 4))
         width = np.where(width >= 1.0, width*0.01, 0.01)
 
-        P.extend(pts[0:, 0:3].tolist())
+        delete_w = np.arange(3, pts.size, 4)
+        pts = np.delete(pts, delete_w)
+        P.extend(pts.tolist())
         widths.append(width)
         nvertices.append(npoints)
         name = spline.id_data.name
 
-    index = np.arange(num_curves).tolist()        
+    index = np.arange(num_curves)
     
     return (P, num_curves, nvertices, widths, index, name)
 
@@ -122,7 +121,7 @@ class RmanCurveTranslator(RmanMeshTranslator):
 
         if is_mesh and self.rman_scene.do_motion_blur:
             rman_sg_curve.is_transforming = object_utils.is_transforming(ob)
-            rman_sg_curve.is_deforming = object_utils._is_deforming_(ob)
+            rman_sg_curve.is_deforming = object_utils._is_deforming_(ob, self.rman_scene.bl_scene)
 
         return rman_sg_curve
 
@@ -164,7 +163,7 @@ class RmanCurveTranslator(RmanMeshTranslator):
 
     def update_bspline_curve(self, ob, rman_sg_curve):
         P, num_curves, nvertices, widths, index, name = get_bspline_curve(ob.data)
-        num_pts = len(P)
+        num_pts = int(len(P)/3)
          
         curves_sg = self.rman_scene.sg_scene.CreateCurves(name)
         curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_cubic, 'nonperiodic', "b-spline", num_curves, num_pts)
@@ -174,7 +173,7 @@ class RmanCurveTranslator(RmanMeshTranslator):
         primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_nvertices, nvertices, "uniform")
         if widths:
             primvar.SetFloatDetail(self.rman_scene.rman.Tokens.Rix.k_width, widths, "vertex")
-        primvar.SetIntegerDetail("index", index, "uniform")
+        primvar.SetIntegerDetail("index", index.data, "uniform")
         #self.update_primvars(ob, primvar)           
         super().export_object_primvars(ob, primvar)
 
@@ -184,7 +183,7 @@ class RmanCurveTranslator(RmanMeshTranslator):
 
     def update_curve(self, ob, rman_sg_curve):
         P, num_curves, nvertices, widths, index, name = get_curve(ob.data)
-        num_pts = len(P)
+        num_pts = int(len(P)/3)
          
         curves_sg = self.rman_scene.sg_scene.CreateCurves(name)
         curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_linear, 'nonperiodic', "linear", num_curves, num_pts)
@@ -194,7 +193,7 @@ class RmanCurveTranslator(RmanMeshTranslator):
         primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_nvertices, nvertices, "uniform")
         if widths:
             primvar.SetFloatDetail(self.rman_scene.rman.Tokens.Rix.k_width, widths, "vertex")
-        primvar.SetIntegerDetail("index", index, "uniform")
+        primvar.SetIntegerDetail("index", index.data, "uniform")
         curves_sg.SetPrimVars(primvar)     
 
         rman_sg_curve.sg_node.AddChild(curves_sg)          

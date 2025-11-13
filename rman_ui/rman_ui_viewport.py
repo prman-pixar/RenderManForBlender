@@ -68,6 +68,7 @@ class PRMAN_MT_Viewport_Res_Mult_Menu(Menu):
     def get_items(self):
         items=[
             ("1.0", "100%"),
+            ("0.75", "75%"),
             ("0.5", "50%"),
             ("0.33", "33%"),
             ("0.25", "25%"),
@@ -296,7 +297,7 @@ class DrawCropWindowHelper(object):
         '''
         if update:            
             rman_render = RmanRender.get_rman_render()
-            if rman_render.rman_is_viewport_rendering:
+            if rman_render.rman_context.is_viewport_rendering():
                 if self.use_render_border:
                     rman_render.rman_scene_sync.update_cropwindow(current_crop)                
                 else:                    
@@ -424,7 +425,8 @@ class PRMAN_OT_Viewport_Enhance(bpy.types.Operator):
     bl_description = "Enhance"
     bl_options = {"INTERNAL"}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.x = -1
         self.y = -1
 
@@ -434,7 +436,7 @@ class PRMAN_OT_Viewport_Enhance(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         rman_render = RmanRender.get_rman_render()
-        if not rman_render.rman_is_live_rendering:
+        if not rman_render.rman_context.is_live_rendering():
             return False
         return (rman_render.rman_scene.main_camera.projection_shader.name.CStr() == 'PxrCamera')
 
@@ -519,7 +521,7 @@ class PRMAN_OT_Viewport_CropWindow_Reset(bpy.types.Operator):
 
     def execute(self, context):
         rman_render = RmanRender.get_rman_render()
-        if rman_render.rman_is_viewport_rendering:
+        if rman_render.rman_context.is_viewport_rendering():
             get_crop_helper().reset()
             bpy.ops.view3d.clear_render_border()
             rman_render.rman_scene_sync.update_cropwindow([0.0, 1.0, 0.0, 1.0])
@@ -532,7 +534,8 @@ class PRMAN_OT_Viewport_Cropwindow(bpy.types.Operator):
     bl_description = "Cropwindow"
     bl_options = {"INTERNAL"}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.crop_handler = get_crop_helper()
         self.mouse_prev_x = -1
         self.mouse_prev_y = -1
@@ -594,7 +597,7 @@ class PRMAN_OT_Viewport_Cropwindow(bpy.types.Operator):
 
     def execute(self, context):
         rman_render = RmanRender.get_rman_render()
-        if rman_render.rman_is_viewport_rendering:
+        if rman_render.rman_context.is_viewport_rendering():
 
             if not self.crop_handler.valid_crop_window():
                 return {'FINISHED'}
@@ -824,18 +827,21 @@ def draw_rman_viewport_props(self, context):
         view = context.space_data
         rman_render = RmanRender.get_rman_render()
         if view.shading.type == 'RENDERED' or rman_render.is_ipr_to_it():
-            if not rman_render.rman_running:
+            if not rman_render.rman_context.is_render_running():
                 return
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")
             row.operator('renderman.stop_ipr', text="",
                             icon_value=rman_rerender_controls.icon_id)
+            rman_icon = rfb_icons.get_icon('rman_refresh')    
+            row.operator('renderman.restart_ipr', text="",
+                            icon_value=rman_icon.icon_id)                    
 
             # integrators menu
             rman_icon = rfb_icons.get_icon('rman_vp_viz')
             row.menu('PRMAN_MT_Viewport_Integrator_Menu', text='', icon_value=rman_icon.icon_id)
             # decidither
             row.menu('PRMAN_MT_Viewport_Refinement_Menu', text='', icon='IMPORT')
-            if rman_render.rman_is_viewport_rendering:
+            if rman_render.rman_context.is_viewport_rendering():
 
                 # resolution mult
                 rman_icon = rfb_icons.get_icon('rman_vp_resolution')
@@ -859,7 +865,7 @@ def draw_rman_viewport_props(self, context):
             rman_icon = rfb_icons.get_icon('rman_lightning_grey')
             row.operator('rman_txmgr_list.clear_all_cache', text='', icon_value=rman_icon.icon_id)
 
-        elif rman_render.rman_running:
+        elif rman_render.rman_context.is_render_running():
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_cancel")
             row.operator('renderman.stop_render', text="",
                             icon_value=rman_rerender_controls.icon_id)
@@ -868,11 +874,12 @@ def draw_rman_viewport_props(self, context):
             get_crop_helper().reset()
 
             # stop rendering if we're not in viewport rendering
-            if rman_render.rman_interactive_running:
+            if rman_render.rman_context.is_viewport_rendering():
                 #rman_render.stop_render()
                 rman_render.del_bl_engine()
             rman_rerender_controls = rfb_icons.get_icon("rman_ipr_on")
             row.menu('PRMAN_MT_Viewport_Render_Menu', text='', icon_value=rman_rerender_controls.icon_id)
+            row.enabled = scene.renderman.can_render
         row.popover(panel="PRMAN_PT_Viewport_Options", text="")
 
 
@@ -887,10 +894,10 @@ class PRMAN_PT_Viewport_Options(Panel):
         return context.engine == "PRMAN_RENDER"
 
     def draw(self, context):
-        rman_render = RmanRender.get_rman_render()
-        is_rman_rendering = rman_render.rman_running
         scene = context.scene
         rm = scene.renderman
+        is_rman_rendering = rm.is_rman_running
+
 
         layout = self.layout
         layout.use_property_split = True
@@ -914,10 +921,8 @@ class PRMAN_PT_Viewport_Options(Panel):
             col.prop(rm, 'blender_ipr_aidenoiser_cheapFirstPass')
             col.prop(rm, 'blender_ipr_aidenoiser_minSamples')
             col.prop(rm, 'blender_ipr_aidenoiser_interval')
-        if rman_render.rman_interactive_running:
-            col.enabled = False
 
-        if rm.current_platform != ("macOS") and rm.has_xpu_license:
+        if rm.renderVariant == 'xpu' and rm.current_platform != ("macOS") and rm.has_xpu_license:
             col = layout.column(align=True)
             col.label(text='XPU')
             col = layout.row()

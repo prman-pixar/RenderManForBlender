@@ -132,6 +132,7 @@ class BlPropVal:
         self.type = kwargs.get('type', '')
         self.value = None
         self.is_reference = False
+        self.is_array = False
 
     def set_value(self, value):
         self.value = value
@@ -141,6 +142,9 @@ class BlPropVal:
             return
         self.value = value
         self.is_reference = True
+
+    def set_is_array(self, is_array):
+        self.is_array = is_array
 
 
 def get_property_default(node, prop_name):
@@ -177,11 +181,18 @@ def get_linked_val(bl_prop_info, rman_sg_node, mat_name=None, group_node=None):
     else:
         val = get_output_param_str(rman_sg_node,
                 bl_prop_info.from_node, mat_name, bl_prop_info.from_socket, bl_prop_info.socket, param_type)   
+        
+        if bl_prop_info.arraySize:
+            if not bl_prop_info.from_socket.is_array:
+                val = [val] * bl_prop_info.arraySize
+                bl_prop_val.is_array = True
         bl_prop_val.set_value_reference(val)         
 
     return bl_prop_val 
 
 def get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=None):
+    from . import shadergraph_utils
+
     bl_prop_val = BlPropVal( 
         name=bl_prop_info.renderman_name,
         param_type=bl_prop_info.renderman_type,
@@ -190,8 +201,9 @@ def get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=None):
     vstruct_name, vstruct_member = bl_prop_info.vstructmember.split('.')
     from_socket = node.inputs[
         vstruct_name].links[0].from_socket
+    from_socket_node = from_socket.node
 
-    if from_socket.node.bl_idname == 'ShaderNodeGroup':
+    if from_socket_node.bl_idname == 'ShaderNodeGroup':
         ng = from_socket.node.node_tree
         group_output = next((n for n in ng.nodes if n.bl_idname == 'NodeGroupOutput'),
                             None)
@@ -201,11 +213,14 @@ def get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=None):
         in_sock = group_output.inputs[from_socket.name]
         if len(in_sock.links):
             from_socket = in_sock.links[0].from_socket
+            from_socket_node = from_socket.node
+    elif from_socket_node.bl_idname == 'NodeReroute':
+        from_socket_node, from_socket = shadergraph_utils.get_rerouted_node(from_socket_node)            
             
     vstruct_from_param = "%s_%s" % (
         from_socket.identifier, vstruct_member)
-    if vstruct_from_param in from_socket.node.output_meta:
-        actual_socket = from_socket.node.output_meta[
+    if vstruct_from_param in from_socket_node.output_meta:
+        actual_socket = from_socket_node.output_meta[
             vstruct_from_param]
 
         node_meta = getattr(
@@ -213,7 +228,7 @@ def get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=None):
         node_meta = node_meta.get(vstruct_from_param)
         is_reference = True
         val = get_output_param_str(rman_sg_node,
-                from_socket.node, mat_name, actual_socket, to_socket=None, param_type=param_type)
+                from_socket_node, mat_name, actual_socket, to_socket=None, param_type=param_type)
         if node_meta:
             expr = node_meta.get('vstructConditionalExpr')
             # check if we should connect or just set a value
@@ -227,7 +242,7 @@ def get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=None):
             bl_prop_val.set_value(val)
     else:
         rfb_log().warning('Warning! %s not found on %s' %
-                (vstruct_from_param, from_socket.node.name))       
+                (vstruct_from_param, from_socket_node.name))       
         
     return bl_prop_val
 
@@ -314,7 +329,7 @@ def set_rix_param(params, param_type, param_name, val, is_reference=False, is_ar
                 params.SetBxdfReference(param_name, val)       
     else:
         # check if we need to emit this parameter.
-        if node != None and not prefs_utils.get_pref('rman_emit_default_params', False):
+        if node != None and not force_write and not prefs_utils.get_pref('rman_emit_default_params', False):
             pname = param_name
             if prop_name != '':
                 pname = prop_name
@@ -575,6 +590,8 @@ def is_vstruct_or_linked(node, param):
 # tells if this param has a vstuct connection that is linked and
 # conditional met
 def is_vstruct_and_linked(node, param):
+    from . import shadergraph_utils
+
     if param not in node.prop_meta:
         return True    
     meta = node.prop_meta[param]
@@ -585,8 +602,9 @@ def is_vstruct_and_linked(node, param):
     vstruct_name, vstruct_member = meta['vstructmember'].split('.')
     if node.inputs[vstruct_name].is_linked:
         from_socket = node.inputs[vstruct_name].links[0].from_socket
+        from_socket_node = from_socket.node
         # if coming from a shader group hookup across that
-        if from_socket.node.bl_idname == 'ShaderNodeGroup':
+        if from_socket_node.bl_idname == 'ShaderNodeGroup':
             ng = from_socket.node.node_tree
             group_output = next((n for n in ng.nodes if n.bl_idname == 'NodeGroupOutput'),
                                 None)
@@ -596,9 +614,12 @@ def is_vstruct_and_linked(node, param):
             in_sock = group_output.inputs[from_socket.name]
             if len(in_sock.links):
                 from_socket = in_sock.links[0].from_socket
+                from_socket_node = from_socket.node
+        elif from_socket_node.bl_idname == 'NodeReroute':
+            from_socket_node, from_socket = shadergraph_utils.get_rerouted_node(from_socket_node)
         vstruct_from_param = "%s_%s" % (
             from_socket.identifier, vstruct_member)          
-        return vstruct_conditional(from_socket.node, vstruct_from_param)
+        return vstruct_conditional(from_socket_node, vstruct_from_param)
 
     return False
 
@@ -855,6 +876,7 @@ def set_array_rixparams(node, rman_sg_node, mat_name, bl_prop_info, prop_name, p
     any_connections = False
     inputs = getattr(node, 'inputs', dict())
     input_array_size = len(collection)    
+            
     for i in range(input_array_size):
         elem = collection[i]
         nm = '%s[%d]' % (prop_name, i)
@@ -868,15 +890,13 @@ def set_array_rixparams(node, rman_sg_node, mat_name, bl_prop_info, prop_name, p
                 from_node, mat_name, from_socket, to_socket, param_type)
             if val:
                 if getattr(from_socket, 'is_array', False):      
-                    # the socket from the incoming connection is an array
-                    # clear val_ref_array so far and resize it to this
-                    # socket's array size                    
+                    # the socket from the incoming connection is an array   
+                    # check the array size            
                     array_size = from_socket.array_size
-                    val_ref_array.clear()
-                    for i in range(array_size):        
-                        cnx_val = '%s[%d]' % (val, i)
-                        val_ref_array.append(cnx_val)
-                    break
+                    if i > array_size:
+                        val_ref_array.append("")
+                        continue
+                    val = '%s[%d]' % (val, i)
                 val_ref_array.append(val)            
             else:
                 val_ref_array.append("")            
@@ -946,7 +966,7 @@ def set_ui_struct_rixparams(node, rman_sg_node, ui_struct_name, params, ob=None,
             set_rix_param(params, param_type, member, vals, is_reference=False, is_array=True, array_len=len(vals), node=node, force_write=True)
 
 
-def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group_node=None):
+def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group_node=None, force_write=False):
     # If node is OSL node get properties from dynamic location.
     if node.bl_label == "PxrOSL":
         set_pxrosl_params(node, rman_sg_node, params, ob=ob, mat_name=mat_name)
@@ -959,6 +979,11 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
         param_name = bl_prop_info.renderman_name      
         is_linked = bl_prop_info.is_linked
         prop = bl_prop_info.prop
+        is_array = False 
+        array_len = -1
+        if bl_prop_info.arraySize:
+            is_array = True
+            array_len = int(bl_prop_info.arraySize)        
 
         if not bl_prop_info.do_export:
             continue
@@ -988,32 +1013,29 @@ def set_node_rixparams(node, rman_sg_node, params, ob=None, mat_name=None, group
         if is_linked:
             bl_prop_val = get_linked_val(bl_prop_info, rman_sg_node, mat_name=mat_name, group_node=group_node)
             if bl_prop_val.value: 
-                set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
+                if bl_prop_val.is_array:
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, is_array=True, array_len=array_len, node=node, force_write=force_write)
+                else:
+                    set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, force_write=force_write)
             else:
                 rfb_log().debug("Could not find connection for: %s.%s" % (node.name, param_name))                                 
 
         # see if vstruct linked
         elif bl_prop_info.is_vstruct_and_linked:
             bl_prop_val = get_vstruct_linked_val(node, rman_sg_node, bl_prop_info, mat_name=mat_name)
-            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference)
+            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=bl_prop_val.is_reference, force_write=force_write)
 
         # else export just the property's value
         else:
             bl_prop_val = get_prop_value(node, ob, rman_sg_node, bl_prop_info)
-            is_array = False 
-            array_len = -1
-            if bl_prop_info.arraySize:
-                is_array = True
-                array_len = int(bl_prop_info.arraySize)
-
-            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=False, is_array=is_array, array_len=array_len, node=node)
+            set_rix_param(params, param_type, param_name, bl_prop_val.value, is_reference=False, is_array=is_array, array_len=array_len, node=node, force_write=force_write)
             
     return params      
 
-def property_group_to_rixparams(node, rman_sg_node, sg_node, ob=None, mat_name=None, group_node=None):
+def property_group_to_rixparams(node, rman_sg_node, sg_node, ob=None, mat_name=None, group_node=None, force_write=False):
 
     params = sg_node.params
-    set_node_rixparams(node, rman_sg_node, params, ob=ob, mat_name=mat_name, group_node=group_node)
+    set_node_rixparams(node, rman_sg_node, params, ob=ob, mat_name=mat_name, group_node=group_node, force_write=force_write)
 
 def portal_inherit_dome_params(portal_node, dome, dome_node, rixparams):
     '''

@@ -1,5 +1,5 @@
 from .rman_ui_base import _RManPanelHeader,ShaderPanel,ShaderNodePanel, CollectionPanel 
-from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes
+from ..rfb_utils.shadergraph_utils import is_renderman_nodetree, gather_nodes, find_solo_node
 from ..rfb_utils.draw_utils import panel_node_draw,draw_nodes_properties_ui,draw_node_properties_recursive
 from ..rfb_utils.draw_utils import show_node_sticky_params, show_node_match_params
 from ..rfb_utils.prefs_utils import get_pref
@@ -24,7 +24,7 @@ class MATERIAL_PT_renderman_preview(ShaderPanel, Panel):
         if not mat:
             return False        
         rr = RmanRender.get_rman_render()
-        if rr.rman_interactive_running:
+        if rr.rman_context.is_interactive_running():
             return False    
         return get_pref('rman_do_preview_renders', False)
 
@@ -58,9 +58,9 @@ class MATERIAL_PT_renderman_material_refresh(ShaderPanel, Panel):
         if not mat:
             return False
         rr = RmanRender.get_rman_render()
-        if not rr.rman_is_live_rendering:
+        if not rr.rman_context.is_live_rendering():
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False
         return True
 
@@ -68,7 +68,7 @@ class MATERIAL_PT_renderman_material_refresh(ShaderPanel, Panel):
         mat = context.material
         layout = self.layout
         rr = RmanRender.get_rman_render()
-        if rr.rman_is_live_rendering:
+        if rr.rman_context.is_live_rendering():
             layout.context_pointer_set("material", mat)
             layout.operator("node.rman_force_material_refresh", text='Force Refresh')
 
@@ -82,9 +82,9 @@ class DATA_PT_renderman_light_refresh(ShaderPanel, Panel):
         if not light:
             return False
         rr = RmanRender.get_rman_render()
-        if not rr.rman_is_live_rendering:
+        if not rr.rman_context.is_live_rendering():
             return False
-        if rr.rman_swatch_render_running:
+        if rr.rman_context.is_swatch_rendering():
             return False            
         return True    
 
@@ -114,19 +114,20 @@ class MATERIAL_PT_renderman_shader_surface(ShaderPanel, Panel):
             rman_output_node = is_renderman_nodetree(mat)
 
             if rman_output_node:             
-                if rman_output_node.solo_node_name != '':
-                    solo_node = nt.nodes.get(rman_output_node.solo_node_name, None)
+                if rman_output_node.solo_node_on:
+                    solo_node, solo_nt = find_solo_node(nt)
                     if solo_node:
 
                         split = layout.split(factor=0.25)
-                        split.context_pointer_set("nodetree", nt)  
+                        split.context_pointer_set("nodetree", solo_nt)  
                         split.context_pointer_set("node", rman_output_node)  
                         rman_icon = rfb_icons.get_icon('rman_solo_on')   
-                        split.label(text=rman_output_node.solo_node_name , icon_value=rman_icon.icon_id)  
+                        split.label(text=solo_node.name , icon_value=rman_icon.icon_id)  
                         
                         split = split.split(factor=0.95)
                         split.menu('NODE_MT_renderman_node_solo_output_menu', text='Select Output')
-                        op = split.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH')
+                        rman_icon = rfb_icons.get_icon('rman_refresh')   
+                        op = split.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id)
                         op.refresh_solo = True 
                         layout.separator()
                         
@@ -515,7 +516,7 @@ class RENDERMAN_UL_LightFilters(CollectionPanel):
             if lightfilter.data.node_tree:
                 col = layout.column()
                 rr = RmanRender.get_rman_render()
-                if rr.rman_is_live_rendering:
+                if rr.rman_context.is_live_rendering():
                     col.context_pointer_set("light_filter", lightfilter)
                     col.operator("node.rman_force_lightfilter_refresh", text='Force Refresh')              
 
@@ -612,17 +613,21 @@ class DATA_PT_renderman_node_shader_light_viewport(ShaderNodePanel, Panel):
         rd = context.scene.render
         return rd.engine == 'PRMAN_RENDER' and hasattr(context, "light") \
             and context.light is not None and hasattr(context.light, 'renderman') \
-            and context.light.renderman.renderman_light_role != 'RMAN_LIGHTFILTER' \
-            and context.light.renderman.get_light_node_name() in ['PxrRectLight', 'PxrCylinderLight', 'PxrSphereLight', 'PxrDiskLight']
+            and context.light.renderman.renderman_light_role != 'RMAN_LIGHTFILTER'
 
     def draw(self, context):
         layout = self.layout
         light = context.light
+        layout.prop(light.renderman, 'rman_vp_draw_texture')        
+        layout.prop(light.renderman, 'rman_vp_scale')
         node = light.renderman.get_light_node()
+        col = layout.column()
         if getattr(node, 'coneAngle', 90.0) >= 90.0:
-            layout.enabled = False
-        layout.prop(light.renderman, 'rman_coneAngleDepth')  
-        layout.prop(light.renderman, 'rman_coneAngleOpacity') 
+            col.enabled = False
+        row = col.row()
+        row.prop(light.renderman, 'rman_coneAngleDepth')  
+        row = col.row()
+        row.prop(light.renderman, 'rman_coneAngleOpacity') 
 class MATERIAL_PT_renderman_shader_light_filters(RENDERMAN_UL_LightFilters, Panel):
     bl_context = "material"
     bl_label = "Light Filters"

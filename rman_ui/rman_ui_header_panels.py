@@ -40,8 +40,7 @@ class NODE_MT_renderman_node_editor_menu(bpy.types.Menu):
 
     def add_arrange_op(self, layout):
         rman_icon = rfb_icons.get_icon('rman_graph') 
-        layout.operator('node.button', icon_value=rman_icon.icon_id) 
-        layout.operator('node.na_align_nodes', icon_value=rman_icon.icon_id) 
+        layout.operator('node.rman_arrange_nodes', icon_value=rman_icon.icon_id) 
 
     def draw(self, context):
         layout = self.layout
@@ -60,7 +59,7 @@ class NODE_MT_renderman_node_editor_menu(bpy.types.Menu):
             else:
                 rman_icon = rfb_icons.get_icon("out_PxrSurface")
                 layout.operator('node.rman_new_bxdf', text='New Bxdf', icon_value=rman_icon.icon_id).idtype = "node_editor"
-                nt = context.space_data.id.node_tree
+                nt = context.space_data.edit_tree
                 layout.context_pointer_set("mat", mat)
                 layout.context_pointer_set("nodetree", nt)  
                 layout.context_pointer_set("node", rman_output_node) 
@@ -70,24 +69,22 @@ class NODE_MT_renderman_node_editor_menu(bpy.types.Menu):
                 selected_node = find_soloable_node(nt)
                 if selected_node:                     
                     rman_icon = rfb_icons.get_icon('rman_solo_on')
+                    layout.context_pointer_set("selected_node", selected_node)
                     op = layout.operator('node.rman_set_node_solo', text='Solo %s' % selected_node.name, icon_value=rman_icon.icon_id)
                     op.refresh_solo = False
-                    op.solo_node_name = selected_node.name           
 
-                if rman_output_node.solo_node_name != '':   
-                    op = layout.operator('node.rman_set_node_solo', text='Reset Solo', icon='FILE_REFRESH')
-                    op.refresh_solo = True     
-            
-                self.add_arrange_op(layout)                                    
+                if rman_output_node.solo_node_on:
+                    layout.context_pointer_set("selected_node", None)
+                    rman_icon = rfb_icons.get_icon('rman_refresh')
+                    op = layout.operator('node.rman_set_node_solo', text='Reset Solo', icon_value=rman_icon.icon_id)
+                    op.refresh_solo = True                                  
 
         elif type(context.space_data.id) == bpy.types.World:
             if not context.space_data.id.renderman.use_renderman_node:
                 layout.operator(
                     'material.rman_add_rman_nodetree', text="Add RenderMan Nodes").idtype = "world"  
-            else:
-                self.add_arrange_op(layout)                
-        else:
-            self.add_arrange_op(layout)
+
+        self.add_arrange_op(layout)
 
 class NODE_HT_DrawRenderHeaderNode(bpy.types.Header):
     '''
@@ -115,29 +112,7 @@ class NODE_HT_DrawRenderHeaderNode(bpy.types.Header):
                     'material.rman_add_rman_nodetree', text="", icon_value=rman_icon.icon_id).idtype = "node_editor"
             else:
                 pass
-                '''
-                nt = context.space_data.id.node_tree
-                row.context_pointer_set("nodetree", nt)  
-                row.context_pointer_set("node", rman_output_node)                  
-                selected_node = find_soloable_node(nt)
 
-                if rman_output_node.solo_node_name != '':
-                    rman_icon = rfb_icons.get_icon('rman_solo_on')
-                    if selected_node:
-                        op = row.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id, emboss=False)
-                        op.refresh_solo = False
-                        op.solo_node_name = selected_node.name                             
-                    else:
-                        row.label(text='', icon_value=rman_icon.icon_id)  
-                    op = row.operator('node.rman_set_node_solo', text='', icon='FILE_REFRESH')
-                    op.refresh_solo = True                                           
-                else:
-                    rman_icon = rfb_icons.get_icon('rman_solo_off')
-                    if selected_node:
-                        op = row.operator('node.rman_set_node_solo', text='', icon_value=rman_icon.icon_id)
-                        op.refresh_solo = False
-                        op.solo_node_name = selected_node.name   
-                '''
 
         elif type(context.space_data.id) == bpy.types.World:
             if not context.space_data.id.renderman.use_renderman_node:

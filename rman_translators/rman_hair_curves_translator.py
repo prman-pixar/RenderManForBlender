@@ -51,17 +51,24 @@ class RmanHairCurvesTranslator(RmanTranslator):
             primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex", time_sample)  
             curves_sg.SetPrimVars(primvar)
 
-    def update(self, ob, rman_sg_hair):
-        if rman_sg_hair.sg_node:
-            if rman_sg_hair.sg_node.GetNumChildren() > 0:
-                self.clear_children(ob, rman_sg_hair)
+    def get_child(self, i, rman_sg_hair):
+        if i < rman_sg_hair.sg_node.GetNumChildren():
+            return rman_sg_hair.sg_curves_list[i]
+        curves_sg = self.rman_scene.sg_scene.CreateCurves("%s-%d" % (rman_sg_hair.db_name, i))
+        rman_sg_hair.sg_node.AddChild(curves_sg)  
+        rman_sg_hair.sg_curves_list.append(curves_sg)
+        return curves_sg
 
+    def update(self, ob, rman_sg_hair):
         curves = self._get_strands_(ob)
         if not curves:
+            if rman_sg_hair.sg_node:
+                if rman_sg_hair.sg_node.GetNumChildren() > 0:
+                    self.clear_children(ob, rman_sg_hair)            
             return
 
         for i, bl_curve in enumerate(curves):
-            curves_sg = self.rman_scene.sg_scene.CreateCurves("%s-%d" % (rman_sg_hair.db_name, i))
+            curves_sg = self.get_child(i, rman_sg_hair)
             curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_cubic, "nonperiodic", "catmull-rom", len(bl_curve.vertsArray), len(bl_curve.points))
             primvar = curves_sg.GetPrimVars()                  
             primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex")
@@ -76,12 +83,16 @@ class RmanHairCurvesTranslator(RmanTranslator):
             BlAttribute.set_rman_primvars(primvar, bl_curve.bl_hair_attributes)
                     
             curves_sg.SetPrimVars(primvar)
-            rman_sg_hair.sg_node.AddChild(curves_sg)  
-            rman_sg_hair.sg_curves_list.append(curves_sg)  
+
+        if len(curves) < rman_sg_hair.sg_node.GetNumChildren():
+            for c in [rman_sg_hair.sg_node.GetChild(i) for i in (len(curves), rman_sg_hair.sg_node.GetNumChildren())]:
+                rman_sg_hair.sg_node.RemoveChild(c)
+                self.rman_scene.sg_scene.DeleteDagNode(c)     
+                rman_sg_hair.sg_curves_list.remove(c)                   
         
     def get_attributes(self, ob, bl_hair_attributes):
         detail_map = { len(ob.data.points): 'vertex', len(ob.data.curves): 'uniform'}
-        BlAttribute.parse_attributes(bl_hair_attributes, ob, detail_map)
+        BlAttribute.parse_attributes(bl_hair_attributes, ob, detail_map, values_as_list=True)
         if 'color' in bl_hair_attributes:
             # rename color to Cs
             v = bl_hair_attributes['color']

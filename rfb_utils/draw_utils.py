@@ -1,12 +1,33 @@
 from ..rfb_logger import rfb_log
 from . import shadergraph_utils
 from . import prefs_utils
+from . import string_utils
 from .property_utils import BlPropInfo, __LOBES_ENABLE_PARAMS__
 from ..rman_constants import NODE_LAYOUT_SPLIT
+from ..rman_constants import RMAN_RENDERMAN_BLUE as BLUE
 from .. import rman_config
 from .. import rfb_icons
 import bpy
 import re
+
+def draw_viewport_message(context, msg, warning=False):
+    import blf
+
+    w = context.region.width 
+    pos_x = w / 2 - 100
+    pos_y = 20           
+    font_id = 0       
+    blf.enable(0, blf.SHADOW)
+    blf.shadow_offset(0, 1, -1)
+    blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)     
+    blf.position(font_id, pos_x, pos_y, 0)
+    blf.size(font_id, 20.0)
+    if warning:
+        blf.color(font_id, 1, 0, 0, 1)
+    else:
+        blf.color(0, BLUE[0], BLUE[1], BLUE[2], BLUE[3])
+    blf.draw(font_id, msg)
+    blf.disable(0, blf.SHADOW)  
 
 def draw_indented_label(layout, label, level):
     for i in range(level):
@@ -22,7 +43,7 @@ def get_open_close_icon(is_open=True):
 def draw_sticky_toggle(layout, node, prop_name, output_node=None):
     if not output_node:
         return
-    if output_node.solo_node_name != '':
+    if output_node.solo_node_on:
         return
     if not output_node.is_sticky_selected():
         return
@@ -68,7 +89,7 @@ def draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, s
     row = layout.row(align=True)
     row.enabled = not bl_prop_info.prop_disabled
 
-    ui_prop = prop_name + "_uio"
+    ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
     ui_open = getattr(node, ui_prop)
     icon = get_open_close_icon(ui_open)
 
@@ -97,23 +118,25 @@ def draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, s
         draw_indented_label(row, None, level)           
         coll_idx_nm = '%s_collection_index' % prop_name
         row.template_list("RENDERMAN_UL_Array_List", "", node, coll_nm, node, coll_idx_nm, rows=5)
-        col = row.column(align=True)
-        row = col.row()
-        row.context_pointer_set("node", node)
-        op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
-        op.collection = coll_nm
-        op.collection_index = coll_idx_nm
-        op.param_name = prop_name
-        op.action = 'ADD'
-        op.elem_type = bl_prop_info.renderman_array_type
-        row = col.row()
-        row.context_pointer_set("node", node)
-        op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
-        op.collection = coll_nm
-        op.collection_index = coll_idx_nm
-        op.param_name = prop_name
-        op.action = 'REMOVE'
-        op.elem_type = bl_prop_info.renderman_array_type
+        # only draw the add and remove buttons if this is a variable length array
+        if bl_prop_info.arraySize is None or bl_prop_info.arraySize < 0:
+            col = row.column(align=True)
+            row = col.row()
+            row.context_pointer_set("node", node)
+            op = row.operator('renderman.add_remove_array_elem', icon="ADD", text="")
+            op.collection = coll_nm
+            op.collection_index = coll_idx_nm
+            op.param_name = prop_name
+            op.action = 'ADD'
+            op.elem_type = bl_prop_info.renderman_array_type
+            row = col.row()
+            row.context_pointer_set("node", node)
+            op = row.operator('renderman.add_remove_array_elem', icon="REMOVE", text="")
+            op.collection = coll_nm
+            op.collection_index = coll_idx_nm
+            op.param_name = prop_name
+            op.action = 'REMOVE'
+            op.elem_type = bl_prop_info.renderman_array_type
 
         coll_index = getattr(node, coll_idx_nm, None)
         if coll_idx_nm is None:
@@ -198,7 +221,7 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
             ipr_editable = getattr(ndp, 'ipr_editable', False)
             is_enabled = True
             if hasattr(ndp, 'page') and ndp.page != '':       
-                page_prop = ndp.page + "_uio"
+                page_prop = string_utils.sanitize_attr_name(ndp.page + "_uio")
                 page_open = getattr(parent, page_prop, False)        
                 page_name = ndp.page       
                 has_page = True
@@ -228,20 +251,20 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
             conditionalVisOps = getattr(ndp, 'conditionalVisOps', None)
             conditionalLockOps = getattr(ndp, 'conditionalLockOps', None)
             if conditionalVisOps:
-                # eval the conditionalVisOps to see if we should be visible
-                expr = conditionalVisOps.get('expr', None)
-                node = parent              
-                if expr and not eval(expr):
-                    continue
-
-            if conditionalVisOps and conditionalLockOps:
-                # check if there is a conditionalLockOps
-                expr = conditionalVisOps.get('lock_expr', None)
-                if expr is None:
+                if conditionalLockOps:
+                    # check if there is a conditionalLockOps
+                    expr = conditionalVisOps.get('lock_expr', None)
+                    if expr is None:
+                        expr = conditionalVisOps.get('expr', None)
+                    node = parent                           
+                    if expr and not eval(expr):
+                        is_enabled = False      
+                else:
+                    # eval the conditionalVisOps to see if we should be visible
                     expr = conditionalVisOps.get('expr', None)
-                node = parent                           
-                if expr and not eval(expr):
-                    is_enabled = False                        
+                    node = parent              
+                    if expr and not eval(expr):
+                        continue
 
             label = ndp.label if hasattr(ndp, 'label') else ndp.name
             row = curr_col.row()
@@ -252,7 +275,7 @@ def _draw_ui_from_rman_config(config_name, panel, context, layout, parent):
                     if not page_open:
                         continue      
                     row.label(text='', icon='BLANK1')          
-                ui_prop = param_name + "_uio"
+                ui_prop = string_utils.sanitize_attr_name(param_name + "_uio")
                 ui_open = getattr(parent, ui_prop)
                 icon = get_open_close_icon(ui_open)
                 row.context_pointer_set("node", parent)               
@@ -387,7 +410,7 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
     elif bl_prop_info.renderman_type == 'page':
         row = layout.row(align=True)
         row.enabled = not bl_prop_info.prop_disabled
-        ui_prop = prop_name + "_uio"
+        ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
         ui_open = getattr(node, ui_prop)
         icon = get_open_close_icon(ui_open)
 
@@ -420,6 +443,7 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
             draw_props(node, sub_prop_names, layout, level=level + 1, nt=nt, context=context, draw_ui_structs=False, single_node_view=single_node_view)
         return
 
+    #elif bl_prop_info.renderman_type == 'array' and bl_prop_info.arraySize is None:
     elif bl_prop_info.renderman_type == 'array':
         draw_array_elem(layout, node, prop_name, bl_prop_info, nt, context, level, single_node_view=single_node_view)
         return
@@ -521,14 +545,14 @@ def draw_prop(node, prop_name, layout, level=0, nt=None, context=None, sticky=Fa
                 op.nodeID = nodeID     
             else:
                 draw_indented_label(row, None, level)
-                row.label(text="Input mage does not exists.", icon='ERROR')   
+                row.label(text="Input Image does not exist.", icon='ERROR')   
                    
 
 def draw_ui_struct(layout, node, prop_name, bl_prop_info, nt, context, level):
     row = layout.row(align=True)
     row.enabled = not bl_prop_info.prop_disabled
 
-    ui_prop = prop_name + "_uio"
+    ui_prop = string_utils.sanitize_attr_name(prop_name + "_uio")
     ui_open = getattr(node, ui_prop)
     icon = get_open_close_icon(ui_open)
 

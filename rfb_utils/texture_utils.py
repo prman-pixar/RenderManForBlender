@@ -36,7 +36,7 @@ def get_nodeid(node):
         node, ob = scene_utils.find_node_by_name(node_name, node_tree, library=library)
         if node is None:
             return None
-        txm_id = getattr(node, 'txm_id')
+        txm_id = getattr(node, 'txm_id', None)
         return txm_id
     except ValueError:
         return None
@@ -83,6 +83,7 @@ class RfBTxManager(object):
 
     def get_prefs(self):
         prefs = dict()
+        prefs['backend'] = get_pref('rman_txmanager_backend')
         prefs['num_workers'] = get_pref('rman_txmanager_workers')
         prefs['fallback_path'] = string_utils.expand_string(get_pref('path_fallback_textures_path'), 
                                                   asFilePath=True)
@@ -97,7 +98,8 @@ class RfBTxManager(object):
         return ext_list
 
     def host_token_resolver_func(self, outpath):
-        outpath = string_utils.expand_string(outpath, asFilePath=True)
+        token_dict = {'expr': '*'} # substitue any <expr..> tokens to *
+        outpath = string_utils.expand_string(outpath, token_dict=token_dict, asFilePath=True)
         return outpath
 
     def done_callback(self, nodeID, txfile):
@@ -283,10 +285,20 @@ def update_texture(node, ob=None, check_exists=False, is_library=False):
                 continue
 
         fpath = bl_prop_info.prop
+
+        ## FIXME: remove once PxrStylized shaders can handle this
+        if fpath.startswith('!!! Full path to'):
+            continue
+        
         if is_library:
             # if this is coming from a library, replace <blend_dir> with the full path
-            blend_file = filepath_utils.get_real_path(ob.library.filepath)
+            if ob.library:
+                blend_file = filepath_utils.get_real_path(ob.library.filepath)
+            elif ob.library_weak_reference:
+                blend_file = filepath_utils.get_real_path(ob.library_weak_reference.filepath)
             fpath = fpath.replace('<blend_dir>', os.path.dirname(blend_file))
+            # also, replace any <udim> for <UDIM>
+            fpath = fpath.replace('<udim>', '<UDIM>')
 
         category = getattr(node, 'renderman_node_type', 'pattern') 
         get_txmanager().add_texture(node, ob, prop_name, fpath, node_type=node_type, category=category)        
@@ -345,6 +357,8 @@ def get_textures(id, check_exists=False, mat=None):
     is_library = False
     if hasattr(id, 'library') and id.library:
         is_library = True
+    elif hasattr(id, 'library_weak_reference') and id.library_weak_reference:
+        is_library = True
     for node in nodes_list:
         update_texture(node, ob=ob, check_exists=check_exists, is_library=is_library)
 
@@ -374,16 +388,21 @@ def parse_scene_for_textures(bl_scene=None):
 
     if bl_scene:
         for o in scene_utils.renderable_objects(bl_scene):
+            is_library = False
+            if hasattr(o, 'library') and o.library:
+                is_library = True
+            elif hasattr(o, 'library_weak_reference') and o.library_weak_reference:
+                is_library = True            
             if o.type == 'EMPTY':
                 continue
             elif o.type == 'CAMERA':
                 node = shadergraph_utils.find_projection_node(o) 
                 if node:
-                    update_texture(node, ob=o)
+                    update_texture(node, ob=o, is_library=is_library)
             elif o.type == 'LIGHT':
                 node = o.data.renderman.get_light_node()
                 if node:
-                    update_texture(node, ob=o)
+                    update_texture(node, ob=o, is_library=is_library)
    
     for world in bpy.data.worlds:
         if not world.use_nodes:
@@ -420,8 +439,6 @@ def load_scene_state():
     """Load the JSON serialization from scene.renderman.txmanagerData and use it
     to update the texture manager.
     """
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = '{}'
@@ -430,11 +447,10 @@ def load_scene_state():
     return state
 
 @persistent
-def txmanager_load_cb(bl_scene):
-    if bpy.context.engine != 'PRMAN_RENDER':
-        return    
+def txmanager_load_cb(bl_scene): 
     get_txmanager().txmanager.reset()
     get_txmanager().txmanager.load_state()
+    get_txmanager().txmanager.update_ui_list()
     scene = bpy.context.scene
     rm = getattr(scene, 'renderman', None)
     state = None
@@ -453,11 +469,18 @@ def txmanager_pre_save_cb(bl_scene):
 def depsgraph_handler(depsgraph_update, depsgraph):
     id = depsgraph_update.id
     # check new linked in materials
-    if id.library:
+    if id.library or id.library_weak_reference:
         link_file_handler(id)
         return
+    elif id.original.library or id.original.library_weak_reference:
+        # we check id.original for library references
+        # this seems to be needed for assets coming in from the asset browser
+        id = id.original
+        link_file_handler(id)
+        return        
+
     # check if nodes were renamed
-    elif isinstance(id, bpy.types.Object):
+    if isinstance(id, bpy.types.Object):
         check_node_rename(id)
     elif isinstance(id, bpy.types.Material):
         check_node_rename(id)
@@ -492,17 +515,23 @@ def link_file_handler(id):
         get_textures(id, check_exists=True)
 
     elif isinstance(id, bpy.types.Object):
+        is_library = False
+        if hasattr(id, 'library') and id.library:
+            is_library = True
+        elif hasattr(id, 'library_weak_reference') and id.library_weak_reference:
+            is_library = True        
+            
         if id.type == 'CAMERA':
             node = shadergraph_utils.find_projection_node(id) 
             if node:
-                update_texture(node, ob=id, check_exists=True)
+                update_texture(node, ob=id, check_exists=True, is_library=is_library)
 
         elif id.type == 'LIGHT':
             nodes_list = list()
             ob = id.original
             shadergraph_utils.gather_all_textured_nodes(ob, nodes_list)
             for node in nodes_list:
-                update_texture(node, ob=ob, check_exists=True)
+                update_texture(node, ob=ob, check_exists=True, is_library=is_library)
 
 def txmake_all(blocking=True):
     get_txmanager().txmake_all(blocking=blocking)        

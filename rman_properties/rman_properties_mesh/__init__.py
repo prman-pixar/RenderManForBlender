@@ -2,7 +2,6 @@ from bpy.props import PointerProperty, IntProperty, CollectionProperty, BoolProp
 
 from ...rfb_logger import rfb_log 
 from ...rman_config import RmanBasePropertyGroup
-from ...rman_constants import META_AS_MESH
 from ..rman_properties_misc import RendermanMeshPrimVar, RendermanReferencePosePrimVars, RendermanReferencePoseNormalsPrimVars 
 
 import bpy
@@ -10,8 +9,8 @@ import bpy
 class RendermanMeshGeometrySettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     output_all_primvars: BoolProperty(
         name="Output All Attributes",
-        default=True,
-        description="Output all attributes as primitive variables. If you don't need all of them, turn this off and use the UI below. This can help speed up exporting of the scene."
+        default=False,
+        description="If you like to output all attributes as primitive variables, click this on. Note, turning this on will slow down export time of the scene."
     )
     prim_vars: CollectionProperty(
         type=RendermanMeshPrimVar, name="Primitive Variables")
@@ -44,10 +43,9 @@ def register():
     # blender 3.6 provides us a mesh version
     # of metaballs, so we need to add a renderman
     # pointer property in order to use the rman_mesh_translator
-    if META_AS_MESH:
-        bpy.types.MetaBall.renderman = PointerProperty(
-            type=RendermanMeshGeometrySettings,
-            name="Renderman Mesh Geometry Settings")
+    bpy.types.MetaBall.renderman = PointerProperty(
+        type=RendermanMeshGeometrySettings,
+        name="Renderman Mesh Geometry Settings")
 
 def unregister():
 

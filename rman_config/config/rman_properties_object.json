@@ -610,6 +610,19 @@
         },
         {
             "panel": "OBJECT_PT_renderman_object_raytracing",
+            "name": "rman_groupingId",
+            "riattr": "grouping:id",
+            "label": "Grouping Id",
+            "type": "int",
+            "ipr_editable": true,
+            "default": 0,
+            "min": 0,
+            "max": 15,            
+            "page": "Trace",
+            "help": "Grouping id used for raytrace disambiguation purposes. Not implemented in XPU."
+        },
+        {
+            "panel": "OBJECT_PT_renderman_object_raytracing",
             "name": "rman_traceDisplacements",
             "primvar": "trace:displacements",
             "label": "Trace Displacement",
@@ -647,7 +660,7 @@
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "rman_autoBias",
-                "conditionalVisValue": 1
+                "conditionalVisValue": 0
             }
         },
         {
@@ -680,7 +693,7 @@
             "conditionalVisOps": {
                 "conditionalVisOp": "equalTo",
                 "conditionalVisPath": "rman_traceSssAutoBias",
-                "conditionalVisValue": 1
+                "conditionalVisValue": 0
             }
         },          
         {   
@@ -955,6 +968,30 @@
                 "conditionalVis2Value": "RI_VOLUME"
             }, 
             "help": "Include this volume in the global volume aggregate, if it's not part of an aggregate already. Note, for XPU, volumes have to be in an aggregate in order for them to render."
+        },                                                
+        {
+            "panel": "OBJECT_PT_renderman_object_geometry_volume",
+            "page": "",
+            "name": "volume_voxelinterpolation",
+            "label": "Voxel Interpolation",
+            "primvar": "volume:voxelinterpolation",
+            "type": "int",
+            "default": 1,
+            "widget": "mapper",
+            "options": "Nearest Neighbor:0|Jitter:1|Trilinear:2",
+            "ipr_editable": true,
+            "conditionalVisOps": {
+                "conditionalVis1Path": "bl_object_type",
+                "conditionalVis2Op": "equalTo",
+                "conditionalVis1Value": "OPENVDB",
+                "conditionalVisOp": "or",
+                "conditionalVis1Op": "equalTo",
+                "conditionalVisLeft": "conditionalVis1",
+                "conditionalVisRight": "conditionalVis2",
+                "conditionalVis2Path": "bl_object_type",
+                "conditionalVis2Value": "RI_VOLUME"
+            }, 
+            "help": "Method of interpolating voxels for volume rendering. Nearest neighbor is fastest, but may show the underlying voxel structure. Jitter is higher quality and almost as fast as nearest neighbor, but is noisier than trilinear and may also be unsuitable for certain shading operations such as division by low extinction values. Trilinear is the highest quality but slowest interpolation mode. Ignored by RIS."
         },                                                
         {
             "panel": "OBJECT_PT_renderman_object_render",

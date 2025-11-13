@@ -19,7 +19,7 @@ from ..rfb_utils.property_utils import __GAINS_TO_ENABLE__, __LOBES_ENABLE_PARAM
 from ..rfb_logger import rfb_log
 from ..rman_bl_nodes import __BL_NODES_MAP__, __RMAN_NODE_TYPES__
 from ..rman_constants import RMAN_STYLIZED_FILTERS, RFB_FLOAT3, CYCLES_NODE_MAP, RMAN_SUPPORTED_VERSION_STRING
-from ..rman_constants import RFB_ASSET_VERSION_KEY, RFB_ASSET_VERSION, BLENDER_VERSION_MAJOR, BLENDER_VERSION_MINOR
+from ..rman_constants import RFB_ASSET_VERSION_KEY, RFB_ASSET_VERSION
 from ..rman_constants import RMAN_INTERP_MAP, BLENDER_INTERP_MAP
 from ..rfb_utils.shadergraph_utils import RmanConvertNode
 
@@ -814,6 +814,8 @@ def parse_texture(imagePath, Asset):
     Asset.addTextureInfos(img)
 
 def setParams(Asset, node, paramsList):
+    from ..rfb_utils import collection_utils
+
     '''Set param values.
        Note: we are only handling a subset of maya attribute types.'''
     float3 = ['color', 'point', 'vector', 'normal']
@@ -986,27 +988,11 @@ def setParams(Asset, node, paramsList):
                 elem_type = 'int'
 
             for i in range(array_len):
-                if BLENDER_VERSION_MAJOR <=3 and BLENDER_VERSION_MINOR < 2:
-                    override = {'node': node}           
-                    bpy.ops.renderman.add_remove_array_elem(override,
-                                                        'EXEC_DEFAULT', 
-                                                        action='ADD',
-                                                        param_name=pname,
-                                                        collection=coll_nm,
-                                                        collection_index=coll_idx_nm,
-                                                        elem_type=elem_type)            
+                # N.B.: we don't call the renderman.add_remove_array_elem operator, here
+                # as it seems it will crash Blender when we try to import a preset
+                # from the Qt preset browser.
 
-                else:
-                    context_override = bpy.context.copy()
-                    context_override["node"] = node
-                    with bpy.context.temp_override(**context_override):
-                        bpy.ops.renderman.add_remove_array_elem(
-                                                                'EXEC_DEFAULT', 
-                                                                action='ADD',
-                                                                param_name=pname,
-                                                                collection=coll_nm,
-                                                                collection_index=coll_idx_nm,
-                                                                elem_type=elem_type)            
+                collection_utils.node_add_array_elem(node, coll_nm, coll_idx_nm, pname, elem_type)
 
             pval = param.value()
             if pval is None or pval == []:

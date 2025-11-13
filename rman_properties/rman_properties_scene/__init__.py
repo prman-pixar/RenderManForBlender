@@ -11,6 +11,7 @@ from ..rman_properties_misc import RendermanLightGroup, RendermanGroup, LightLin
 from ..rman_properties_renderlayers import RendermanRenderLayerSettings
 from ... import rman_config
 from ...rman_config import RmanBasePropertyGroup
+from ...rman_constants import RFB_PLATFORM
 
 import bpy
 import os
@@ -92,13 +93,8 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
 
     # Renderer Status properties
     def get_platform(self):
-        if sys.platform == ("win32"):
-            return 'windows'
-        elif sys.platform == ("darwin"):
-            return 'macOS'
-        else:
-            return 'linux'
-
+        return RFB_PLATFORM
+    
     def get_is_ncr_license(self):
         return envconfig().is_ncr_license
 
@@ -107,39 +103,60 @@ class RendermanSceneSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
 
     def get_has_stylized_license(self):
         return envconfig().has_stylized_license
+    
+    def get_has_license(self):
+        return envconfig().is_valid_license   
+
+    def get_has_render_license(self):
+        return envconfig().has_rps_license
+    
+    def get_has_license_expired(self):
+        return envconfig().has_license_expired
+    
+    def get_can_render(self):
+        return self.get_has_license() and self.get_has_render_license() and not self.get_has_license_expired()
 
     def get_is_rman_running(self):
         from ...rman_render import RmanRender
         rman_render = RmanRender.get_rman_render()
-        return rman_render.rman_running            
+        return rman_render.rman_context.is_render_running()
 
     def get_is_rman_interactive_running(self):
         from ...rman_render import RmanRender
         from ...rfb_utils import scene_utils       
         rman_render = RmanRender.get_rman_render()
         is_shading = scene_utils.any_areas_shading()
-        return (rman_render.rman_interactive_running or is_shading)
+        return (rman_render.rman_context.is_interactive_running() or is_shading)
 
     def get_is_rman_swatch_render_running(self):
         from ...rman_render import RmanRender
         rman_render = RmanRender.get_rman_render()
-        return rman_render.rman_swatch_render_running
+        return rman_render.rman_context.is_swatch_rendering()
 
     def get_is_rman_viewport_rendering(self):
         from ...rman_render import RmanRender
         from ...rfb_utils import scene_utils      
         rman_render = RmanRender.get_rman_render()
         is_shading = scene_utils.any_areas_shading()
-        return (rman_render.rman_is_viewport_rendering or is_shading)        
+        return (rman_render.rman_context.is_viewport_rendering() or is_shading)        
+    
+    def get_blender_version(self):
+        vers = bpy.app.version
+        return "%s.%s" % (vers[0], vers[1])
 
     current_platform: StringProperty(get=get_platform)
     is_ncr_license: BoolProperty(get=get_is_ncr_license)
     has_xpu_license: BoolProperty(get=get_has_xpu_license)
     has_stylized_license: BoolProperty(get=get_has_stylized_license)
+    has_render_license: BoolProperty(get=get_has_render_license)
+    has_license: BoolProperty(get=get_has_license)
+    has_license_expired: BoolProperty(get=get_has_license_expired)
+    can_render: BoolProperty(get=get_can_render)
     is_rman_running: BoolProperty(get=get_is_rman_running)
     is_rman_interactive_running: BoolProperty(get=get_is_rman_interactive_running)         
     is_rman_swatch_render_running: BoolProperty(get=get_is_rman_swatch_render_running)  
-    is_rman_viewport_rendering:  BoolProperty(get=get_is_rman_viewport_rendering)  
+    is_rman_viewport_rendering:  BoolProperty(get=get_is_rman_viewport_rendering) 
+    blender_version: StringProperty(get=get_blender_version) 
 
     # Roz Stats Properties
     def get_roz_stats_progress(self):

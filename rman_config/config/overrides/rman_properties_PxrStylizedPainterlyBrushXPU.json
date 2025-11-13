@@ -1,0 +1,16 @@
+{
+    "name": "PxrStylizedPainterlyBrushXPU.oso",
+    "params": [
+        {
+            "name": "Brush1to4",
+            "always_write": true,
+            "default": "$RMANTREE/lib/textures/StylizedLooks/PxrStylizedPainterlyBrush/brush1to4.tex"
+        },
+        {
+            "name": "Brush5to8",
+            "always_write": true,
+            "default": "$RMANTREE/lib/textures/StylizedLooks/PxrStylizedPainterlyBrush/brush1to4.tex"
+        }
+
+    ]
+}

@@ -82,7 +82,8 @@ class RENDER_OT_Renderman_Open_Workspace(CollectionPanel, bpy.types.Operator):
         if self.event and self.event.type == 'LEFTMOUSE':
             bpy.ops.scene.rman_open_workspace('INVOKE_DEFAULT')
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None         
 
     def invoke(self, context, event):

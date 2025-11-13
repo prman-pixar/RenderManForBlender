@@ -1,3 +1,78 @@
+v27.0, November 13, 2025
+
+New Features:
+* RfBb should support the latest Blender 4.5 release
+* With the inclusion of PySide6 in RenderMan, the Qt versions of the preset browser and texture manager are once again available with Blender 4.x. RMAN-22808
+* You can now cancel a viewport render or a regular render while RfB is still translating the scene. For viewport renders, clicking the Cancel button on the progress bar window can be used to cancel the render. RMAN-24174
+* Added a restart IPR button. This is a simple shortcut to stop and restart IPR. RMAN-23289
+* A new Debug Logging option has been added. Enabling this will generate a debug python file, useful to include when reporting bugs. The python file will be generated in the same directory as the current scene's .blend file. The Package Scene button has also been modified to include this file, by default, if it is available (can be turned off in the options). RMAN-21724
+* Added support for Blender's native light linking workflow. Note that this is off by default, but can be turned on the scene properties, under the Light Linking section. RMAN-23590
+* Added a new string find and replace operator. This may be useful when moving scenes between different operating systems.
+* You can now use functions from python's math and random modules when using the <expr> token. For example, "<expr[int(math.pow(2,2))]: %d>" should return 4.
+
+Changes:
+* Add a new checkbox to disable velocity based motion blur for both particle emitters and hair particles
+* The package scene operator now has an option to switch to all .tex files for all texture parameters in the scene.
+* The stylized looks editor can now also be found on the scene properties tab, under the RenderMan Stylized Looks panel. RMAN-23591
+* The default minimum samples setting for the interactive denoiser has been increased to 4. RMAN-22451
+* A new scale velocity blur setting has been added for particle systems.
+* You can now override the size of shading nodes in the rfb.json file. For example, to change the size of PxrSurface: "node_size_preferences"  : { "PxrSurface": [1000.0, 0.0, 0.0, 1000.0, 0.0, 0.0]},"
+* Light filters by default will now be parented under the light they are attached to. This can be turned off in the preferences. RMAN-23686
+* For pointcloud objects, if there is an attributed named "velocity" we will use that to deformation blur.
+
+Bug Fixes:
+* A bug that caused Blender to crash when you perform an undo operation during a viewport render should be addressed. RMAN-24005
+* A bug that caused objects that were parented underneath a lattice to not render has been addressed.
+* Fix a bug that would cause errors to be printed when reloading an OSL shader using the PxrOSL node. The errors were due to parameters not having a default value.
+* A bug that caused dynamics like rigid bodies and dynamic paint to not render properly for batch renders has been addressed. RMAN-22863
+* A bug that caused motion blur on linked objects to not work properly has been fixed. RMAN-22865
+* A bug that caused bokeh to not work properly has been fixed.
+* The minimum for both camera roundness and density was incorrectly set to 0.0 instead of -1.0
+* Fix a bug where converting hair curves to meshes did not work
+* A bug that caused geometry node instances that used the join geometry node from working properly has been fixed. RMAN-23469
+* A bug that caused rendering to stop if an object was parented under a mesh that did not generate polygons has been fixed. RMAN-23757
+* Fix a bug where rendering would fail if smooth normals was turned on for a mesh. CUSP-8843
+* A bug that caused Blender to crash when materials had a # character in the name when rendering with XPU has been fixed. RMAN-24045
+
+v26.3, December 17, 2024
+
+New Features:
+* RfB should support the latest Blender 4.3 release
+
+Changes:
+* Invert light linking is now a scene option rather than a user preference. The setting can be found under the RenderMan Advanced section
+on the scene properties tab.
+* Blender's indirect_only attribute will now take precedence over the visibility:camera, visibility:indirect and visibility:transmission attributes.
+* Blender's holdout attribute will now take precedence over the RenderMan Ri:Matte and trace:holdout attributes
+* Expose the --tiles option for the denoiser
+
+Bug Fixes:
+* A bug that caused the primvars collection to draw too widely, when Output All Attributes was turned off has been addressed.
+* Multiple bugs that prevented multiple view layers in a scene to not render properly have been addressed
+* A bug that caused a crash with XPU when characters like '[' and ']' in asset names has been addressed.
+* A missing AOV that cause stylized looks to fail has been addressed.
+* A bug that caused batch rendering to crash when using blender_batch has been addressed.
+* A bug that caused IPR renders to "it" to overwrite the current image in the catalog has been addressed.
+* A bug that caused a couple of PxrCamera parameters to not work (ex: distortionCtr) has been fixed
+* Fixed a bug that would cause errors to be printed when reloading an OSL shader using the PxrOSL node. The errors were due to parameters not having a default value.
+* A bug that caused objects that were parented underneath a lattice to not render has been addressed.
+
+v26.2, August 20, 2024
+
+New Features:
+* Blender 4.2 is now supported.
+
+Changes:
+* The material override property is now exposed for all objects (was only exposed on Empty). This should allow a user to override the material on an instance.
+* We now export all of the attributes on a mesh as primitive variables. You can turn this off per mesh, and use the primitive variables UI to specify which attributes you want to export as primitive variables instead.
+* You can now turn off the launching of the denoiser when batch rendering. This is useful if you still want to generate the necessary variance files, but want to manually launch the denoiser later.
+* When using the Optix denoiser, we now include albedo and normal passes. This should result in slightly better denoised results.
+
+Bug Fixes:
+* Fixed a bug when a mesh's data node name conflicted with another object's data node, causing the mesh to not be exported.
+* Fixed a bug where importing presets from the preset browser that contained ramp nodes did not match other DCCs.
+* Fixed a bug where soloing a shader node did not seem to have the right connections.
+
 v26.1, April 24, 2024
 
 Bug Fixes:

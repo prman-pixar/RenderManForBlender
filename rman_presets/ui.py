@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 - 2021 Pixar
+# Copyright (c) 2015 - 2025 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,10 +26,13 @@
 from ..rfb_utils.prefs_utils import get_pref, get_addon_prefs, using_qt
 from ..rfb_logger import rfb_log
 from ..rman_config import __RFB_CONFIG_DICT__ as rfb_config
+from ..rman_constants import RFB_PLATFORM, BLENDER_44
+
 try:
     from ..rman_ui import rfb_qt
 except:
     rfb_qt = None
+
 
 # for panel icon
 from .. import rfb_icons
@@ -50,10 +53,9 @@ from rman_utils.rman_assets.common.exceptions import RmanAssetError
 from bpy.props import StringProperty, IntProperty
 import os
 
-__PRESET_BROWSER_WINDOW__ = None 
-
+PRESET_BROWSER_WINDOW = None 
+PresetBrowserWrapperImpl = None
 if rfb_qt:
-    from PySide2 import QtWidgets 
     class PresetBrowserQtAppTimed(rfb_qt.RfbBaseQtAppTimed):
         bl_idname = "wm.rpb_qt_app_timed"
         bl_label = "RenderManPreset Browser"
@@ -62,29 +64,11 @@ if rfb_qt:
             super(PresetBrowserQtAppTimed, self).__init__()
 
         def execute(self, context):
-            global __PRESET_BROWSER_WINDOW__
-            __PRESET_BROWSER_WINDOW__ = PresetBrowserWrapper()
-            self._window = __PRESET_BROWSER_WINDOW__
+            global PresetBrowserWrapperImpl
+            global PRESET_BROWSER_WINDOW
+            PRESET_BROWSER_WINDOW = PresetBrowserWrapperImpl()
+            self._window = PRESET_BROWSER_WINDOW
             return super(PresetBrowserQtAppTimed, self).execute(context)
-
-    class PresetBrowserWrapper(rfb_qt.RmanQtWrapper):
-
-        def __init__(self):
-            super(PresetBrowserWrapper, self).__init__()
-            # import here because we will crash Blender
-            # when we try to import it globally
-            import rman_utils.rman_assets.ui as rui    
-
-            self.resize(1024, 1024)
-            self.setWindowTitle('RenderMan Preset Browser')
-
-            self.hostPrefs = bl_pb_core.get_host_prefs()
-            self.ui = rui.Ui(self.hostPrefs, parent=self)
-            self.setLayout(self.ui.topLayout)   
-
-        def closeEvent(self, event):
-            self.hostPrefs.saveAllPrefs()
-            event.accept()
 
     class PRMAN_OT_Renderman_PB_ImportDisplayFilters_Dlg(bpy.types.Operator):
 
@@ -94,6 +78,8 @@ if rfb_qt:
         bl_options = {'INTERNAL'}
 
         def execute(self, context):
+            from rman_utils.vendor.Qt import QtWidgets 
+
             button = QtWidgets.QMessageBox.question(None, "Restore displayFilters?", "Do you want to add this preset's displayFilters to your scene ?")
             hostPrefs = rab.get_host_prefs()
             if button == QtWidgets.QMessageBox.Yes:
@@ -502,18 +488,44 @@ class PRMAN_OT_Renderman_Presets_Editor(bpy.types.Operator):
         if self.event and self.event.type == 'LEFTMOUSE':
             bpy.ops.renderman.rman_open_presets_editor('INVOKE_DEFAULT')
             
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.event = None            
-     
 
     def invoke(self, context, event):
-        if using_qt():
-            global __PRESET_BROWSER_WINDOW__
-            if __PRESET_BROWSER_WINDOW__ and __PRESET_BROWSER_WINDOW__.isVisible():
+        if rfb_qt:
+            RmanQtWrapper = rfb_qt.get_rman_qt_wrapper()
+        else:
+            RmanQtWrapper = None
+        if using_qt() and RmanQtWrapper:
+            global PresetBrowserWrapperImpl
+            class PresetBrowserWrapper(RmanQtWrapper):
+
+                def __init__(self):
+                    super(PresetBrowserWrapper, self).__init__()
+                    # import here because we will crash Blender
+                    # when we try to import it globally
+                    import rman_utils.rman_assets.ui as rui    
+
+                    self.resize(1024, 1024)
+                    self.setWindowTitle('RenderMan Preset Browser')
+
+                    self.hostPrefs = bl_pb_core.get_host_prefs()
+                    self.ui = rui.Ui(self.hostPrefs, parent=self)
+                    self.setLayout(self.ui.topLayout)   
+
+                def closeEvent(self, event):
+                    self.hostPrefs.saveAllPrefs()
+                    event.accept()         
+            PresetBrowserWrapperImpl = PresetBrowserWrapper   
+            global PRESET_BROWSER_WINDOW
+            if PRESET_BROWSER_WINDOW and PRESET_BROWSER_WINDOW.isVisible():
                 return {'FINISHED'}
 
-            if sys.platform == "darwin":
-                __PRESET_BROWSER_WINDOW__ = rfb_qt.run_with_timer(__PRESET_BROWSER_WINDOW__, PresetBrowserWrapper)   
+            if RFB_PLATFORM == "macOS":
+                PRESET_BROWSER_WINDOW = rfb_qt.run_with_timer(PRESET_BROWSER_WINDOW, PresetBrowserWrapper)   
+            elif BLENDER_44:
+                PRESET_BROWSER_WINDOW = rfb_qt.run_with_timer(PRESET_BROWSER_WINDOW, PresetBrowserWrapper)   
             else:
                 bpy.ops.wm.rpb_qt_app_timed()
             

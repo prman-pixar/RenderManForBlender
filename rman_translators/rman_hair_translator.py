@@ -60,6 +60,14 @@ class RmanHairTranslator(RmanTranslator):
             curves_sg.SetPrimVars(primvar)
         '''
 
+    def get_child(self, i, rman_sg_hair):
+        if i < rman_sg_hair.sg_node.GetNumChildren():
+            return rman_sg_hair.sg_curves_list[i]
+        curves_sg = self.rman_scene.sg_scene.CreateCurves("%s-%d" % (rman_sg_hair.db_name, i))
+        rman_sg_hair.sg_node.AddChild(curves_sg)  
+        rman_sg_hair.sg_curves_list.append(curves_sg)
+        return curves_sg        
+
     def update(self, ob, psys, rman_sg_hair):
         if rman_sg_hair.sg_node:
             if rman_sg_hair.sg_node.GetNumChildren() > 0:
@@ -67,11 +75,14 @@ class RmanHairTranslator(RmanTranslator):
 
         curves = self._get_strands_(ob, psys)
         if not curves:
+            if rman_sg_hair.sg_node:
+                if rman_sg_hair.sg_node.GetNumChildren() > 0:
+                    self.clear_children(ob, rman_sg_hair)                
             return
 
         ob_inv_mtx = transform_utils.convert_matrix(ob.matrix_world.inverted_safe())
         for i, bl_curve in enumerate(curves):
-            curves_sg = self.rman_scene.sg_scene.CreateCurves("%s-%d" % (rman_sg_hair.db_name, i))
+            curves_sg = self.get_child(i, rman_sg_hair)
             curves_sg.SetTransform(ob_inv_mtx) # puts points in object space
             curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_cubic, "nonperiodic", "catmull-rom", len(bl_curve.vertsArray), len(bl_curve.points))
             primvar = curves_sg.GetPrimVars()            
@@ -104,8 +115,12 @@ class RmanHairTranslator(RmanTranslator):
                 primvar.SetColorDetail("Cs", bl_curve.mcols, "uniform")
                     
             curves_sg.SetPrimVars(primvar)
-            rman_sg_hair.sg_node.AddChild(curves_sg)  
-            rman_sg_hair.sg_curves_list.append(curves_sg)
+            
+        if len(curves) < rman_sg_hair.sg_node.GetNumChildren():
+            for c in [rman_sg_hair.sg_node.GetChild(i) for i in (len(curves), rman_sg_hair.sg_node.GetNumChildren())]:
+                rman_sg_hair.sg_node.RemoveChild(c)
+                self.rman_scene.sg_scene.DeleteDagNode(c)     
+                rman_sg_hair.sg_curves_list.remove(c)    
 
         # Attach material
         mat_idx = psys.settings.material - 1
