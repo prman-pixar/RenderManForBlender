@@ -1465,8 +1465,12 @@ class RmanRender(object):
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = render_utils.get_render_variant(self.bl_scene)
-        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        
+        # use bl_scene.original for this
+        # for some reason, scene_eval doesn't get the updated value if the variant changes
+        # (RMAN-24284)
+        rendervariant = render_utils.get_render_variant(self.bl_scene.original)
+        render_utils.set_render_variant_config(self.bl_scene.original, config, render_config)
         if rendervariant == 'xpu':
             self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu) 
 
