@@ -70,6 +70,8 @@ class RmanLightTranslator(RmanTranslator):
         attrs.SetInteger("visibility:indirect", 0)
         obj_groups_str = "World,%s" % string_utils.sanitize_node_name(ob.name_full)
         attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_grouping_membership, obj_groups_str)
+        if rm.lpegroup != "":
+            attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_identifier_lpegroup, rm.lpegroup)
 
         rman_sg_light.sg_node.SetAttributes(attrs)
 
