@@ -449,7 +449,7 @@ def _get_real_chan_name(chan):
     """
     ch_name = chan.channel_name
     lgt_grp = chan.light_group.strip()
-    lgt_lpe_grp = chan.light_lpe_group.strip()
+    lgt_lpe_grp = chan.lpe_group.strip()
     if lgt_grp != '' and lgt_grp not in ch_name:
         ch_name = '%s_%s' % (ch_name, lgt_grp)   
     if lgt_lpe_grp != '' and lgt_grp not in ch_name:
@@ -460,7 +460,7 @@ def _add_chan_to_dpsychan_list(rm, rm_rl, dspys_dict, chan):
 
     ch_name = _get_real_chan_name(chan)
     lgt_grp = chan.light_group.strip()
-    lgt_lpe_grp = chan.light_lpe_group.strip()
+    lgt_lpe_grp = chan.lpe_group.strip()
 
     o_expr = re.compile(r'(O)$|(O)\)$|(O)\]$|(\<O\>)$|(\<O.\>)$')
 

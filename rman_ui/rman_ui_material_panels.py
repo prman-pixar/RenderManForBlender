@@ -475,7 +475,6 @@ class DATA_PT_renderman_node_shader_light(ShaderNodePanel, Panel):
         layout = self.layout
         light = context.light
         layout.prop(light.renderman, 'light_primary_visibility')
-        layout.prop(light.renderman, 'lpegroup')
         if light.node_tree:
             nt = light.node_tree
             draw_nodes_properties_ui(

@@ -105,8 +105,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
         col = split.column(align=True)
         col.label(text=self.bl_label, icon_value=rman_icon.icon_id)  
         if context.light:
-            layout.prop(context.light.renderman, 'light_primary_visibility')
-            layout.prop(context.light.renderman, 'lpegroup')            
+            layout.prop(context.light.renderman, 'light_primary_visibility')           
         if shadergraph_utils.is_soloable_node(self):
             self.draw_solo_button(nt, out_node, split)
             # draw solo output select menu         

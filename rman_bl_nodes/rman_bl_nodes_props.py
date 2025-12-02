@@ -324,12 +324,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         description="Camera visibility for this light",
         update=update_vis,
         default=True)
-    
-    lpegroup: StringProperty(
-        name="LPE Group",
-        description="Grouping membership used for light path expressions. This is needed if you want to capture a specific analytic light's camera visibility in an LPE",
-        default=""
-    )
+
 
     mute: BoolProperty(
         name="Mute",
