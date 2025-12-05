@@ -10,8 +10,8 @@ import getpass
 import re
 import sys
 
-__BLENDER_TO_RMAN_DSPY__ = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'PNG': 'png'}
-__RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR', 'png':'PNG'}
+__BLENDER_TO_RMAN_DSPY__ = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'OPEN_EXR_MULTILAYER': 'openexr',    'PNG': 'png'}
+__RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR_MULTILAYER', 'png':'PNG'}
 
 __RFB_DENOISER_AI__ = '1'
 __RFB_DENOISER_OPTIX__ = '2'

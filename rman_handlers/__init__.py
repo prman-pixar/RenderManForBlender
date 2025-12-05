@@ -102,7 +102,7 @@ def render_pre(bl_scene):
     if display_utils.using_rman_displays():
         if write_comp:       
             bl_scene.render.filepath = dspy_info['filePath']
-            img_format = display_utils.__RMAN_TO_BLENDER__.get(dspy_info['display_driver'], 'OPEN_EXR')
+            img_format = display_utils.__RMAN_TO_BLENDER__.get(dspy_info['display_driver'], 'OPEN_EXR_MULTILAYER')
             bl_scene.render.image_settings.file_format = img_format  
         else:
             __BL_TMP_FILE__ = os.path.join(__BL_TMP_DIR__, '####.png')
