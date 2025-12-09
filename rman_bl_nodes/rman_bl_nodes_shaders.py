@@ -455,20 +455,14 @@ class RendermanShadingNode(bpy.types.ShaderNode):
             self_color_rman_ramps = self.__annotations__.get('__COLOR_RAMPS__', [])
             self_float_rman_ramps = self.__annotations__.get('__FLOAT_RAMPS__', [])   
 
-            node_group = bpy.data.node_groups.new(
-                '.__RMAN_FAKE_NODEGROUP__', 'ShaderNodeTree') 
-            node_group.use_fake_user = True  
-            self.rman_fake_node_group_ptr = node_group
-            self.rman_fake_node_group = node_group.name  
+            node_group = node.rman_fake_node_group_ptr
 
-            nt = node.rman_fake_node_group_ptr
-            if not nt:
-                nt = bpy.data.node_groups[node.rman_fake_node_group]
-                node.rman_fake_ndoe_group_ptr = nt
+            self.rman_fake_node_group_ptr = node_group
+            self.rman_fake_node_group = node_group.name
 
             for i, prop_name in enumerate(color_rman_ramps):
                 ramp_name = getattr(node, prop_name)
-                node_color_ramp_node = nt.nodes[ramp_name]
+                node_color_ramp_node = node_group.nodes[ramp_name]
                 n = node_group.nodes.new('ShaderNodeValToRGB')
 
                 for j,e in enumerate(node_color_ramp_node.color_ramp.elements):
@@ -485,7 +479,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
 
             for i, prop_name in enumerate(float_rman_ramps):
                 ramp_name = getattr(node, prop_name)
-                node_float_ramp_node = nt.nodes[ramp_name]                
+                node_float_ramp_node = node_group.nodes[ramp_name]                
                 n = node_group.nodes.new('ShaderNodeVectorCurve') 
 
                 curve = node_float_ramp_node.mapping.curves[0]
