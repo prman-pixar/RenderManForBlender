@@ -165,7 +165,6 @@ class RmanTranslator(object):
             for member in obj_group.members:
                 if member.ob_pointer.original == ob.original:
                     obj_groups_str += ',' + obj_group.name
-                    lpe_groups_str += ',' + obj_group.name
                     break
 
         self.export_light_linking_attributes(ob, attrs, obj_groups_str=obj_groups_str)     
