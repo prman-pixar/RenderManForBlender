@@ -7,6 +7,7 @@ Bug Fixes:
 * A bug that caused AOVs to not render correctly when doing multiple renders has been addressed.
 * A bug that may cause object instances via geometry nodes to transform correctly during IPR has been fixed.
 * A bug that caused cloning/copying a PxrRamp node to crash blender has been addressed. 
+* A bug that caused NaNs to appear in the denoised result when rendering to the Blender display has been addressed.
 
 v27.0, November 13, 2025
 

@@ -1912,6 +1912,10 @@ class RmanRender(object):
                 continue
             passes = dict()
             buffer.shape = (height, width, num_channels)
+            if numpy.isnan(buffer).any():
+                # for some reason, the variance channels can contain NaNs
+                rfb_log().debug("Buffer has NaNs. Using numpy.nan_to_num")
+                buffer = numpy.nan_to_num(buffer, copy=False)
             if i == 0:
                 # variance file
                 # note, we're assuming the order of the channels never changes
