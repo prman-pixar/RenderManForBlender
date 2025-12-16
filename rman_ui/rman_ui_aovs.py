@@ -14,6 +14,7 @@ from ..rfb_utils.draw_utils import _draw_ui_from_rman_config
 from ..rfb_utils.property_callbacks import update_displays_func
 from .. import rman_config
 from ..rman_render import RmanRender
+from copy import deepcopy
 
 class COLLECTION_OT_rman_dspy_add_remove(bpy.types.Operator):
     bl_label = "Add or Remove RenderMan Displays"
@@ -98,18 +99,28 @@ class PRMAN_OT_Renderman_layer_channel_set_light_group(Operator):
             aov = rm_rl.custom_aovs[rm_rl.custom_aov_index]
             chan_ptr = aov.dspy_channels[aov.dspy_channels_index]
             chan = rm_rl.dspy_channels[chan_ptr.dspy_chan_idx]
+            channel_source = chan.channel_source
+            channel_type = chan.channel_type
+            channel_lpe_group = chan.lpe_group
             
             chan_light_group = self.properties.light_groups
             if chan_light_group == '__CLEAR__':
                 chan_light_group = ''
+
+            chan_name = chan.name
             if chan_light_group != '':
-                chan_name = '%s_%s' % (chan.name, chan_light_group)
+                if channel_lpe_group != '':
+                    chan_name = '%s_%s_%s' % (chan_name, chan_light_group, channel_lpe_group)
+                else:
+                    chan_name = '%s_%s' % (chan_name, chan_light_group)
             else:
                 # find original name
                 for nm,settings in rman_config.__RMAN_DISPLAY_CHANNELS__.items():
                     if chan.channel_source == settings['channelSource'] and chan.channel_type == settings['channelType']:
                         chan_name = nm
                         break
+                    if channel_lpe_group != '':
+                        chan_name = '%s_%s' % (chan_name, channel_lpe_group)
             found = False
             for idx, c in enumerate(rm_rl.dspy_channels):
                 # this channel with the same light group already exists
@@ -117,15 +128,16 @@ class PRMAN_OT_Renderman_layer_channel_set_light_group(Operator):
                 if chan_name == c.name and chan_light_group == c.light_group:
                     chan_ptr.dspy_chan_idx = idx
                     found = True
-                    return
+                    return{'FINISHED'}     
                 
             if not found:
                 # if there isn't an existing channel, add a new one
                 new_chan = rm_rl.dspy_channels.add()
                 new_chan.channel_name = chan_name   
                 new_chan.is_custom = True 
-                new_chan.channel_source = chan.channel_source
-                new_chan.channel_type = chan.channel_type
+                new_chan.channel_source = channel_source
+                new_chan.channel_type = channel_type
+                new_chan.lpe_group = channel_lpe_group
                 chan_ptr.dspy_chan_idx = len(rm_rl.dspy_channels)-1
                 chan = new_chan            
 
@@ -133,7 +145,80 @@ class PRMAN_OT_Renderman_layer_channel_set_light_group(Operator):
             chan.name = chan_name
             update_displays_func(None, context)
 
-        return{'FINISHED'}        
+        return{'FINISHED'}     
+
+class PRMAN_OT_Renderman_layer_channel_set_lpe_group(Operator):
+    """Set LPE Group for Display Channel"""
+
+    bl_idname = "renderman.dspychan_set_lpe_group"
+    bl_label = "Set LPE Group"
+
+    def lpe_groups_list(self, context):
+        items = []
+        lgt_grps = scene_utils.get_light_groups_in_scene(context.scene)
+        items.append(('__CLEAR__', '__CLEAR__', ''))
+        for nm in lgt_grps.keys():
+            items.append((nm, nm, ''))
+        return items
+
+    lpe_groups: EnumProperty(name="LPE Groups",
+                        description="Select the LPE group you want to add",
+                        items=lpe_groups_list)
+
+    def execute(self, context):
+        rm_rl = scene_utils.get_renderman_layer(context)
+
+        if rm_rl:
+            aov = rm_rl.custom_aovs[rm_rl.custom_aov_index]
+            chan_ptr = aov.dspy_channels[aov.dspy_channels_index]
+            chan = rm_rl.dspy_channels[chan_ptr.dspy_chan_idx]
+            channel_source = chan.channel_source
+            channel_type = chan.channel_type
+            channel_light_group = chan.light_group            
+            
+            chan_lpe_group = self.properties.lpe_groups
+            if chan_lpe_group == '__CLEAR__':
+                chan_lpe_group = ''
+
+            chan_name = chan.name
+            if chan_lpe_group != '':
+                if channel_light_group != '':
+                    chan_name = '%s_%s_%s' % (chan_name, channel_light_group, chan_lpe_group)
+                else:
+                    chan_name = '%s_%s' % (chan_name, chan_lpe_group)
+            else:
+                # find original name
+                for nm,settings in rman_config.__RMAN_DISPLAY_CHANNELS__.items():
+                    if chan.channel_source == settings['channelSource'] and chan.channel_type == settings['channelType']:
+                        chan_name = nm
+                        break
+                    if channel_light_group != '':
+                        chan_name = '%s_%s' % (chan_name, channel_light_group)
+            found = False
+            for idx, c in enumerate(rm_rl.dspy_channels):
+                # this channel with the same light lpe group already exists
+                # use that instead
+                if chan_name == c.name and chan_lpe_group == c.lpe_group:
+                    chan_ptr.dspy_chan_idx = idx
+                    found = True
+                    return{'FINISHED'}     
+                
+            if not found:
+                # if there isn't an existing channel, add a new one
+                new_chan = rm_rl.dspy_channels.add()
+                new_chan.channel_name = chan_name   
+                new_chan.is_custom = True 
+                new_chan.channel_source = channel_source
+                new_chan.channel_type = channel_type
+                new_chan.light_group = channel_light_group
+                chan_ptr.dspy_chan_idx = len(rm_rl.dspy_channels)-1
+                chan = new_chan            
+
+            chan.lpe_group = chan_lpe_group
+            chan.name = chan_name
+            update_displays_func(None, context)
+
+        return{'FINISHED'}               
 
 class PRMAN_OT_Renderman_layer_add_channel(Operator):
     """Add a new channel"""
@@ -353,6 +438,9 @@ class RENDER_PT_layer_custom_aovs(CollectionPanel, Panel):
             split = col.split(factor=0.95)
             split.prop(channel, "light_group")
             split.operator_menu_enum('renderman.dspychan_set_light_group', 'light_groups', text='', icon='DISCLOSURE_TRI_DOWN')
+            split = col.split(factor=0.95)
+            split.prop(channel, "lpe_group")
+            split.operator_menu_enum('renderman.dspychan_set_lpe_group', 'lpe_groups', text='', icon='DISCLOSURE_TRI_DOWN')            
             
             # FIXME: don't show for now
             # col.prop(channel, "object_group")
@@ -645,6 +733,7 @@ class PRMAN_MT_renderman_create_dspychan_submenu_existing(Menu):
 classes = [
     COLLECTION_OT_rman_dspy_add_remove,
     PRMAN_OT_Renderman_layer_channel_set_light_group,
+    PRMAN_OT_Renderman_layer_channel_set_lpe_group,
     PRMAN_OT_Renderman_layer_add_channel,
     PRMAN_OT_Renderman_layer_delete_channel,
     PRMAN_OT_RenderMan_Add_Dspy_Template,

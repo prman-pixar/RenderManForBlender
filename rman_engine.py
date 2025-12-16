@@ -159,6 +159,8 @@ class PRManRender(bpy.types.RenderEngine):
             return            
 
         self.rman_render.rman_scene.bl_scene = scene
+        self.rman_render.rman_scene.bl_view_layer = renderlayer
+        self.rman_render.rman_scene._find_renderman_layer()
         dspy_dict = display_utils.get_dspy_dict(self.rman_render.rman_scene, include_holdouts=False)
         self.register_pass(scene, renderlayer, "Combined", 4, "RGBA", 'COLOR')
         for i, dspy_nm in enumerate(dspy_dict['displays'].keys()):

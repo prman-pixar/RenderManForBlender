@@ -161,19 +161,13 @@ class RmanTranslator(object):
 
         obj_groups_str = "World"
         obj_groups_str += "," + name
-        lpe_groups_str = "*"
         for obj_group in self.rman_scene.bl_scene.renderman.object_groups:
             for member in obj_group.members:
                 if member.ob_pointer.original == ob.original:
                     obj_groups_str += ',' + obj_group.name
-                    lpe_groups_str += ',' + obj_group.name
                     break
 
-        self.export_light_linking_attributes(ob, attrs, obj_groups_str=obj_groups_str)
-
-        # add to trace sets
-        if lpe_groups_str != '*':                       
-            attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_identifier_lpegroup, lpe_groups_str)            
+        self.export_light_linking_attributes(ob, attrs, obj_groups_str=obj_groups_str)     
 
         rman_sg_node.sg_node.SetAttributes(attrs)     
 

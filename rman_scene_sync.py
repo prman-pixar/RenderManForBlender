@@ -536,6 +536,14 @@ class RmanSceneSync(object):
                 rman_update.is_updated_geometry = dps_update.is_updated_geometry
                 rman_update.is_updated_shading = dps_update.is_updated_shading
                 rman_update.is_updated_transform = dps_update.is_updated_transform
+                for m in dps_update.id.original.modifiers:
+                    # check if there are any geometrynode trees that were updated
+                    # in the object's modifiers list
+                    # if there are any, always check the transform
+                    # we need to do this in the case of object instancing
+                    if m.type == 'NODES' and m.node_group in self.rman_updates:
+                        rman_update.is_updated_transform = True
+                        break
                 if not rman_update.is_updated_geometry:
                     rman_update.do_clear_instances = False
                 self.rman_updates[dps_update.id.original] = rman_update
@@ -900,7 +908,7 @@ class RmanSceneSync(object):
                         self.rman_updates[ob_key] = rman_update  
                 elif rman_update is None:    
                     # no RmanUpdate exists for this object
-                    if len(rman_sg_node.instances) > 1:
+                    if len(rman_sg_node.instances) > 0:
                         self.add_to_need_cleaning(instance, rman_sg_node)                  
                     continue
                     
@@ -942,7 +950,7 @@ class RmanSceneSync(object):
                             # if not, don't append to already_updated, instances of this prototype
                             # may generate mesh -- this is the case for geometry node instances
                             if rman_sg_node.npoints == 0:
-                                rfb_log().debug("\tMesh: %s has no" % proto_key)
+                                rfb_log().debug("\tMesh: %s has no points" % proto_key)
                                 continue 
                         already_udpated.append(proto_key)   
 

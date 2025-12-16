@@ -441,6 +441,28 @@ def get_light_groups_in_scene(scene):
 
     return lgt_grps
 
+def get_light_groups_in_scene(scene):
+    """ Return a dictionary of LPE groups in the scene
+
+    Args:
+    scene (byp.types.Scene) - scene file to look for objects
+
+    Returns:
+    (dict) - dictionary of lpe gropus to objects
+    """
+
+    lpe_grps = dict()
+    for ob in bpy.data.objects:
+        rm = getattr(ob, 'renderman', None)
+        if rm:
+            lpegroup = getattr(rm, 'rman_lpegroup', '')
+            if lpegroup:
+                grps_lst = lpe_grps.get(lpegroup, list())
+                grps_lst.append(ob)
+                lpe_grps[lpegroup] = grps_lst
+
+    return lpe_grps
+
 def find_node_owner(node, context=None):
     """ Return the owner of this node
 

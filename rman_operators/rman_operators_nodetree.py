@@ -940,10 +940,11 @@ class PRMAN_OT_Arrange_Nodes(bpy.types.Operator):
         for base_node in node_list:
             for socket in base_node.inputs:
                 if socket.is_linked:
-                    n = socket.links[0].from_node
-                    n.location[0] = base_node.location[0]
-                    n.location[0] -= (x_spacing + n.dimensions[0])
-                    connected_list.append(n)             
+                    for l in socket.links:
+                        n = l.from_node
+                        n.location[0] = base_node.location[0]
+                        n.location[0] -= (x_spacing + n.dimensions[0])
+                        connected_list.append(n)             
 
         return connected_list
 

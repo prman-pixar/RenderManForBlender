@@ -5,6 +5,7 @@ import bpy
 import os
 import shutil
 import webbrowser
+import time
 
 class PRMAN_OT_Renderman_Use_Renderman(bpy.types.Operator):
     bl_idname = "renderman.use_renderman"

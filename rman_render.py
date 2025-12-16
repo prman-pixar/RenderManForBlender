@@ -1465,8 +1465,12 @@ class RmanRender(object):
 
         config = rman.Types.RtParamList()
         render_config = rman.Types.RtParamList()
-        rendervariant = render_utils.get_render_variant(self.bl_scene)
-        render_utils.set_render_variant_config(self.bl_scene, config, render_config)
+        
+        # use bl_scene.original for this
+        # for some reason, scene_eval doesn't get the updated value if the variant changes
+        # (RMAN-24284)
+        rendervariant = render_utils.get_render_variant(self.bl_scene.original)
+        render_utils.set_render_variant_config(self.bl_scene.original, config, render_config)
         if rendervariant == 'xpu':
             self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu) 
 
@@ -1908,6 +1912,10 @@ class RmanRender(object):
                 continue
             passes = dict()
             buffer.shape = (height, width, num_channels)
+            if numpy.isnan(buffer).any():
+                # for some reason, the variance channels can contain NaNs
+                rfb_log().debug("Buffer has NaNs. Using numpy.nan_to_num")
+                buffer = numpy.nan_to_num(buffer, copy=False)
             if i == 0:
                 # variance file
                 # note, we're assuming the order of the channels never changes

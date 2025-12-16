@@ -400,7 +400,12 @@
             "inherit_true_value": -1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_matteObject', c)",            
             "page": "Shading",
-            "help": "This object is rendered as a black hole"
+            "help": "This object is rendered as a black hole",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }             
         },
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -416,7 +421,12 @@
             "inherit_true_value": -1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_holdout', c)",
             "page": "Shading",
-            "help": "Useful in holdout workflow. These objects collect reflections, shadows, and transmission."
+            "help": "Useful in holdout workflow. These objects collect reflections, shadows, and transmission.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }            
         },       
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -430,7 +440,12 @@
             "inherit_true_value": -1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_indexofrefraction', c)",              
             "page": "Shading",
-            "help": "Override material IOR for nested dielectrics."
+            "help": "Override material IOR for nested dielectrics.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }            
         },
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -442,7 +457,12 @@
             "default": 1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_minsamples', c)",            
             "page": "Shading",
-            "help": "Min Pixel Samples.  For fine-tuning adaptive sampling."
+            "help": "Min Pixel Samples.  For fine-tuning adaptive sampling.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }            
         },          
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -454,8 +474,25 @@
             "default": 1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_relativepixelvariance', c)",              
             "page": "Shading",
-            "help": "PixelVariance multiplier for camera visible objects.  For fine-tuning adaptive sampling."
-        },            
+            "help": "PixelVariance multiplier for camera visible objects.  For fine-tuning adaptive sampling.",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }            
+        },  
+        {
+            "panel": "OBJECT_PT_renderman_object_render",
+            "name": "rman_lpegroup",
+            "riattr": "identifier:lpegroup",
+            "label": "LPE Group",
+            "type": "string",
+            "ipr_editable": true,
+            "default": "",
+            "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_lpegroup', c)",              
+            "page": "Shading",
+            "help": "Grouping membership used for light path expressions, eg. keylight"
+        },                  
         {
             "panel": "OBJECT_PT_renderman_object_raytracing",
             "name": "rman_maxDiffuseDepth",
@@ -1007,7 +1044,12 @@
             "inherit_true_value": -1,     
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_visibilityCamera', c)",                    
             "page": "Visibility",
-            "help": "Indicates if object is visible to camera rays"
+            "help": "Indicates if object is visible to camera rays",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }               
         },
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -1023,7 +1065,12 @@
             "inherit_true_value": -1,
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_visibilityIndirect', c)",                        
             "page": "Visibility",
-            "help": "Indicates if object is visible to indirect (reflection and specular refraction) rays"
+            "help": "Indicates if object is visible to indirect (reflection and specular refraction) rays",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }               
         },
         {
             "panel": "OBJECT_PT_renderman_object_render",
@@ -1039,7 +1086,12 @@
             "inherit_true_value": -1,           
             "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_visibilityTransmission', c)",             
             "page": "Visibility",
-            "help": "Indicates if object is visible to shadow rays"
+            "help": "Indicates if object is visible to shadow rays",
+            "conditionalVisOps": {
+                "conditionalVisOp": "notEqualTo",
+                "conditionalVisPath": "bl_object_type",
+                "conditionalVisValue": "LIGHT"
+            }               
         },
         {
             "panel": "OBJECT_PT_renderman_object_matteid",

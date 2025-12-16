@@ -325,6 +325,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         update=update_vis,
         default=True)
 
+
     mute: BoolProperty(
         name="Mute",
         description="Turn off this light",

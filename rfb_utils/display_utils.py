@@ -10,8 +10,8 @@ import getpass
 import re
 import sys
 
-__BLENDER_TO_RMAN_DSPY__ = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'PNG': 'png'}
-__RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR', 'png':'PNG'}
+__BLENDER_TO_RMAN_DSPY__ = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'OPEN_EXR_MULTILAYER': 'openexr',    'PNG': 'png'}
+__RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR_MULTILAYER', 'png':'PNG'}
 
 __RFB_DENOISER_AI__ = '1'
 __RFB_DENOISER_OPTIX__ = '2'
@@ -449,14 +449,21 @@ def _get_real_chan_name(chan):
     """
     ch_name = chan.channel_name
     lgt_grp = chan.light_group.strip()
+    lgt_lpe_grp = chan.lpe_group.strip()
     if lgt_grp != '' and lgt_grp not in ch_name:
         ch_name = '%s_%s' % (ch_name, lgt_grp)   
+    if lgt_lpe_grp != '' and lgt_grp not in ch_name:
+        ch_name = '%s_%s' % (ch_name, lgt_lpe_grp)
     return ch_name
 
 def _add_chan_to_dpsychan_list(rm, rm_rl, dspys_dict, chan):
 
     ch_name = _get_real_chan_name(chan)
     lgt_grp = chan.light_group.strip()
+    lgt_lpe_grp = chan.lpe_group.strip()
+
+    o_expr = re.compile(r'(O)$|(O)\)$|(O)\]$|(\<O\>)$|(\<O.\>)$')
+
     # add the channel if not already in list            
     if ch_name not in dspys_dict['channels']:
         d = _default_dspy_params()                
@@ -471,6 +478,20 @@ def _add_chan_to_dpsychan_list(rm, rm_rl, dspys_dict, chan):
             elif "lpe:" in source:
                 source = source.replace("L", "<L.'%s'>" % lgt_grp)
 
+        if lgt_lpe_grp or lgt_lpe_grp != '':
+            if 'Ci' in source:
+                source = "lpe:C[DS]*[<L.>O]"
+            m = o_expr.search(source)
+            if m and m.groups():
+                find_o = re.compile(r'O.*$')
+                if '<O' in source:
+                    source = re.sub(find_o, "O.'%s'" % lgt_lpe_grp, source)
+                else:
+                    source = re.sub(find_o, "<O.'%s'>" % lgt_lpe_grp, source)     
+
+            if not source.endswith(']'):
+                source += ']'
+        
         d[u'channelSource'] = {'type': u'string', 'value': source}
         d[u'channelType'] = { 'type': u'string', 'value': source_type}
         d[u'lpeLightGroup'] = { 'type': u'string', 'value': lgt_grp}

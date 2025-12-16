@@ -439,9 +439,12 @@ def generate_node_type(node_desc, is_oso=False):
         float_rman_ramps = self.__annotations__.get('__FLOAT_RAMPS__', [])
 
         if color_rman_ramps or float_rman_ramps:
-            node_group = bpy.data.node_groups.new(
-                RMAN_FAKE_NODEGROUP, 'ShaderNodeTree') 
-            node_group.use_fake_user = True             
+            # see if our fake nodegroup has been created or not
+            node_group = bpy.data.node_groups.get(RMAN_FAKE_NODEGROUP, None)
+            if node_group is None:
+                node_group = bpy.data.node_groups.new(
+                    RMAN_FAKE_NODEGROUP, 'ShaderNodeTree') 
+                node_group.use_fake_user = True             
             self.rman_fake_node_group_ptr = node_group    
             self.rman_fake_node_group = node_group.name    
 
@@ -513,10 +516,22 @@ def generate_node_type(node_desc, is_oso=False):
 
 
     def free(self):
+        nt = None
         if self.rman_fake_node_group_ptr:
-            bpy.data.node_groups.remove(self.rman_fake_node_group_ptr)
+            nt = self.rman_fake_node_group_ptr
         elif self.rman_fake_node_group in bpy.data.node_groups:
-            bpy.data.node_groups.remove(bpy.data.node_groups[self.rman_fake_node_group])
+            nt = bpy.data.node_groups[self.rman_fake_node_group]
+
+        if nt:
+            # clean up all ramp nodes from our fake nodegroup
+            color_rman_ramps = self.__annotations__.get('__COLOR_RAMPS__', [])
+            float_rman_ramps = self.__annotations__.get('__FLOAT_RAMPS__', [])
+
+            if color_rman_ramps or float_rman_ramps:
+                for ramp_name in color_rman_ramps + float_rman_ramps:
+                    ramp_node_name = getattr(self, ramp_name, None)
+                    if ramp_node_name and ramp_node_name in nt.nodes:
+                        nt.nodes.remove(nt.nodes[ramp_node_name])
 
     ntype.init = init
     ntype.free = free

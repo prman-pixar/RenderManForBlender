@@ -60,6 +60,7 @@ class RendermanDspyChannel(RmanBasePropertyGroup, bpy.types.PropertyGroup):
 
     object_group: EnumProperty(name='Object Group', items=object_groups)       
     light_group: StringProperty(name='Light Group', default='', update=update_displays_func)
+    lpe_group: StringProperty(name='LPE Group', default='', update=update_displays_func)
 
 class RendermanDspyChannelPointer(bpy.types.PropertyGroup):
     dspy_chan_idx: IntProperty(default=-1, name="Display Channel Index")
