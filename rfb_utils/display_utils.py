@@ -736,11 +736,9 @@ def _set_rman_holdouts_dspy_dict(dspys_dict, dspy_drv, rman_scene, expandTokens,
 
     # user wants separate AOV for matte
     if rm.do_holdout_matte == "AOV":
-        filePath = rm.path_beauty_image_output
-        f, ext = os.path.splitext(filePath)
-        filePath = f + '_holdoutMatte' + ext      
+        filePath = rm.path_aov_image_output     
         if expandTokens:      
-            token_dict = {'aov': 'beauty'}
+            token_dict = {'aov': 'holdoutMatte'}
             filePath = string_utils.expand_string(filePath,
                                                 display=display_driver, 
                                                 token_dict=token_dict,
