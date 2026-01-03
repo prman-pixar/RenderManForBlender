@@ -47,12 +47,12 @@ def get_group_db_name(ob_inst):
             parent = ob_inst.parent
             psys = ob_inst.particle_system
             persistent_id = ''.join(str(x) for x in reversed(ob_inst.persistent_id))
+            # note, we cannot fully rely on the persistent ID because it doesn't seem to
+            # be unique in the case of instancing collections (see CUSP-9056)
             if psys:
-                #group_db_name = "%s|%s|%s|%s" % (parent.name_full, ob.name_full, psys.name, persistent_id)
-                group_db_name = "%s|%s" % (psys.name, persistent_id)
+                group_db_name = "%s|%s|%s|%s" % (parent.name_full, ob.name_full, psys.name, persistent_id)
             else:
-                #group_db_name = "%s|%s|%s" % (parent.name_full, ob.name_full, persistent_id)
-                group_db_name = "%s" % persistent_id
+                group_db_name = "%s|%s|%s" % (parent.name_full, ob.name_full, persistent_id)
         else:
             ob = ob_inst.object
             group_db_name = "%s" % (ob.name_full)
