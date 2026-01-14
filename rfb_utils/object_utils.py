@@ -252,7 +252,7 @@ def prototype_key(ob):
             We can remove this once this gets fixed in Blender: 
             https://projects.blender.org/blender/blender/issues/111393
             '''
-            if ob.data == 'Mesh'  or ob.object.data.name == 'Mesh':
+            if ob.data == 'Mesh'  or ob.data.name == 'Mesh':
                 data_ob = bpy.data.objects[ob.name]
                 return '%s-MESH-DATA' % data_ob.original.data.name_full
             return '%s-%s-DATA' % (ob.type, ob.data.name_full)
