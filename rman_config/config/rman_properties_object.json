@@ -427,7 +427,21 @@
                 "conditionalVisPath": "bl_object_type",
                 "conditionalVisValue": "LIGHT"
             }            
-        },       
+        },  
+        {
+            "panel": "OBJECT_PT_renderman_object_render",
+            "name": "rman_ri_sides",
+            "riattr": "Ri:Sides",
+            "label": "Sides",
+            "type": "int",
+            "widget": "mapper",
+            "options": "1:1|2:2",
+            "default": 2,
+            "ipr_editable": true,
+            "update_function_name": "lambda s, c: update_riattr_func(s, 'rman_ri_sides', c)",              
+            "page": "Shading",
+            "help": "Geometry can be one or two sided"           
+        },             
         {
             "panel": "OBJECT_PT_renderman_object_render",
             "name": "rman_indexofrefraction",
