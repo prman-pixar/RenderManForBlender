@@ -667,6 +667,11 @@
             "channelSource": "__WNref",
             "group": "Data AOVs"
          },
+         "Albedo":{
+            "channelType": "color",
+            "channelSource": "lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;CU2L",
+            "group": "User Lobes"
+         },
          "Position":{
             "channelType": "color",
             "channelSource": "lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;CU3L",
@@ -675,6 +680,11 @@
         "Color":{
             "channelType": "color",
             "channelSource": "lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;CU4L",
+            "group": "User Lobes"
+        },
+        "Normal":{
+            "channelType": "normal",
+            "channelSource": "lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;CU6L",
             "group": "User Lobes"
         },
         "NPRshadow": {

@@ -1416,7 +1416,7 @@
             "riopt": "lpe:user3",
             "label": "User 3 Lobe ID",
             "type": "string",
-            "default": "",
+            "default": "Position",
             "always_write": true,
             "help": ""
         },
@@ -1427,7 +1427,7 @@
             "riopt": "lpe:user4",
             "label": "User 4 Lobe ID",
             "type": "string",
-            "default": "",
+            "default": "UserColor",
             "always_write": true,
             "help": ""
         },
@@ -1449,7 +1449,7 @@
             "riopt": "lpe:user6",
             "label": "User 6 Lobe ID",
             "type": "string",
-            "default": "",
+            "default": "Normal,DiffuseNormal,HairTangent,SubsurfaceNormal,SpecularNormal,RoughSpecularNormal,SingleScatterNormal,FuzzNormal,IridescenceNormal,GlassNormal",
             "always_write": true,
             "help": ""
         },
