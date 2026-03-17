@@ -267,7 +267,7 @@ def __draw_callback__():
     return False     
 
 DRAWCALLBACK_FUNC = None 
-__CALLBACK_FUNC__ = None 
+CALLBACK_FUNC = None 
 
 class ItHandler(chatserver.ItBaseHandler):
 
@@ -684,14 +684,18 @@ class BlRenderResultHelper:
                         # use ice to save out the image
                         img = ice.FromArray(buffer)
                         img = img.Flip(False, True, False)
-                        #img_format = ice.constants.FMT_EXRFLOAT
-                        #if not display_utils.using_rman_displays(bl_view_layer=self.bl_layer):
-                        #    img_format = BLENDER_TO_ICE_DSPY.get(self.bl_scene.render.image_settings.file_format, img_format)
+                        img_format = ice.constants.FMT_EXRFLOAT
+                        if not display_utils.using_rman_displays(bl_view_layer=self.bl_layer):                            
+                            img_format = BLENDER_TO_ICE_DSPY.get(self.bl_scene.render.image_settings.file_format, img_format)
+                        else:
+                            rman_dspy =  self.dspy_dict['displays'][dspy_nm].get('originalDriver', '')
+                            if rman_dspy != "":
+                                img_format = RMAN_TO_ICE_DSPY.get(rman_dspy, img_format)
 
                         # change file extension                            
                         toks = os.path.splitext(filepath)
-                        # ext = ICE_EXT_MAP.get(img_format)
-                        filepath = '%s.%s' % (toks[0], ext)                            
+                        ext = ICE_EXT_MAP.get(img_format)
+                        filepath = '%s.%s' % (toks[0], ext)  
                         img.Save(filepath, img_format)        
 
 class RmanRender(object):
@@ -1004,7 +1008,7 @@ class RmanRender(object):
         render_utils.set_render_variant_config(self.bl_scene, config, render_config)
         if rendervariant == 'xpu':
             self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu)
-        self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
+        self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.RFB_DENOISER_AI)
 
         boot_strapping = False
         if self.sg_scene is None:
@@ -1415,7 +1419,7 @@ class RmanRender(object):
         render_into_org = '' 
         self.rman_render_into = self.rman_scene.ipr_render_into
         self.bl_viewport = context.space_data
-        self.use_qn = (self.bl_scene.renderman.blender_ipr_denoiser == display_utils.__RFB_DENOISER_AI__)
+        self.use_qn = (self.bl_scene.renderman.blender_ipr_denoiser == display_utils.RFB_DENOISER_AI)
         
         self.rman_callbacks.clear()
         # register the blender display driver
@@ -1764,15 +1768,15 @@ class RmanRender(object):
 
     def set_redraw_func(self):
         global DRAWCALLBACK_FUNC
-        global __CALLBACK_FUNC__
+        global CALLBACK_FUNC
         
         # pass our callback function to the display driver
-        if __CALLBACK_FUNC__ is None:
+        if CALLBACK_FUNC is None:
             DRAWCALLBACK_FUNC = ctypes.CFUNCTYPE(ctypes.c_bool)
-            __CALLBACK_FUNC__ = DRAWCALLBACK_FUNC(__draw_callback__)             
+            CALLBACK_FUNC = DRAWCALLBACK_FUNC(__draw_callback__)             
 
         dspy_plugin = self.get_blender_dspy_plugin()
-        dspy_plugin.SetRedrawCallback(__CALLBACK_FUNC__)
+        dspy_plugin.SetRedrawCallback(CALLBACK_FUNC)
 
     def reset_redraw_func(self):
         # pass our callback function to the display driver

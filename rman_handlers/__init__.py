@@ -3,6 +3,7 @@ from ..rfb_utils import texture_utils
 from ..rfb_utils import string_utils
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import upgrade_utils
+from ..rfb_utils.display_utils import BLENDER_TO_RMAN_DSPY
 from ..rfb_utils.envconfig_utils import envconfig
 from ..rman_constants import RMAN_FAKE_NODEGROUP, BLENDER_50
 from bpy.app.handlers import persistent
@@ -94,7 +95,9 @@ def render_pre(bl_scene):
     if BLENDER_50: 
         ORIGINAL_BL_MEDIA_FORMAT = bl_scene.render.image_settings.media_type
         bl_scene.render.image_settings.media_type = 'IMAGE'
-    bl_scene.render.image_settings.file_format = 'OPEN_EXR'            
+    if ORIGINAL_BL_FILE_FORMAT not in BLENDER_TO_RMAN_DSPY:
+        # user has selected a image format we don't support, fallback to OpenEXR
+        bl_scene.render.image_settings.file_format = 'OPEN_EXR'            
 
 @persistent
 def render_post(bl_scene):
