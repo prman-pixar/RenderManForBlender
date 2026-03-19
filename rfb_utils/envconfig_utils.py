@@ -133,6 +133,12 @@ class RmanEnvConfig(object):
         self.unsetenv('RILEY_CAPTURE_FORMAT')
         self.unsetenv('RILEY_CAPTURE')
 
+    def set_dump_rib_env(self):
+        self.setenv('RFB_DUMP_RIB', '1')
+
+    def unset_dump_rib_env(self):
+        self.unsetenv('RFB_DUMP_RIB')
+
     def read_envvars_file(self):
         bl_config_path = bpy.utils.user_resource('CONFIG')
         jsonfile = ''

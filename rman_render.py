@@ -35,6 +35,7 @@ from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
 from .rfb_utils import render_utils
+from .rfb_utils import filepath_utils
 from .rfb_utils.render_utils import RmanRenderContext
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
@@ -809,10 +810,8 @@ class RmanRender(object):
         if envconfig().getenv('RFB_DUMP_RIB'):
             rfb_log().debug("Writing to RIB...")
             rib_time_start = time.time()
-            if RFB_PLATFORM == "windows":
-                self.sg_scene.Render("rib C:/tmp/blender.%04d.rib -format ascii -indent" % frame)
-            else:
-                self.sg_scene.Render("rib /var/tmp/blender.%04d.rib -format ascii -indent" % frame)     
+            dump_rib_path = filepath_utils.get_dump_rib_path(frame)
+            self.sg_scene.Render("rib %s -format ascii -indent" % dump_rib_path)    
             rfb_log().debug("Finished writing RIB. Time: %s" % string_utils._format_time_(time.time() - rib_time_start))            
 
     def _load_placeholder_image(self):   
@@ -1436,7 +1435,6 @@ class RmanRender(object):
                 self._draw_viewport_buckets = True
             else:
                 rman.Dspy.EnableDspyServer()
-                add_ipr_to_it_handlers()
         except:
             # force rendering to 'it'
             rfb_log().error('Could not register Blender display driver. Rendering to "it".')
@@ -1564,6 +1562,10 @@ class RmanRender(object):
                     self.set_redraw_func()
                 else:
                     rfb_log().debug("XPU slow mode enabled.")
+
+            elif self.rman_render_into == 'it':
+                # we're rendering to "it", add "it" handlers
+                add_ipr_to_it_handlers()
 
             return True
         except Exception as e:      

@@ -632,7 +632,18 @@ class VIEW3D_MT_RM_Dev_Menu(bpy.types.Menu):
         layout = self.layout
         layout.operator('renderman.start_debug_server') 
         layout.operator('renderman.run_unit_tests')
-        layout.operator('renderman.rfb_zip_addon')     
+        layout.operator('renderman.rfb_zip_addon')  
+        if context.scene.renderman.rfb_disgust or envconfig().getenv('RILEY_CAPTURE'):
+            layout.separator()
+            layout.operator('renderman.open_disgust_trace')
+        layout.separator()        
+        if envconfig().getenv('RFB_DUMP_RIB'):
+            layout.operator('renderman.open_dump_rib')
+            op = layout.operator('renderman.set_rib_dump_env', text='Unset RFB_DUMP_RIB')
+            op.set_envvar = False
+        else:
+            op = layout.operator('renderman.set_rib_dump_env', text='Set RFB_DUMP_RIB')
+
 
 def rman_add_object_menu(self, context):
 
