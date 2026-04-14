@@ -340,16 +340,23 @@ def get_active_material(ob):
         return mat
 
     material_slots = getattr(ob, 'material_slots', None)
+    has_geo_nodes = len([m for m in ob.original.modifiers if m.type == 'NODES']) > 0
+    
     if ob.type == 'EMPTY':
         material_slots = getattr(ob.original, 'material_slots', None)    
     if not material_slots:
         return None
 
     if len(material_slots) > 0:
-        for mat_slot in material_slots:
-            mat = mat_slot.material
-            if mat:
-                break
+        if has_geo_nodes:
+            # if this object is from geometry nodes
+            # the material used is the last one in the slots
+            mat = material_slots[-1].material
+        else:
+            for mat_slot in material_slots:
+                mat = mat_slot.material
+                if mat:
+                    break
     return mat
 
 def _get_used_materials_(ob):
