@@ -40,6 +40,7 @@ from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils import shadergraph_utils
 from .rfb_utils import color_manager_blender
 from .rfb_utils import scenegraph_utils
+from .rfb_utils import prefs_utils
 
 # config
 from .rman_config import __RFB_CONFIG_DICT__ as rfb_config
@@ -129,6 +130,8 @@ class RmanScene(object):
         self.num_object_instances = 0
         self.num_objects_in_viewlayer = 0
         self.objects_in_viewlayer = list()
+        self.all_lightfilters = list()
+        self.all_lights = list()
 
         self.ipr_render_into = 'blender'
 
@@ -224,6 +227,7 @@ class RmanScene(object):
         self.num_object_instances = 0
         self.num_objects_in_viewlayer = 0
         self.objects_in_viewlayer.clear()
+        self.emit_default_params = prefs_utils.get_pref('rman_emit_default_params', False) 
 
         try:
             if self.is_viewport_render:
@@ -638,14 +642,14 @@ class RmanScene(object):
 
         return rman_sg_group       
 
-    def update_instance_attributes(self, translator, rman_sg_node, ob_eval, ob_inst, remove=False): 
+    def update_instance_attributes(self, translator, rman_sg_node, ob_eval, ob_inst, rman_type, remove=False): 
         # we want to export attributes for the instance
         # as we still want the instance to be able override attributes        
         attrs = rman_sg_node.sg_node.GetAttributes()
         translator.export_object_attributes_attrs(ob_eval, attrs, remove=remove)
         rman_sg_node.sg_node.SetAttributes(attrs)            
         # export instance attributes
-        translator.export_instance_attributes(ob_eval, rman_sg_node, ob_inst)         
+        translator.export_instance_attributes(ob_eval, rman_sg_node, ob_inst, rman_type)         
 
     def export_instance(self, ob_eval, ob_inst, rman_sg_node, rman_type, instance_parent, psys):
         rman_group_translator = self.rman_translators['GROUP']
@@ -660,7 +664,7 @@ class RmanScene(object):
         # Object attrs
         translator =  self.rman_translators.get(rman_type, None)
         if translator and not instance_parent:
-            self.update_instance_attributes(translator, rman_sg_group, ob_eval, ob_inst)
+            self.update_instance_attributes(translator, rman_sg_group, ob_eval, ob_inst, rman_type)
 
         # Add any particles necessary
         if rman_sg_node.rman_sg_particle_group_node:
@@ -731,6 +735,15 @@ class RmanScene(object):
 
 
     def export_data_blocks(self, selected_objects=False, objects_list=False):
+        # cache the list of a lights in the scene
+        # we'll need this later when we do light linking attributes
+        if self.use_blender_light_link:  
+            self.all_lights = scene_utils.get_all_lights(self.bl_scene, include_light_filters=True)
+        else:
+            self.all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]
+            self.all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
+            
+        
         total = len(self.depsgraph.object_instances)
         for i, ob_inst in enumerate(self.depsgraph.object_instances):
             if self.cancel_requested():

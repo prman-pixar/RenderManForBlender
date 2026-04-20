@@ -333,6 +333,8 @@ def set_rix_param(params, param_type, param_name, val, is_reference=False, is_ar
             pname = param_name
             if prop_name != '':
                 pname = prop_name
+            # FIXME/TODO: use is_property_set rather than trying to grab
+            # the default value and compare, to check if this parameter is at default value
             dflt = get_property_default(node, pname)
             
 
@@ -436,7 +438,7 @@ def set_rioption_bl_prop(options, prop_name, meta, rm):
     val = string_utils.convert_val(val, type_hint=param_type)
     set_rix_param(options, param_type, ri_name, val, is_reference=False, is_array=is_array, array_len=array_len, node=rm, prop_name=prop_name)
 
-def set_riattr_bl_prop(attrs, prop_name, meta, rm, check_inherit=True, remove=True):
+def set_riattr_bl_prop(attrs, prop_name, meta, rm, force_write=False, check_inherit=True, remove=True):
     if 'riattr' not in meta:
         return
 
@@ -470,7 +472,7 @@ def set_riattr_bl_prop(attrs, prop_name, meta, rm, check_inherit=True, remove=Tr
         array_len = meta['arraySize']       
     param_type = meta['renderman_type'] 
     val = string_utils.convert_val(val, type_hint=param_type)                         
-    set_rix_param(attrs, param_type, ri_name, val, is_reference=False, is_array=is_array, array_len=array_len, node=rm, prop_name=prop_name)
+    set_rix_param(attrs, param_type, ri_name, val, is_reference=False, is_array=is_array, array_len=array_len, node=rm, prop_name=prop_name, force_write=force_write)
 
 
 def build_output_param_str(rman_sg_node, mat_name, from_node, from_socket, convert_socket=False, param_type=''):

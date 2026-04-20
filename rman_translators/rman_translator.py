@@ -103,7 +103,7 @@ class RmanTranslator(object):
         meta = rm.prop_meta[prop_name]
         property_utils.set_primvar_bl_prop(primvars, prop_name, meta, rm, inherit_node=rm_scene)        
 
-    def export_instance_attributes(self, ob, rman_sg_node, ob_inst):
+    def export_instance_attributes(self, ob, rman_sg_node, ob_inst, rman_type):
         '''
         Export attributes that should vary between each instance
         '''
@@ -114,7 +114,6 @@ class RmanTranslator(object):
         if is_instance:
             name = ob_inst.parent.name
         attrs = rman_sg_node.sg_node.GetAttributes()
-        rman_type = object_utils._detect_primitive_(ob)
 
         # Add ID
         if name != "":            
@@ -176,7 +175,7 @@ class RmanTranslator(object):
         bl_scene = self.rman_scene.bl_scene
 
         if self.rman_scene.use_blender_light_link:        
-            all_lights = scene_utils.get_all_lights(bl_scene, include_light_filters=True)        
+            all_lights = self.rman_scene.all_lights
 
             exclude_subset = []
             include_subset = []
@@ -245,12 +244,12 @@ class RmanTranslator(object):
                 obj_groups_str += "," + "," . join(shadow_exclude)
 
         else:
-            all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(bl_scene)]
+            all_lightfilters = self.rman_scene.all_lightfilters
 
             if self.rman_scene.bl_scene.renderman.invert_light_linking:
                 lighting_subset = []
                 lightfilter_subset = []
-                all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(bl_scene, include_light_filters=False)]
+                all_lights = self.rman_scene.all_lights
                 for ll in self.rman_scene.bl_scene.renderman.light_links:
                     light_ob = ll.light_ob                
                     light_props = shadergraph_utils.get_rman_light_properties_group(light_ob)
@@ -288,8 +287,13 @@ class RmanTranslator(object):
         rm = ob.renderman
 
         # set any properties marked riattr in the config file
-        for prop_name, meta in rm.prop_meta.items():
-            property_utils.set_riattr_bl_prop(attrs, prop_name, meta, rm, check_inherit=True, remove=remove)
+        for prop_name, meta in rm.riattr_meta.items():
+            ri_name = meta['riattr']
+            always_write = meta.get('always_write', False) or self.rman_scene.emit_default_params or attrs.HasParam(ri_name)
+            # even though set_rix_param in property_utils already does default checks
+            # we do it here to help save on time
+            if rm.is_property_set(prop_name) or always_write:
+                property_utils.set_riattr_bl_prop(attrs, prop_name, meta, rm, check_inherit=True, remove=remove, force_write=True)
 
         if self.rman_scene.use_blender_light_link: 
             # these need to removed, if we're using
@@ -327,7 +331,7 @@ class RmanTranslator(object):
             if namespace == '':
                 namespace = 'user'
             ri_name = '%s:%s' % (namespace, ua.name)
-            property_utils.set_rix_param(attrs, param_type, ri_name, val, is_reference=False, is_array=False)
+            property_utils.set_rix_param(attrs, param_type, ri_name, val, is_reference=False, is_array=False, force_write=True)
    
 
     def export_object_attributes(self, ob, rman_sg_node, remove=True):
