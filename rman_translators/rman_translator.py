@@ -157,6 +157,12 @@ class RmanTranslator(object):
             attrs.SetInteger("visibility:camera", 0)
             attrs.SetInteger("visibility:indirect", 1)
             attrs.SetInteger("visibility:transmission", 1)
+        elif len(ob.original.particle_systems) > 0:
+            # let show_instancer_for_viewport/show_instancer_for_render take precedence
+            if self.rman_scene.is_interactive:
+                attrs.SetInteger("visibility:camera", int(ob.original.show_instancer_for_viewport))
+            else:
+                attrs.SetInteger("visibility:camera", int(ob.original.show_instancer_for_render))
 
         obj_groups_str = "World"
         obj_groups_str += "," + name

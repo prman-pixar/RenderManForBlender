@@ -225,7 +225,12 @@ class RmanHairTranslator(RmanTranslator):
 
             if self.rman_scene.do_motion_blur:
                 # calculate the points for the next frame using velocity
-                vel = Vector(particle.velocity / particle.lifetime )
+                #vel = Vector(particle.velocity / particle.lifetime ) * rm.scale_velocity_blur
+                
+                ## Note, don't scale by the particle lifetime. This seems to match
+                ## better with cycles
+                vel = Vector(particle.velocity) * rm.scale_velocity_blur
+                
                 next_strand_points = [p + vel for p in strand_points]
 
             # for varying width make the width array

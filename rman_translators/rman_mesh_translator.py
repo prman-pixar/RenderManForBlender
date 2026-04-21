@@ -200,8 +200,7 @@ def _export_reference_pose(ob, rman_sg_mesh, rm, rixparams):
         elif int(len(rman__WNref) /3 ) == uniform_detail:
             rixparams.SetNormalDetail('__WNref', rman__WNref.data, 'uniform')            
         else:
-            rfb_log().error("Number of WNref primvars do not match. Please re-freeze the reference position.")
-            print("%d vs %d vs %d" % (len(rman__Nref), vertex_detail, facevarying_detail))
+            rfb_log().error("Number of WNref primvars do not match. Please re-freeze the reference position.")  
 
 def export_tangents(ob, geo, rixparams, uvmap="", name=""):
     # also export the tangent and bitangent vectors
