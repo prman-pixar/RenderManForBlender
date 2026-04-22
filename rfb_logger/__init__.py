@@ -12,7 +12,7 @@ VERBOSE  = 15
 DEBUG    = logging.DEBUG
 NOTSET   = logging.NOTSET
 
-__LOG_LEVELS__ = { 'CRITICAL': logging.CRITICAL,
+LOG_LEVELS = { 'CRITICAL': logging.CRITICAL,
                'ERROR': logging.ERROR,
                'WARNING': WARNING,
                'INFO': logging.INFO,
@@ -20,11 +20,11 @@ __LOG_LEVELS__ = { 'CRITICAL': logging.CRITICAL,
                'DEBUG': logging.DEBUG,
                'NOTSET':  logging.NOTSET}
 
-__RFB_LOG_FILE__ = ''
-__RFB_LOG_FILE_HANDLER__ = None
+RFB_LOG_FILE = ''
+RFB_LOG_FILE_HANDLER = None
 
-__RFB_CONSOLE_HANDLER__ = None
-__RFB_LOG_LEVEL = None
+RFB_CONSOLE_HANDLER = None
+RFB_LOG_LEVEL = None
 
 # logger format
 LOG_FMT = '[%(levelname)s] (%(threadName)-10s) %(name)s %(funcName)s: %(message)s'
@@ -34,6 +34,12 @@ def set_logger_level(level):
     Set the logging level for this module. This is only useful if the module
     is not using another logger.
     """
+    global RFB_LOG_LEVEL
+    if level == logging.NOTSET:
+        RFB_LOG_LEVEL = None
+    elif level != RFB_LOG_LEVEL:
+        RFB_LOG_LEVEL = level
+
     __log__.setLevel(level)
 
 def logger_level():
@@ -48,24 +54,24 @@ def set_logger(logger):
     __log__ = logger
 
 def init_log_level():
-    global __LOG_LEVELS__
-    global __RFB_LOG_LEVEL
+    global LOG_LEVELS
+    global RFB_LOG_LEVEL
 
     if 'RFB_LOG_LEVEL' in os.environ:
-        __RFB_LOG_LEVEL = os.environ['RFB_LOG_LEVEL']
+        RFB_LOG_LEVEL = os.environ['RFB_LOG_LEVEL']
         level = WARNING
-        if __RFB_LOG_LEVEL not in __LOG_LEVELS__:
-            __log__.error("Invalid Log Level: %s" % str(__RFB_LOG_LEVEL))
+        if RFB_LOG_LEVEL not in LOG_LEVELS:
+            __log__.error("Invalid Log Level: %s" % str(RFB_LOG_LEVEL))
         else:
-            level = __LOG_LEVELS__.get(__RFB_LOG_LEVEL, WARNING)
+            level = LOG_LEVELS.get(RFB_LOG_LEVEL, WARNING)
         set_logger_level(level)
 
     __log__.debug('logger initialized')
     __log__.debug('   |_ logger: %d', logger_level())
 
 def set_file_logger(logFile):
-    global __RFB_LOG_FILE__
-    global __RFB_LOG_FILE_HANDLER__
+    global RFB_LOG_FILE
+    global RFB_LOG_FILE_HANDLER
     global __log__
 
     err_msg = []
@@ -82,34 +88,34 @@ def set_file_logger(logFile):
 
     if logFile:
         # generate up to 5 logs of 10MB each.
-        __RFB_LOG_FILE_HANDLER__ = logging.handlers.RotatingFileHandler(logFile,
+        RFB_LOG_FILE_HANDLER = logging.handlers.RotatingFileHandler(logFile,
                                                     maxBytes=10485760,
                                                     backupCount=5)
-        __RFB_LOG_FILE_HANDLER__.setLevel(DEBUG)
+        RFB_LOG_FILE_HANDLER.setLevel(DEBUG)
         # we use a different format for the disk log, to get a time stamp.
         fmtf = logging.Formatter('%(asctime)s %(levelname)8s {%(threadName)-10s}'
                                     ':  %(module)s %(funcName)s: %(message)s')
-        __RFB_LOG_FILE_HANDLER__.setFormatter(fmtf)
-        __log__.addHandler(__RFB_LOG_FILE_HANDLER__)    
-        __RFB_LOG_FILE__ = logFile   
+        RFB_LOG_FILE_HANDLER.setFormatter(fmtf)
+        __log__.addHandler(RFB_LOG_FILE_HANDLER)    
+        RFB_LOG_FILE = logFile   
 
 def check_log_level_preferences(): 
-    global __RFB_LOG_LEVEL
-    if __RFB_LOG_LEVEL:
+    global RFB_LOG_LEVEL
+    if RFB_LOG_LEVEL:
         return
 
     level = get_pref('rman_logging_level', WARNING)
-    if level in __LOG_LEVELS__:        
+    if level in LOG_LEVELS:        
         set_logger_level(level)
     else:
         set_logger_level(WARNING)       
 
 def check_logfile_preferences():
-    global __RFB_LOG_FILE__
-    global __RFB_LOG_FILE_HANDLER__
+    global RFB_LOG_FILE
+    global RFB_LOG_FILE_HANDLER
     global __log__
 
-    if __RFB_LOG_FILE__:
+    if RFB_LOG_FILE:
         return
 
     logFile = ''
@@ -126,9 +132,9 @@ def rfb_log():
 
     # These are necessary because for some reason getting the preferences
     # in get_logger() seems to always fail
-    if not __RFB_LOG_FILE__:
+    if not RFB_LOG_FILE:
         check_logfile_preferences()
-    if not __RFB_LOG_LEVEL:        
+    if not RFB_LOG_LEVEL:        
         check_log_level_preferences()
 
     return __log__

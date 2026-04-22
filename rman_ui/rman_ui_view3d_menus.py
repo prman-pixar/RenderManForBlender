@@ -643,6 +643,8 @@ class VIEW3D_MT_RM_Dev_Menu(bpy.types.Menu):
             op.set_envvar = False
         else:
             op = layout.operator('renderman.set_rib_dump_env', text='Set RFB_DUMP_RIB')
+        layout.operator('renderman.set_logging_level')    
+        layout.operator('renderman.load_ocio_config')
 
 
 def rman_add_object_menu(self, context):

@@ -212,6 +212,15 @@ class RmanEnvConfig(object):
             os.add_dll_directory(os.path.join(self.rmantree, 'bin'))
             os.add_dll_directory(pythonbindings)
             os.add_dll_directory(os.path.join(self.rmantree, 'lib'))    
+        
+        if self.getenv('RFB_DEVELOPER', default=False):
+            # add local user site-packages
+            if platform.system() == "Linux":
+                sys.path.append(os.path.join(os.environ['HOME'], '.local', 'lib', python_vers, 'site-packages'))
+            elif platform.system() == "Darwin":
+                sys.path.append(os.path.join(os.environ['HOME'], 'Library', 'Python', '%s' % rman_constants.BLENDER_PYTHON_VERSION, 'lib', 'site-packages'))
+            elif platform.system() == 'Windows':
+                sys.path.append(os.path.join(os.environ['APPDATA'], 'Python', 'Python%s%s' % (rman_constants.BLENDER_PYTHON_VERSION_MAJOR, rman_constants.BLENDER_PYTHON_VERSION_MINOR), 'site-packages'))
 
         return True      
 

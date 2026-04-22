@@ -371,7 +371,7 @@ class RendermanPreferences(AddonPreferences):
     )    
 
     def update_rman_logging_level(self, context):
-        level = rfb_logger.__LOG_LEVELS__[self.rman_logging_level]
+        level = rfb_logger.LOG_LEVELS[self.rman_logging_level]
         rfb_logger.set_logger_level(level)
 
     rman_logging_level: EnumProperty(

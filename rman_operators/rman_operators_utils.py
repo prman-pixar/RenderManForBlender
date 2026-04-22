@@ -1,4 +1,5 @@
 from ..rfb_logger import rfb_log
+from ..rfb_logger import LOG_LEVELS, RFB_LOG_LEVEL
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import string_utils
 from ..rfb_utils import texture_utils
@@ -9,7 +10,7 @@ from ..rfb_utils import scene_utils
 from ..rfb_utils.envconfig_utils import envconfig
 from .. import rman_constants
 from bpy.types import Operator
-from bpy.props import StringProperty, FloatProperty, BoolProperty
+from bpy.props import StringProperty, FloatProperty, BoolProperty, EnumProperty
 import os
 import zipfile
 import bpy
@@ -617,6 +618,80 @@ class PRMAN_OT_Find_String_And_Replace(Operator):
     def invoke(self, context, event=None):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)     
+    
+class PRMAN_OT_Set_Logging_Level(bpy.types.Operator):
+    bl_idname = "renderman.set_logging_level"
+    bl_label = "Set Logging Level"
+    bl_description = "Set Logging Level"
+    bl_options = {'INTERNAL'}
+
+    def get_levels(self, context):
+        items = []
+        for nm in LOG_LEVELS.keys():
+            items.append((nm, nm, ""))
+        return items
+
+    level: EnumProperty(
+        name="Level",
+        items=get_levels,
+        default=len(LOG_LEVELS)-1
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return (context.engine == "PRMAN_RENDER")
+    
+    def execute(self, context):
+        lvl = LOG_LEVELS[self.level]
+        rfb_log().setLevel(lvl)
+        return {'FINISHED'}        
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+    
+class PRMAN_OT_Load_OCIO_Config(Operator):
+    bl_idname = "renderman.load_ocio_config"
+    bl_label = "Load OCIO Config"
+    bl_description = "Load a new OCIO config. This will start a new Blender session and quit the current one. Note, this does not save the OCIO environment variable for you"
+    bl_options = {'INTERNAL'}
+
+    directory: StringProperty(subtype='FILE_PATH')
+    filepath: StringProperty(
+        subtype="FILE_PATH")    
+    filter_glob: StringProperty(
+        default="*.ocio",
+        options={'HIDDEN'},
+        )        
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.engine == "PRMAN_RENDER")
+        
+    def execute(self, context):
+        import subprocess
+
+        args = []
+        app_path = bpy.app.binary_path
+        args.append(app_path)
+        if bpy.data.filepath != "":
+            args.append(bpy.data.filepath)
+
+        environ = os.environ.copy()
+        environ['OCIO'] = self.filepath
+        if 'ACES' in self.filepath:
+            # if this is an ACES file, for now, force "it" to use RMANTREE's ACES-1.2 config
+            environ['IT_OCIOV1'] = os.path.join(os.environ['RMANTREE'], 'lib', 'ocio', 'ACES-1.2', 'config.ocio')
+        else:
+            environ['IT_OCIOV1'] = self.filepath
+            
+        subprocess.Popen(args, env=environ)
+        bpy.ops.wm.quit_blender()
+        return {'FINISHED'}
+    
+    def invoke(self, context, event=None):        
+        context.window_manager.fileselect_add(self)
+        return{'RUNNING_MODAL'}    
 
 classes = [
    PRMAN_OT_Renderman_Upgrade_Scene,
@@ -624,7 +699,9 @@ classes = [
    PRMAN_OT_Renderman_Start_Debug_Server,
    PRMAN_OT_Renderman_Run_Unit_Tests,
    PRMAN_OT_Renderman_Zip_Addon,
-   PRMAN_OT_Find_String_And_Replace
+   PRMAN_OT_Find_String_And_Replace,
+   PRMAN_OT_Set_Logging_Level,
+   PRMAN_OT_Load_OCIO_Config
 ]
 
 def register():
