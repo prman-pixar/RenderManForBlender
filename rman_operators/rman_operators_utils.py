@@ -394,7 +394,6 @@ class PRMAN_OT_Renderman_Package(Operator):
 
         for d in remove_dirs:
             try:
-                print("REMOVING DIR: %s" % d)
                 os.removedirs(d)
             except:
                 continue
