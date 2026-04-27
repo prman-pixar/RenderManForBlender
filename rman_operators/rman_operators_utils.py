@@ -301,15 +301,34 @@ class PRMAN_OT_Renderman_Package(Operator):
 
         # volumes
         for db in bpy.data.volumes:
-            openvdb_file = filepath_utils.get_real_path(db.filepath)
-            if os.path.exists(openvdb_file):
-                bfile = os.path.basename(openvdb_file)
-                diskpath = os.path.join(assets_dir, bfile)
-                shutil.copyfile(openvdb_file, diskpath)      
-                #setattr(db, 'filepath', '//./assets/%s' % bfile)  - agentyRANCH
-                setattr(db, 'filepath', '//assets/%s' % bfile)            
-                z.write(diskpath, arcname=os.path.join('assets', bfile))               
-                remove_files.append(diskpath)
+            filepath = filepath_utils.get_real_path(db.filepath)
+            files = []
+            if db.is_sequence:
+                # this is a sequence
+                # loop through all frames and use depsgraph to get filename(s) used
+                cur_frame = bpy.context.scene.frame_current
+                offset = 1
+                if db.frame_offset != 0:
+                    offset = db.frame_offset+1
+                for i in range(db.frame_start, db.frame_duration+1, offset):
+                    bpy.context.scene.frame_set(i)
+                    depsgraph = context.evaluated_depsgraph_get()
+                    grids = db.evaluated_get(depsgraph).grids
+                    fpath = filepath_utils.get_real_path(grids.frame_filepath)
+                    files.append(fpath)
+                bpy.context.scene.frame_set(cur_frame)
+            else:
+                files.append(filepath)
+
+            for openvdb_file in files:
+                if os.path.exists(openvdb_file):
+                    bfile = os.path.basename(openvdb_file)
+                    diskpath = os.path.join(assets_dir, bfile)
+                    shutil.copyfile(openvdb_file, diskpath)      
+                    #setattr(db, 'filepath', '//./assets/%s' % bfile)  - agentyRANCH
+                    setattr(db, 'filepath', '//assets/%s' % bfile)            
+                    z.write(diskpath, arcname=os.path.join('assets', bfile))               
+                    remove_files.append(diskpath)
             
         # Caches #  - agentyRANCH
         # https://docs.blender.org/manual/fr/dev/animation/constraints/transform/transform_cache.html
