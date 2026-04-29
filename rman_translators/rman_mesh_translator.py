@@ -28,7 +28,10 @@ def _is_multi_material_(ob, mesh):
     if len(ob.data.materials) < 2 or len(mesh.polygons) == 0:
         return False
 
-    first_mat = mesh.polygons[0].material_index
+    # use 0 as the first material index not the material
+    # index of the first polygon
+    # all the faces could be set to a different material
+    first_mat = 0 #mesh.polygons[0].material_index
     for p in mesh.polygons:
         if p.material_index != first_mat:
             return True
@@ -366,10 +369,10 @@ class RmanMeshTranslator(RmanTranslator):
     def export(self, ob, db_name):
         sg_node = self.rman_scene.sg_scene.CreateGroup('')
         rman_sg_mesh = RmanSgMesh(self.rman_scene, sg_node, db_name)
+        rman_sg_mesh.sg_mesh = self.rman_scene.sg_scene.CreateMesh(db_name)
+        rman_sg_mesh.sg_node.AddChild(rman_sg_mesh.sg_mesh)        
         if ob.type == 'MESH' and len(ob.data.polygons) < 1:
             return rman_sg_mesh
-        rman_sg_mesh.sg_mesh = self.rman_scene.sg_scene.CreateMesh(db_name)
-        rman_sg_mesh.sg_node.AddChild(rman_sg_mesh.sg_mesh)
 
         if self.rman_scene.do_motion_blur:
             rman_sg_mesh.is_transforming = object_utils.is_transforming(ob)
