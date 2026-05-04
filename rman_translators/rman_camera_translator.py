@@ -161,6 +161,10 @@ class RmanCameraTranslator(RmanTranslator):
         # get the current resolution multiplier
         res_mult = self.rman_scene.viewport_render_res_mult
 
+        # save the original width/height for cropwindow calculations
+        org_width = int(region.width)
+        org_height = int(region.height)
+
         width = int(region.width * res_mult)
         height = int(region.height * res_mult)      
 
@@ -255,10 +259,10 @@ class RmanCameraTranslator(RmanTranslator):
                 if self.rman_scene.is_viewport_render and r.use_border:
 
                     x0, x1, y0, y1 = camera_utils.get_viewport_cam_borders(ob, r, region, region_data, self.rman_scene.bl_scene)
-                    min_x = (x0) / width
-                    max_x = (x1) / width
-                    min_y = 1.0 - (y0 / height)
-                    max_y = 1.0 - (y1 / height)
+                    min_x = (x0) / org_width
+                    max_x = (x1) / org_width
+                    min_y = 1.0 - (y0 / org_height)
+                    max_y = 1.0 - (y1 / org_height)
 
                     bl_cam_props.crop_window = [min_x, max_x, min_y, max_y]          
 
