@@ -125,6 +125,10 @@ class RmanLightFilterTranslator(RmanTranslator):
             rman_sg_node.sg_node.SetLightFilter(light_filters)                 
 
     def export(self, ob, db_name):
+        proto_key = object_utils.prototype_key(ob)
+        # check if there's already a exisitng prototype
+        if proto_key in self.rman_scene.rman_prototypes:
+            return self.rman_scene.rman_prototypes[proto_key]        
 
         lightfilter_shader = ob.data.renderman.get_light_node_name()  
         sg_group = self.rman_scene.sg_scene.CreateGroup(db_name)
