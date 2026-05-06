@@ -32,6 +32,10 @@ def _is_multi_material_(ob, mesh):
     # index of the first polygon
     # all the faces could be set to a different material
     first_mat = 0 #mesh.polygons[0].material_index
+    has_geo_nodes = len([m for m in ob.original.modifiers if m.type == 'NODES']) > 0
+    if has_geo_nodes:
+        # if this object has geometry nodes, the material used is the last one
+        first_mat = len(ob.material_slots)-1
     for p in mesh.polygons:
         if p.material_index != first_mat:
             return True
