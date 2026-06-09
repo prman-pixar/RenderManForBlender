@@ -8,6 +8,7 @@ from ..rfb_utils.shadergraph_utils import find_node
 from ..rfb_logger import rfb_log
 from .. import rfb_icons
 from bpy.types import Panel
+from bl_ui.properties_render import draw_curves_settings
 import bpy
 
 class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
@@ -411,6 +412,36 @@ class RENDER_PT_renderman_custom_options(PRManButtonsPanel, Panel):
 
         _draw_ui_from_rman_config('rman_properties_scene', 'RENDER_PT_renderman_custom_options', context, layout, rm)
 
+class RENDER_PT_renderman_blender_viewport_settings(PRManButtonsPanel, Panel):
+    bl_label = "Viewport Settings"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        from ..rfb_utils.prefs_utils import get_addon_prefs
+
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column(align=True)
+        prefs = get_addon_prefs()
+        col.prop(prefs, 'rman_viewport_draw_lights_textured')
+        col.prop(prefs, 'rman_viewport_lights_draw_wireframe')
+        col.prop(prefs, 'rman_viewport_crop_color')
+        col.prop(prefs, 'rman_viewport_draw_bucket')
+        if prefs.rman_viewport_draw_bucket:
+            col.prop(prefs, 'rman_viewport_bucket_color')
+        col.prop(prefs, 'rman_viewport_draw_progress')
+        if prefs.rman_viewport_draw_progress:
+            col.prop(prefs, 'rman_viewport_progress_color')
+        col.prop(prefs, 'rman_enhance_zoom_factor')
+
+class RENDER_PT_renderman_blender_viewport_settings_curves(PRManButtonsPanel, Panel):
+    bl_label = "Curves"
+    bl_parent_id = "RENDER_PT_renderman_blender_viewport_settings"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        draw_curves_settings(self, context)        
+
 classes = [
     RENDER_PT_renderman_render,
     RENDER_PT_renderman_spooling,
@@ -422,7 +453,9 @@ classes = [
     RENDER_PT_renderman_world_sample_filters,    
     RENDER_PT_renderman_motion_blur,    
     RENDER_PT_renderman_advanced_settings,   
-    RENDER_PT_renderman_custom_options
+    RENDER_PT_renderman_custom_options,
+    RENDER_PT_renderman_blender_viewport_settings,
+    RENDER_PT_renderman_blender_viewport_settings_curves
 ]
 
 def register():
