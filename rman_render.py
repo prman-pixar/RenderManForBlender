@@ -801,6 +801,8 @@ class RmanRender(object):
         if not self.deleting_bl_engine.acquire(timeout=2.0):
             return
         self.bl_engine = None
+        if self.rman_context.is_render_running():
+            self.stop_render(stop_draw_thread=True)            
         self.deleting_bl_engine.release()
         
     def _append_render_cmd(self, render_cmd):

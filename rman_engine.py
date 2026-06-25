@@ -1,5 +1,6 @@
 import bpy
 
+from bpy.app.handlers import persistent
 from .rfb_utils.prefs_utils import get_pref
 from .rfb_utils import string_utils
 from .rfb_utils import register_utils
@@ -8,6 +9,24 @@ from .rfb_logger import rfb_log
 
 import gpu
 
+def stop_rendering():
+    try:
+        from . import rman_render
+    except ModuleNotFoundError:
+        return
+
+    rr = rman_render.RmanRender.get_rman_render()
+    if rr and rr.rman_context.is_render_running():
+        if rr.rman_context.is_interactive_running():
+            rfb_log().debug("Stop interactive render.")
+            rr.rman_context.set_not_live_rendering()
+        elif rr.rman_context.is_regular_rendering():
+            rfb_log().debug("Stop render.")
+        rr.stop_render(stop_draw_thread=False)    
+
+@persistent
+def stop_rendering_handler(bl_scene=None):
+    stop_rendering()
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
     bl_label = "RenderMan"
@@ -31,26 +50,7 @@ class PRManRender(bpy.types.RenderEngine):
             return 
 
     def __del__(self):
-        try:
-            from . import rman_render
-        except ModuleNotFoundError:
-            return
-
-        rr = rman_render.RmanRender.get_rman_render()
-        try:
-            if self.is_preview:
-                # If this was a preview render, return
-                return
-        except:
-            pass
-
-        if rr.rman_context.is_render_running():
-            if rr.rman_context.is_interactive_running():
-                rfb_log().debug("Stop interactive render.")
-                rr.rman_context.set_not_live_rendering()
-            elif rr.rman_context.is_regular_rendering():
-                rfb_log().debug("Stop render.")
-            rr.stop_render(stop_draw_thread=False)                 
+        pass
 
     def update(self, data, depsgraph):
         pass
@@ -155,8 +155,8 @@ class PRManRender(bpy.types.RenderEngine):
         if self.rman_render.rman_render_into != 'blender':
             return
 
-        if self.ipr_already_running:
-            return            
+        #if self.ipr_already_running:
+        #    return            
 
         self.rman_render.rman_scene.bl_scene = scene
         self.rman_render.rman_scene.bl_view_layer = renderlayer
@@ -257,6 +257,14 @@ classes = [
 
 def register():
     register_utils.rman_register_classes(classes)
+
+    if stop_rendering_handler not in bpy.app.handlers.load_pre:
+        bpy.app.handlers.load_pre.append(stop_rendering_handler)    
     
 def unregister():    
     register_utils.rman_unregister_classes(classes)
+
+    if stop_rendering_handler in bpy.app.handlers.load_pre:
+        bpy.app.handlers.load_pre.remove(stop_rendering_handler)    
+
+    stop_rendering()        
