@@ -802,7 +802,6 @@ class RmanRender(object):
             return
         self.bl_engine = None
         if stop_render and self.rman_context.is_render_running():
-            print("STOP")
             self.stop_render(stop_draw_thread=True)            
         self.deleting_bl_engine.release()
         
