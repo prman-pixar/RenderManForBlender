@@ -354,12 +354,12 @@ def start_cmd_server():
 def draw_threading_func(db):
     refresh_rate = get_pref('rman_viewport_refresh_rate', default=0.01)
     if db.bl_viewport.shading.type != 'RENDERED':
-        db.del_bl_engine()
+        db.del_bl_engine(stop_render=True)
         return
     if db.rman_context.is_canceled_state():
         # if we are canceled, change viewport back to SOLID
         db.bl_viewport.shading.type = 'SOLID'
-        db.del_bl_engine()
+        db.del_bl_engine(stop_render=True)
         return 
     if db.xpu_slow_mode:
         if db.has_buffer_updated():
@@ -802,6 +802,7 @@ class RmanRender(object):
             return
         self.bl_engine = None
         if stop_render and self.rman_context.is_render_running():
+            print("STOP")
             self.stop_render(stop_draw_thread=True)            
         self.deleting_bl_engine.release()
         
