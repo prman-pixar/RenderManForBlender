@@ -372,7 +372,7 @@ def draw_threading_func(db):
                 # that there are no more view_3d areas that are shading. Try to
                 # stop IPR.
                 #rfb_log().debug("Error calling tag_redraw (%s). Aborting..." % str(e))
-                db.del_bl_engine()
+                db.del_bl_engine(stop_render=True)
                 return      
         return refresh_rate      
     return 0.01
@@ -795,13 +795,13 @@ class RmanRender(object):
         self.rictl.PRManRenderEnd()
         self.stats_mgr.stats_remove_session()        
 
-    def del_bl_engine(self):
+    def del_bl_engine(self, stop_render=False):
         if not self.bl_engine:
             return
         if not self.deleting_bl_engine.acquire(timeout=2.0):
             return
         self.bl_engine = None
-        if self.rman_context.is_render_running():
+        if stop_render and self.rman_context.is_render_running():
             self.stop_render(stop_draw_thread=True)            
         self.deleting_bl_engine.release()
         
