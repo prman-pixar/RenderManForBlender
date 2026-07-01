@@ -6,3 +6,4 @@ class RmanSgHair(RmanSgNode):
         super().__init__(rman_scene, sg_node, db_name)
 
         self.sg_curves_list = list()
+        self.strand_topology = None

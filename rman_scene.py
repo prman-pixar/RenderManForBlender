@@ -860,7 +860,16 @@ class RmanScene(object):
                     continue
 
                 psys_translator.set_motion_steps(rman_sg_particles, subframes)
-                psys_translator.update(ob, psys, rman_sg_particles)
+                if psys.settings.type == "HAIR":
+                    if not self.do_motion_blur or psys.settings.renderman.do_velocity_blur:
+                        # for hair, only call update here if we're doing velocity blur
+                        # or we're not motion blurring.
+                        # if we're doing non-velocity motion blur, we call update later
+                        # on in export_instances_motion
+                        psys_translator.update(ob, psys, rman_sg_particles)
+                    #psys_translator.update(ob, psys, rman_sg_particles)    
+                else:                    
+                    psys_translator.update(ob, psys, rman_sg_particles)
 
                 ob_psys = self.rman_particles.get(proto_key, dict())
                 ob_psys[psys.settings.original] = rman_sg_particles
@@ -893,6 +902,7 @@ class RmanScene(object):
         delta = 0.0
         if len(motion_steps) > 0:
             delta = -motion_steps[0]
+        psys_translator = self.rman_translators['PARTICLES']            
         rman_group_translator = self.rman_translators['GROUP']
         deform_sampled = dict() # dictionary to know what segment we've already sampled for deform blur
         for samp, seg in enumerate(motion_steps):
@@ -904,7 +914,9 @@ class RmanScene(object):
             else:
                 self.rman_render.bl_engine.frame_set(origframe, subframe=seg)
 
-            self.depsgraph.update()
+            # apparently, this is not needed
+            #self.depsgraph.update()
+
             time_samp = seg + delta # get the normlized version of the segment
             total = len(self.depsgraph.object_instances)
 
@@ -947,6 +959,23 @@ class RmanScene(object):
                     if ob.name_full not in self.moving_objects:
                         continue
 
+                for psys in ob.particle_systems:
+                    if psys.settings.type != 'HAIR' or object_utils.is_particle_instancer(psys):
+                        continue
+                    if psys.settings.renderman.do_velocity_blur:
+                        continue
+                    ob_psys = self.rman_particles.get(proto_key, dict())
+                    rman_sg_particles = ob_psys[psys.settings.original]
+                    deform_idx = 0
+                    for i, s in enumerate(rman_sg_node.deform_motion_steps):
+                        if s == seg:
+                            deform_idx = i
+                            break
+                    if first_sample:
+                        psys_translator.update(ob, psys, rman_sg_particles)
+                    else:                
+                        psys_translator.export_deform_sample(rman_sg_particles, ob, psys, deform_idx)
+
                 rman_sg_node = self.get_rman_prototype(proto_key, ob=ob)
                 if not rman_sg_node:
                     continue
@@ -983,7 +1012,8 @@ class RmanScene(object):
                             sampled.append(seg)
                             deform_sampled[rman_sg_node] = sampled
 
-        self.rman_render.bl_engine.frame_set(origframe, subframe=0)
+        #self.rman_render.bl_engine.frame_set(origframe, subframe=0)
+        self.bl_scene.frame_set(origframe, subframe=0)
         rfb_log().debug("   Finished exporting motion instances")
         self.rman_render.stats_mgr.set_export_stats("Finished exporting motion instances", 100)
         return True
