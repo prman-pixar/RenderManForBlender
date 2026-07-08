@@ -184,22 +184,28 @@ class RmanLightTranslator(RmanTranslator):
         if self.rman_scene.use_blender_light_link:
             # check for shadow light linking
             if ob.original.light_linking.blocker_collection:
-                shadow_subset = []
-                shadow_exclude = []                
-                for i, o in enumerate(ob.light_linking.blocker_collection.objects):             
-                    if ob.light_linking.blocker_collection.collection_objects[i].light_linking.link_state == 'EXCLUDE':
-                        shadow_exclude.append(string_utils.sanitize_node_name(ob.name)+"_shadowExcludeSubset" )
+                if ob.original.renderman.bl_invert_blocker_ll:
+                    # we need to invert the shadow linking behavior, 
+                    # so use light.name + "_shadowInvertExcludeSubset" as our shadowSubset
+                    sg_node.params.SetString("shadowSubset", ob.original.name+"_shadowInvertSubset")
+                    sg_node.params.Remove("shadowExcludeSubset")
+                else:
+                    shadow_subset = []
+                    shadow_exclude = []                
+                    for i, o in enumerate(ob.light_linking.blocker_collection.objects):             
+                        if ob.light_linking.blocker_collection.collection_objects[i].light_linking.link_state == 'EXCLUDE':
+                            shadow_exclude.append(string_utils.sanitize_node_name(ob.name)+"_shadowExcludeSubset" )
+                        else:
+                            shadow_subset.append(string_utils.sanitize_node_name(ob.name)+"_shadowSubset" )
+            
+                    if shadow_subset:
+                        sg_node.params.SetString("shadowSubset", ob.original.name+"_shadowSubset")
                     else:
-                        shadow_subset.append(string_utils.sanitize_node_name(ob.name)+"_shadowSubset" )
-        
-                if shadow_subset:
-                    sg_node.params.SetString("shadowSubset", ob.original.name+"_shadowSubset")
-                else:
-                    sg_node.params.Remove("shadowSubset")
-                if shadow_exclude:
-                    sg_node.params.SetString("shadowExcludeSubset", ob.original.name+"_shadowExcludeSubset")
-                else:
-                    sg_node.params.Remove("shadowExcludeSubset")                
+                        sg_node.params.Remove("shadowSubset")
+                    if shadow_exclude:
+                        sg_node.params.SetString("shadowExcludeSubset", ob.original.name+"_shadowExcludeSubset")
+                    else:
+                        sg_node.params.Remove("shadowExcludeSubset")                
             else:
                 sg_node.params.Remove("shadowSubset")
                 sg_node.params.Remove("shadowExcludeSubset")

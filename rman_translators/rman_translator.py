@@ -199,7 +199,6 @@ class RmanTranslator(object):
                 light = light.original
                 light_props = shadergraph_utils.get_rman_light_properties_group(light)
                 if light.light_linking.receiver_collection:
-                    found = False
                     for i, o in enumerate(light.light_linking.receiver_collection.objects):
                         if o.name == ob.name:
                             if light_props.renderman_light_role == 'RMAN_LIGHT':
@@ -213,13 +212,6 @@ class RmanTranslator(object):
                                 else:
                                     lightfilter_subset.append("-%s" % string_utils.sanitize_node_name(light.name) )
 
-                            found = True
-
-                    if not found:     
-                        if light_props.renderman_light_role == 'RMAN_LIGHT':                   
-                            exclude_subset.append(string_utils.sanitize_node_name(light.name) )
-                        else:
-                            lightfilter_subset.append("-%s" % string_utils.sanitize_node_name(light.name) )
                 elif light_props.renderman_light_role == 'RMAN_LIGHTFILTER':
                     lightfilter_subset.append(string_utils.sanitize_node_name(light.name) )
                 if light.light_linking.blocker_collection:
@@ -233,8 +225,10 @@ class RmanTranslator(object):
                                     shadow_subset.append(string_utils.sanitize_node_name(light.name)+"_shadowSubset" )
                             found = True
 
-                    if not found:                        
-                        shadow_exclude.append(string_utils.sanitize_node_name(light.name)+"_shadowExcludeSubset" )                    
+                    if not found: 
+                        # if the object is not in the blocker collection, add it to the
+                        # invert subset.                       
+                        shadow_subset.append(string_utils.sanitize_node_name(light.name)+"_shadowInvertSubset" )
                 else:
                     shadow_subset.append(string_utils.sanitize_node_name(light.name)+"_shadowSubset" )
 
@@ -244,12 +238,14 @@ class RmanTranslator(object):
                 attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset)
             if include_subset:
                 attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lighting_subset, ','. join(include_subset) )            
+                attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset, "null")
             else:
                 attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_subset)
             if lightfilter_subset:
                 attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lightfilter_subset, ',' . join(lightfilter_subset))
             else:
                 attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lightfilter_subset)
+
             if shadow_subset:
                 obj_groups_str += "," + "," . join(shadow_subset)
             if shadow_exclude:

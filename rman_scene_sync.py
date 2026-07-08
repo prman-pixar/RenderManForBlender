@@ -926,13 +926,15 @@ class RmanSceneSync(object):
 
                     rfb_log().debug("\tNew Object added: %s (%s)" % (proto_key, rman_type))
 
+                    if rman_type in ['LIGHT', 'LIGHTFILTER']:
+                        self.rman_scene.set_root_lightlinks() # update lightlinking on the root node
+
                     if rman_type == 'LIGHTFILTER':
                         # update all lights with this light filter
                         users = bpy.context.blend_data.user_map(subset={ob_eval.original})
                         for o in users[ob_eval.original]:
                             if isinstance(o, bpy.types.Light):
                                 o.node_tree.update_tag()
-                        self.rman_scene.set_root_lightlinks() # update lightlinking on the root node
                         continue
 
                     is_new_object = True
@@ -1342,3 +1344,9 @@ class RmanSceneSync(object):
             projparams = rman_sg_camera.projection_shader.params         
             projparams.SetVector("enhance", [res_x, res_y, zoom])
             rman_sg_camera.sg_camera_node.SetProjection(rman_sg_camera.projection_shader)
+
+    def update_bl_light_linking(self, context):
+        if not self.rman_render.rman_context.is_interactive_running():
+            return  
+        with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene):                                  
+            self.rman_scene.set_root_lightlinks()

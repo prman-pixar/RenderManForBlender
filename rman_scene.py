@@ -219,6 +219,7 @@ class RmanScene(object):
         self.motion_steps = set()
         self.moving_objects.clear()
         self.rman_prototypes.clear()
+        self.all_lights.clear()
 
         self.main_camera = None
         self.render_default_light = False
@@ -533,7 +534,15 @@ class RmanScene(object):
         return False        
 
     def set_root_lightlinks(self, rixattrs=None):
+        # cache the list of a lights in the scene
+        # we'll need this later when we do light linking attributes
         rm = self.bl_scene.renderman
+        if rm.use_blender_light_link: 
+            self.all_lights = scene_utils.get_all_lights(self.bl_scene, include_light_filters=True)
+        else:
+            self.all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]
+            self.all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
+        
         root_sg = self.get_root_sg_node()
         attrs = rixattrs
         if rixattrs is None:
@@ -564,8 +573,39 @@ class RmanScene(object):
                     attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, '*')
             else:
                 attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ','. join(all_lightfilters) )
-        # else:
-        #    attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ','. join(all_lightfilters) )
+        else:
+            attrs.Remove(self.rman.Tokens.Rix.k_lighting_excludesubset)
+            attrs.Remove(self.rman.Tokens.Rix.k_lighting_subset)
+            attrs.Remove(self.rman.Tokens.Rix.k_lightfilter_subset)
+            exclude_lights = []
+            include_lights = []
+            lightfilter_subset = []
+
+            # loop through all the lights
+            # and check if the light linking behavior needs to be inverted by looking
+            # at our custom bl_invert_ll and bl_invert_ll properties
+            # these are set in rman_handler/__init__.py in the despgraph_post_handler
+            for ob in self.all_lights:
+                light_nm = string_utils.sanitize_node_name(ob.name)
+                light_props = shadergraph_utils.get_rman_light_properties_group(ob)
+                if ob.light_linking.receiver_collection:                    
+                    if light_props.renderman_light_role == 'RMAN_LIGHT':
+                        if ob.renderman.bl_invert_ll:
+                            include_lights.append(light_nm)
+                        else:
+                            exclude_lights.append(light_nm)
+                    else:
+                        if ob.renderman.bl_invert_ll:
+                            lightfilter_subset.append(light_nm)
+                        else:
+                            lightfilter_subset.append("-%s" % light_nm)
+
+            if exclude_lights:
+                attrs.SetString(self.rman.Tokens.Rix.k_lighting_excludesubset, ','. join(exclude_lights) )
+            if include_lights:
+                attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, ','. join(include_lights) )            
+            if lightfilter_subset:
+                attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ',' . join(lightfilter_subset))    
 
         if rixattrs is None:
             root_sg.SetAttributes(attrs)           
@@ -734,15 +774,7 @@ class RmanScene(object):
         return rman_sg_group
 
 
-    def export_data_blocks(self, selected_objects=False, objects_list=False):
-        # cache the list of a lights in the scene
-        # we'll need this later when we do light linking attributes
-        if self.use_blender_light_link:  
-            self.all_lights = scene_utils.get_all_lights(self.bl_scene, include_light_filters=True)
-        else:
-            self.all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]
-            self.all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
-            
+    def export_data_blocks(self, selected_objects=False, objects_list=False):    
         
         total = len(self.depsgraph.object_instances)
         for i, ob_inst in enumerate(self.depsgraph.object_instances):
@@ -1316,7 +1348,6 @@ class RmanScene(object):
         ociocolorspacename = color_manager_blender.get_colorspace_name()
         options.SetString('user:ocioconfigpath', ocioconfig)
         options.SetString('user:ociocolorspacename', ociocolorspacename)
-        options.SetInteger('user:ocioenabled', 1 if ocioconfig else 0)
 
         self.sg_scene.SetOptions(options)
 

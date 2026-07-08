@@ -73,7 +73,34 @@ def despgraph_post_handler(bl_scene, depsgraph):
 
     for update in depsgraph.updates:
         texture_utils.depsgraph_handler(update, depsgraph)
+        if not bl_scene.renderman.use_blender_light_link:
+            continue
 
+        ob = update.id
+        if isinstance(ob, bpy.types.Object) and ob.type == 'LIGHT':
+            # check if we need to invert the light linking behavior for this light
+            # light linking needs to be inverted if *all* objects in the collection are set
+            # to exclude. i.e.: if all objects are excluded, the objects in the collection
+            # are not illuminated, and the objects *not* in the collection are illuminated
+            if ob.light_linking.receiver_collection:
+                prev_val = ob.original.renderman.bl_invert_ll
+                all_exclude = True
+                for i, o in enumerate(ob.light_linking.receiver_collection.objects):
+                    if ob.light_linking.receiver_collection.collection_objects[i].light_linking.link_state == 'INCLUDE':
+                        all_exclude = False
+                        break
+                if prev_val != all_exclude:
+                    ob.original.renderman.bl_invert_ll = all_exclude
+            if ob.light_linking.blocker_collection:
+                prev_val = ob.original.renderman.bl_invert_blocker_ll
+                all_exclude = True
+                for i, o in enumerate(ob.light_linking.blocker_collection.objects):
+                    if ob.light_linking.blocker_collection.collection_objects[i].light_linking.link_state == 'INCLUDE':
+                        all_exclude = False
+                        break               
+                if prev_val != all_exclude:
+                    ob.original.renderman.bl_invert_blocker_ll = all_exclude                    
+        
 @persistent
 def render_pre(bl_scene):
     '''
