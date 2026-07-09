@@ -864,7 +864,11 @@ class RmanScene(object):
                 if mb_deform_segs < 1:
                     rman_sg_node.is_deforming = False        
 
-        translator.update(ob, rman_sg_node)
+        if self.do_motion_blur and rman_sg_node.is_deforming and rman_type in ['MESH', 'FLUID', 'CURVES']:
+            pass
+            # for these deforming types, update is called in export_instances_motion
+        else:
+            translator.update(ob, rman_sg_node)
         
         # set object attributes
         attrs = rman_sg_node.sg_attributes.GetAttributes()
@@ -1040,12 +1044,14 @@ class RmanScene(object):
                                 if s == seg:
                                     deform_idx = i
                                     break
-                            translator.export_deform_sample(rman_sg_node, ob, deform_idx)
+                            if first_sample:
+                                translator.update(ob, rman_sg_node)
+                            else:
+                                translator.export_deform_sample(rman_sg_node, ob, deform_idx)
                             sampled.append(seg)
                             deform_sampled[rman_sg_node] = sampled
 
         #self.rman_render.bl_engine.frame_set(origframe, subframe=0)
-        self.bl_scene.frame_set(origframe, subframe=0)
         rfb_log().debug("   Finished exporting motion instances")
         self.rman_render.stats_mgr.set_export_stats("Finished exporting motion instances", 100)
         return True
