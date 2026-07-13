@@ -132,7 +132,7 @@ class RendermanObjectSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     )
 
     def update_bl_invert_ll(self, context):
-        if context.scene.renderman.use_blender_light_link:
+        if context.scene.renderman.use_blender_light_link == "1":
             from ... import rman_render
             rr = rman_render.RmanRender.get_rman_render()        
             rr.rman_scene_sync.update_bl_light_linking(context)
@@ -144,7 +144,7 @@ class RendermanObjectSettings(RmanBasePropertyGroup, bpy.types.PropertyGroup):
     )
 
     def update_bl_invert_blocker_ll(self, context):
-        if context.scene.renderman.use_blender_light_link:
+        if context.scene.renderman.use_blender_light_link == "1":
             from ... import rman_render
             rr = rman_render.RmanRender.get_rman_render()        
             rr.rman_scene_sync.update_bl_light_linking(context)

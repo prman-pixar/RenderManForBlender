@@ -73,7 +73,7 @@ def despgraph_post_handler(bl_scene, depsgraph):
 
     for update in depsgraph.updates:
         texture_utils.depsgraph_handler(update, depsgraph)
-        if not bl_scene.renderman.use_blender_light_link:
+        if bl_scene.renderman.use_blender_light_link != "1":
             continue
 
         ob = update.id

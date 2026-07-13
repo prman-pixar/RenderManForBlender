@@ -169,7 +169,7 @@ class RmanScene(object):
     def use_blender_light_link(self):
         if not rman_constants.BLENDER_41:
             return False
-        return self.bl_scene.renderman.use_blender_light_link == '1'
+        return (self.bl_scene.renderman.use_blender_light_link == '1')
         
     def create_translators(self):
         # Create our dictionary of translators. The object type is determined
@@ -537,7 +537,7 @@ class RmanScene(object):
         # cache the list of a lights in the scene
         # we'll need this later when we do light linking attributes
         rm = self.bl_scene.renderman
-        if rm.use_blender_light_link: 
+        if self.use_blender_light_link: 
             self.all_lights = scene_utils.get_all_lights(self.bl_scene, include_light_filters=True)
         else:
             self.all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]
@@ -547,9 +547,8 @@ class RmanScene(object):
         attrs = rixattrs
         if rixattrs is None:
             attrs = root_sg.GetAttributes()    
-        all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]            
-        if not rm.use_blender_light_link:
-
+        if not self.use_blender_light_link:            
+            all_lightfilters = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lightfilters(self.bl_scene)]
             if rm.invert_light_linking:
                 all_lights = [string_utils.sanitize_node_name(l.name) for l in scene_utils.get_all_lights(self.bl_scene, include_light_filters=False)]
                 for ll in rm.light_links:

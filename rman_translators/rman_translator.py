@@ -6,6 +6,7 @@ from ..rfb_utils import object_utils
 from ..rfb_utils import prefs_utils
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import scene_utils
+from copy import deepcopy
 import hashlib
 import os
 import bpy
@@ -251,13 +252,13 @@ class RmanTranslator(object):
             if shadow_exclude:
                 obj_groups_str += "," + "," . join(shadow_exclude)
 
-        else:
-            all_lightfilters = self.rman_scene.all_lightfilters
+        else:           
 
             if self.rman_scene.bl_scene.renderman.invert_light_linking:
                 lighting_subset = []
                 lightfilter_subset = []
-                all_lights = self.rman_scene.all_lights
+                all_lights = deepcopy(self.rman_scene.all_lights)
+                all_lightfilters = deepcopy(self.rman_scene.all_lightfilters)
                 for ll in self.rman_scene.bl_scene.renderman.light_links:
                     light_ob = ll.light_ob                
                     light_props = shadergraph_utils.get_rman_light_properties_group(light_ob)
