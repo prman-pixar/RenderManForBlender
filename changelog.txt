@@ -1,4 +1,4 @@
-v27.3 
+v27.3 July 15, 2026
 
 Changes:
 * Further improvements to time to first pixel with scenes with many instances
@@ -8,7 +8,7 @@ Changes:
 * Viewport settings are now accessible in the Viewport panel on the scene properties tab. This also
 allows you to access the Blender curves viewport settings.
 * Turning off Velocity Blur for hair particles will now do full deformation blur sampling. Turning this
-off may be required to improve the accurancy of deformation blur with hair particles with lots of 
+off may be required to improve the accuracy of deformation blur with hair particles with lots of 
 dynamic hair and many child particles. RMAN-25055
 
 
