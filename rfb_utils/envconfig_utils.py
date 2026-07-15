@@ -53,6 +53,25 @@ class BuildInfo(object):
 
 __RMAN_ENV_CONFIG__ = None
 
+# Add a wrapper class around Blender's bpy.app.translations
+# This adds standard Python attributes (ex: __name__) onto the module 
+# Because shiboken modifies Python's native built-in __import__ function 
+# shiboken requires these attributes when it inspects modules
+class TranslationsModuleWrapper:
+    def __init__(self, original_module):
+        self._orig = original_module
+        # Inject the structural attributes Shiboken looks for
+        self.__name__ = "bpy.app.translations"
+        self.__module__ = "bpy.app"
+        self.__qualname__ = "translations"
+
+    def __getattr__(self, name):
+        # Forward all queries back to Blender
+        return getattr(self._orig, name)
+
+    def __ne__(self, other):
+        return self is not other
+
 class RmanEnvConfig(object):
 
     def __init__(self):
@@ -74,6 +93,11 @@ class RmanEnvConfig(object):
 
         self.load_error = False
         self.load_error_message = ""
+
+        # Target and hot-swap the specific path entry Shiboken queries
+        if not self.getenv('RFB_NO_TRANSLATIONS_WRAPPER', False):
+            bpy_translations = bpy.app.translations
+            sys.modules['bpy.app.translations'] = TranslationsModuleWrapper(bpy_translations)
 
     def config_environment(self):
 
@@ -132,6 +156,12 @@ class RmanEnvConfig(object):
     def unset_disgust_env(self):
         self.unsetenv('RILEY_CAPTURE_FORMAT')
         self.unsetenv('RILEY_CAPTURE')
+
+    def set_dump_rib_env(self):
+        self.setenv('RFB_DUMP_RIB', '1')
+
+    def unset_dump_rib_env(self):
+        self.unsetenv('RFB_DUMP_RIB')
 
     def read_envvars_file(self):
         bl_config_path = bpy.utils.user_resource('CONFIG')
@@ -206,6 +236,15 @@ class RmanEnvConfig(object):
             os.add_dll_directory(os.path.join(self.rmantree, 'bin'))
             os.add_dll_directory(pythonbindings)
             os.add_dll_directory(os.path.join(self.rmantree, 'lib'))    
+        
+        if self.getenv('RFB_DEVELOPER', default=False):
+            # add local user site-packages
+            if platform.system() == "Linux":
+                sys.path.append(os.path.join(os.environ['HOME'], '.local', 'lib', python_vers, 'site-packages'))
+            elif platform.system() == "Darwin":
+                sys.path.append(os.path.join(os.environ['HOME'], 'Library', 'Python', '%s' % rman_constants.BLENDER_PYTHON_VERSION, 'lib', 'site-packages'))
+            elif platform.system() == 'Windows':
+                sys.path.append(os.path.join(os.environ['APPDATA'], 'Python', 'Python%s%s' % (rman_constants.BLENDER_PYTHON_VERSION_MAJOR, rman_constants.BLENDER_PYTHON_VERSION_MINOR), 'site-packages'))
 
         return True      
 

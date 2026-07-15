@@ -35,6 +35,7 @@ from .rfb_utils import string_utils
 from .rfb_utils import display_utils
 from .rfb_utils import scene_utils
 from .rfb_utils import render_utils
+from .rfb_utils import filepath_utils
 from .rfb_utils.render_utils import RmanRenderContext
 from .rfb_utils import transform_utils
 from .rfb_utils.prefs_utils import get_pref
@@ -267,7 +268,7 @@ def __draw_callback__():
     return False     
 
 DRAWCALLBACK_FUNC = None 
-__CALLBACK_FUNC__ = None 
+CALLBACK_FUNC = None 
 
 class ItHandler(chatserver.ItBaseHandler):
 
@@ -353,12 +354,12 @@ def start_cmd_server():
 def draw_threading_func(db):
     refresh_rate = get_pref('rman_viewport_refresh_rate', default=0.01)
     if db.bl_viewport.shading.type != 'RENDERED':
-        db.del_bl_engine()
+        db.del_bl_engine(stop_render=True)
         return
     if db.rman_context.is_canceled_state():
         # if we are canceled, change viewport back to SOLID
         db.bl_viewport.shading.type = 'SOLID'
-        db.del_bl_engine()
+        db.del_bl_engine(stop_render=True)
         return 
     if db.xpu_slow_mode:
         if db.has_buffer_updated():
@@ -371,7 +372,7 @@ def draw_threading_func(db):
                 # that there are no more view_3d areas that are shading. Try to
                 # stop IPR.
                 #rfb_log().debug("Error calling tag_redraw (%s). Aborting..." % str(e))
-                db.del_bl_engine()
+                db.del_bl_engine(stop_render=True)
                 return      
         return refresh_rate      
     return 0.01
@@ -684,14 +685,18 @@ class BlRenderResultHelper:
                         # use ice to save out the image
                         img = ice.FromArray(buffer)
                         img = img.Flip(False, True, False)
-                        #img_format = ice.constants.FMT_EXRFLOAT
-                        #if not display_utils.using_rman_displays(bl_view_layer=self.bl_layer):
-                        #    img_format = BLENDER_TO_ICE_DSPY.get(self.bl_scene.render.image_settings.file_format, img_format)
+                        img_format = ice.constants.FMT_EXRFLOAT
+                        if not display_utils.using_rman_displays(bl_view_layer=self.bl_layer):                            
+                            img_format = BLENDER_TO_ICE_DSPY.get(self.bl_scene.render.image_settings.file_format, img_format)
+                        else:
+                            rman_dspy =  self.dspy_dict['displays'][dspy_nm].get('originalDriver', '')
+                            if rman_dspy != "":
+                                img_format = RMAN_TO_ICE_DSPY.get(rman_dspy, img_format)
 
                         # change file extension                            
                         toks = os.path.splitext(filepath)
-                        # ext = ICE_EXT_MAP.get(img_format)
-                        filepath = '%s.%s' % (toks[0], ext)                            
+                        ext = ICE_EXT_MAP.get(img_format)
+                        filepath = '%s.%s' % (toks[0], ext)  
                         img.Save(filepath, img_format)        
 
 class RmanRender(object):
@@ -790,12 +795,14 @@ class RmanRender(object):
         self.rictl.PRManRenderEnd()
         self.stats_mgr.stats_remove_session()        
 
-    def del_bl_engine(self):
+    def del_bl_engine(self, stop_render=False):
         if not self.bl_engine:
             return
         if not self.deleting_bl_engine.acquire(timeout=2.0):
             return
         self.bl_engine = None
+        if stop_render and self.rman_context.is_render_running():
+            self.stop_render(stop_draw_thread=True)            
         self.deleting_bl_engine.release()
         
     def _append_render_cmd(self, render_cmd):
@@ -805,10 +812,8 @@ class RmanRender(object):
         if envconfig().getenv('RFB_DUMP_RIB'):
             rfb_log().debug("Writing to RIB...")
             rib_time_start = time.time()
-            if RFB_PLATFORM == "windows":
-                self.sg_scene.Render("rib C:/tmp/blender.%04d.rib -format ascii -indent" % frame)
-            else:
-                self.sg_scene.Render("rib /var/tmp/blender.%04d.rib -format ascii -indent" % frame)     
+            dump_rib_path = filepath_utils.get_dump_rib_path(frame)
+            self.sg_scene.Render("rib %s -format ascii -indent" % dump_rib_path)    
             rfb_log().debug("Finished writing RIB. Time: %s" % string_utils._format_time_(time.time() - rib_time_start))            
 
     def _load_placeholder_image(self):   
@@ -1004,7 +1009,7 @@ class RmanRender(object):
         render_utils.set_render_variant_config(self.bl_scene, config, render_config)
         if rendervariant == 'xpu':
             self.rman_context.set_mode_append(RmanRenderContext.k_is_xpu)
-        self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.__RFB_DENOISER_AI__)
+        self.use_qn = (self.bl_scene.renderman.blender_denoiser == display_utils.RFB_DENOISER_AI)
 
         boot_strapping = False
         if self.sg_scene is None:
@@ -1415,7 +1420,7 @@ class RmanRender(object):
         render_into_org = '' 
         self.rman_render_into = self.rman_scene.ipr_render_into
         self.bl_viewport = context.space_data
-        self.use_qn = (self.bl_scene.renderman.blender_ipr_denoiser == display_utils.__RFB_DENOISER_AI__)
+        self.use_qn = (self.bl_scene.renderman.blender_ipr_denoiser == display_utils.RFB_DENOISER_AI)
         
         self.rman_callbacks.clear()
         # register the blender display driver
@@ -1432,7 +1437,6 @@ class RmanRender(object):
                 self._draw_viewport_buckets = True
             else:
                 rman.Dspy.EnableDspyServer()
-                add_ipr_to_it_handlers()
         except:
             # force rendering to 'it'
             rfb_log().error('Could not register Blender display driver. Rendering to "it".')
@@ -1560,6 +1564,10 @@ class RmanRender(object):
                     self.set_redraw_func()
                 else:
                     rfb_log().debug("XPU slow mode enabled.")
+
+            elif self.rman_render_into == 'it':
+                # we're rendering to "it", add "it" handlers
+                add_ipr_to_it_handlers()
 
             return True
         except Exception as e:      
@@ -1764,15 +1772,15 @@ class RmanRender(object):
 
     def set_redraw_func(self):
         global DRAWCALLBACK_FUNC
-        global __CALLBACK_FUNC__
+        global CALLBACK_FUNC
         
         # pass our callback function to the display driver
-        if __CALLBACK_FUNC__ is None:
+        if CALLBACK_FUNC is None:
             DRAWCALLBACK_FUNC = ctypes.CFUNCTYPE(ctypes.c_bool)
-            __CALLBACK_FUNC__ = DRAWCALLBACK_FUNC(__draw_callback__)             
+            CALLBACK_FUNC = DRAWCALLBACK_FUNC(__draw_callback__)             
 
         dspy_plugin = self.get_blender_dspy_plugin()
-        dspy_plugin.SetRedrawCallback(__CALLBACK_FUNC__)
+        dspy_plugin.SetRedrawCallback(CALLBACK_FUNC)
 
     def reset_redraw_func(self):
         # pass our callback function to the display driver

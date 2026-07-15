@@ -917,7 +917,7 @@ class PRMAN_PT_Viewport_Options(Panel):
         
         col = layout.column(align=True)
         col.prop(rm, 'blender_ipr_denoiser')
-        if rm.blender_ipr_denoiser == display_utils.__RFB_DENOISER_AI__:
+        if rm.blender_ipr_denoiser == display_utils.RFB_DENOISER_AI:
             col.prop(rm, 'blender_ipr_aidenoiser_cheapFirstPass')
             col.prop(rm, 'blender_ipr_aidenoiser_minSamples')
             col.prop(rm, 'blender_ipr_aidenoiser_interval')

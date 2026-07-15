@@ -1,4 +1,48 @@
-v27.1
+v27.3 
+
+Changes:
+* Further improvements to time to first pixel with scenes with many instances
+* Add Ri:Sides attribute to the object properties. This allows for single-sided rendering
+* We now take into account the "Show Emitter" setting when rendering objects with particle systems
+* The Node Solo button can now be assigned to a shortcut key.
+* Viewport settings are now accessible in the Viewport panel on the scene properties tab. This also
+allows you to access the Blender curves viewport settings.
+* Turning off Velocity Blur for hair particles will now do full deformation blur sampling. Turning this
+off may be required to improve the accurancy of deformation blur with hair particles with lots of 
+dynamic hair and many child particles. RMAN-25055
+
+
+Bug Fixes:
+* A bug that caused Blender batch renders to only render to OpenEXR has been addressed RMAN-24629
+* When drawing lights, we now take into account the Display As setting when deciding if we need to draw the texture
+* A bug that caused the wrong material to be attached when a Set Material geometry node was used has been fixed
+* Reroute nodes are now handled correctly when used to connect a terminal node (like a Bxdf) to RenderMan Material node.
+* Fixed a bug that caused the velocity scale attribute to not ben taken into account for motion blur hair particle systems. CUSP-9229
+* A bug that caused the package scene button to not work with library files from Blender install directory has been fixed. 
+* A bug that caused meshes to render incorrectly when the mesh has multiple materials, but all faces did not have 
+the primary material attached has been fixed. 
+* A bug that caused light filters to not update correctly during IPR has been addressed. 
+* A bug that caused crop window/render region to not work correctly when used in conjuction with the resolution multiplier
+has been fixed
+* A bug that caused IPR to restart whenever the compositor node graph was updated has been fixed. 
+
+
+v27.2 February 25, 2026
+
+Changes:
+* Time to first pixel for scenes with many instances has been significantly improved. 
+
+Bug Fixes:
+* A bug that caused NaNs to appear in the denoised result when rendering to the Blender display has been addressed. 
+* When rendering holdouts as a separate AOV, the AOV output path setting in the workspace editor will be used as the output path. The token will be replaced with "holdoutMatte".
+* Fixed a bug that caused instancing of collections to not work.
+* A bug that caused meshes with the subdiv modifier attached to render incorrectly has been addressed.
+* Fixed Blender IPR renders restarting repeatedly when no edits were being sent to the renderer.
+* Fixed a bug that prevented denoise tasks from running when batch rendering with Blender 5.0. 
+* Fixed a bug where all AOVs from all view layers were not being written when batch rendering. 
+* A bug that caused batch renders using the denoiser to fail with a license checkout error has been addressed.
+
+v27.1 December 17, 2025
 
 Changes:
 * The attribute "LPE Group" is now exposed on the object properties tab, under the Shading and Visibility panel.

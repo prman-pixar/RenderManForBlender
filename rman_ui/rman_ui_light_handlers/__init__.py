@@ -780,8 +780,12 @@ def draw_solid(ob, pts, mtx, uvs=list(), indices=None, tex='', col=None):
     if not ob.data.renderman.rman_vp_draw_texture:
         return
     
+    viewport_display = ob.display_type
+    if viewport_display not in ['SOLID', 'TEXTURED']:
+        return
+    
     real_path = string_utils.expand_string(tex)
-    if os.path.exists(real_path):              
+    if os.path.exists(real_path) and viewport_display == 'TEXTURED':
         batch = batch_for_shader(SHADER_SOLID_IMAGE, 'TRIS', {"position": pts, "uv": uvs}, indices=indices)               
 
         texture = _PRMAN_TEX_CACHE_.get(tex, None)

@@ -50,6 +50,12 @@ def view_file(file_path):
     except Exception as e:
         rfb_log().error("Open file with web browser failed: %s" % str(e))    
 
+def get_dump_rib_path(frame):
+    if rman_constants.RFB_PLATFORM == "windows":
+        return "C:/tmp/blender.%04d.rib" % frame
+    else:
+        return "/var/tmp/blender.%04d.rib" % frame
+
 def get_cycles_shader_path():
     # figure out the path to Cycles' shader path
     # hopefully, this won't change between versions

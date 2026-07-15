@@ -1,4 +1,5 @@
 from ..rfb_utils import filepath_utils
+from ..rfb_utils.envconfig_utils import envconfig
 from ..rman_render import RmanRender
 from ..rfb_logger import rfb_log
 import bpy
@@ -371,6 +372,29 @@ class PRMAN_OT_Renderman_Launch_Webbrowser(bpy.types.Operator):
         except Exception as e:
             rfb_log().error("Failed to open URL: %s" % str(e))    
         return {'FINISHED'}        
+    
+class PRMAN_OT_Open_Disgust_Trace(bpy.types.Operator):
+    bl_idname = "renderman.open_disgust_trace"
+    bl_label = "View Disgust Trace"
+    bl_description = "Open Disgust Trace"
+
+    @classmethod
+    def poll(cls, context):
+        if context.engine != "PRMAN_RENDER":
+            return False
+        disgust_path = envconfig().getenv('RILEY_CAPTURE')
+        if disgust_path:
+            return os.path.exists(disgust_path)
+        return False
+
+    def execute(self, context):
+        disgust_path = envconfig().getenv('RILEY_CAPTURE')
+        if os.path.exists(disgust_path):
+            filepath_utils.view_file(disgust_path)
+        else:
+            self.report({"ERROR"}, "Disgust trace does not exists")
+
+        return {'FINISHED'}           
 
 classes = [
     PRMAN_OT_Renderman_Use_Renderman,
@@ -385,7 +409,8 @@ classes = [
     PRMAN_OT_AttachStatsRender,
     PRMAN_OT_DisconnectStatsRender,
     PRMAN_OT_UpdateStatsConfig,
-    PRMAN_OT_Renderman_Launch_Webbrowser
+    PRMAN_OT_Renderman_Launch_Webbrowser,
+    PRMAN_OT_Open_Disgust_Trace
 ]
 
 def register():

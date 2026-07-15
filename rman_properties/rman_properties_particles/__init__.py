@@ -113,7 +113,7 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
 
     do_velocity_blur: BoolProperty(
         name="Velocity Blur",
-        description="By default, we do velocity based motion blur for particle systems. This only applies to non instance object particles. Uncheck this if you don't want any blur",
+        description="By default, we do velocity based motion blur for particle systems. This only applies to non instance object particles. For hair particles, unchecking this will sample hair at the given time samples. For emitters, unchecking this will disable motion blur.",
         default=True,
         update=update_psys
     )

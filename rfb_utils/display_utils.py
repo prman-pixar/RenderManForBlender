@@ -10,13 +10,13 @@ import getpass
 import re
 import sys
 
-__BLENDER_TO_RMAN_DSPY__ = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'OPEN_EXR_MULTILAYER': 'openexr',    'PNG': 'png'}
-__RMAN_TO_BLENDER__ = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR_MULTILAYER', 'png':'PNG'}
+BLENDER_TO_RMAN_DSPY = { 'TIFF': 'tiff', 'TARGA': 'targa', 'TARGA_RAW': 'targa', 'OPEN_EXR': 'openexr', 'OPEN_EXR_MULTILAYER': 'openexr',    'PNG': 'png'}
+RMAN_TO_BLENDER = { 'tiff': 'TIFF', 'targa': 'TARGA', 'openexr':'OPEN_EXR_MULTILAYER', 'png':'PNG'}
 
-__RFB_DENOISER_AI__ = '1'
-__RFB_DENOISER_OPTIX__ = '2'
+RFB_DENOISER_AI = '1'
+RFB_DENOISER_OPTIX = '2'
 if rman_constants.RFB_PLATFORM == "macOS":
-    __RFB_DENOISER_OPTIX__ = '0'
+    RFB_DENOISER_OPTIX = '0'
 
 class OutputChannel:
 
@@ -30,7 +30,7 @@ class OutputChannel:
 # They seem to be slightly different from batch render version
 DENOISER_ALBEDO = OutputChannel("color", "albedo", "color lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C<.S'passthru'>*((U2L)|O)")
 DENOISER_NORMAL = OutputChannel("normal", "normal", "normal Nn")
-__INTERACTIVE_DENOISE_CHANNELS = [
+INTERACTIVE_DENOISE_CHANNELS = [
     OutputChannel("color", "Ci"),
     OutputChannel("float", "a"),
     DENOISER_ALBEDO,
@@ -76,7 +76,7 @@ def get_beauty_filepath(bl_scene, use_blender_frame=False, expand_tokens=False, 
         display_driver = aov.displaydriver
     else:        
         file_format = bl_scene.render.image_settings.file_format
-        display_driver = __BLENDER_TO_RMAN_DSPY__.get(file_format, 'openexr')
+        display_driver = BLENDER_TO_RMAN_DSPY.get(file_format, 'openexr')
 
     if expand_tokens:
         token_dict = {'aov': 'beauty'}
@@ -126,11 +126,11 @@ def _add_stylized_channels(dspys_dict, dspy_drv, rman_scene, expandTokens):
     rman_dspy_channels = rman_config.__RMAN_DISPLAY_CHANNELS__
 
     if not display_driver:
-        display_driver = __BLENDER_TO_RMAN_DSPY__.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
+        display_driver = BLENDER_TO_RMAN_DSPY.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
         if 'display' in stylized_tmplt:
             display_driver = stylized_tmplt['display']['displayType']        
 
-    if display_driver in ['it', 'blender']:
+    if display_driver in ['it', 'blender', 'quicklyNoiseless']:
         if rman_scene.is_viewport_render:
             display_driver = 'null'
 
@@ -152,7 +152,11 @@ def _add_stylized_channels(dspys_dict, dspy_drv, rman_scene, expandTokens):
                 dspys_dict['channels'][chan] = d
             dspy_params['displayChannels'].append(chan)
 
-            filePath = '%s_%s' % (dspy_name, chan)         
+            filePath = '%s_%s' % (dspy_name, chan)      
+
+            param_list = None 
+            if display_driver == 'quicklyNoiseless':
+                param_list = _get_quicklynoiseless_params(rman_scene)   
 
             dspys_dict['displays'][dspy_name] = {
                 'driverNode': display_driver,
@@ -162,7 +166,7 @@ def _add_stylized_channels(dspys_dict, dspy_drv, rman_scene, expandTokens):
                 'camera': None,  
                 'bake_mode': None,                   
                 'params': dspy_params,
-                'dspyDriverParams': None}        
+                'dspyDriverParams': param_list}        
     else:
         dspy_name = stylized_tmplt.get('displayName', 'rman_stylized')
         dspy_params = {}                        
@@ -230,6 +234,25 @@ def _add_denoiser_channels(dspys_dict, dspy_params, rman_scene):
 
     dspys_dict['displays']['beauty']['is_variance'] = True
 
+def _get_quicklynoiseless_params(rman_scene):
+
+    from .envconfig_utils import envconfig    
+
+    param_list = rman_scene.rman.Types.ParamList()
+    rm = rman_scene.bl_scene.renderman
+    if rman_scene.ipr_render_into == "blender":
+        qn_passthru = envconfig().get_qn_dspy('blender')
+    else:
+        qn_passthru = envconfig().get_qn_dspy('socket')
+    param_list.SetString('dspyDSOPath', qn_passthru)
+    param_list.SetInteger('cheapPass', int(rm.blender_ipr_aidenoiser_cheapFirstPass))
+    param_list.SetInteger('minSamples', rm.blender_ipr_aidenoiser_minSamples)
+    param_list.SetInteger('interval', rm.blender_ipr_aidenoiser_interval)
+    param_list.SetInteger('immediateClose', 1)
+    param_list.SetInteger('normalAsColor', 0)
+
+    return param_list
+
 def _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene):
     """
     Add the necessary dspy channels for denoiser. We assume
@@ -238,7 +261,7 @@ def _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene):
 
     from .envconfig_utils import envconfig
 
-    for output_chan in __INTERACTIVE_DENOISE_CHANNELS:
+    for output_chan in INTERACTIVE_DENOISE_CHANNELS:
         dspy_channels = dspys_dict['displays']['beauty']['params']['displayChannels']
         if output_chan.name in dspy_channels:
             continue
@@ -259,19 +282,7 @@ def _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene):
     dspy_driver = dspys_dict['displays']['beauty']['driverNode']
     
     if dspy_driver == 'quicklyNoiseless':
-        param_list = rman_scene.rman.Types.ParamList()
-        rm = rman_scene.bl_scene.renderman
-        if rman_scene.ipr_render_into == "blender":
-            qn_passthru = envconfig().get_qn_dspy('blender')
-        else:
-            qn_passthru = envconfig().get_qn_dspy('socket')
-        param_list.SetString('dspyDSOPath', qn_passthru)
-        param_list.SetInteger('cheapPass', int(rm.blender_ipr_aidenoiser_cheapFirstPass))
-        param_list.SetInteger('minSamples', rm.blender_ipr_aidenoiser_minSamples)
-        param_list.SetInteger('interval', rm.blender_ipr_aidenoiser_interval)
-        param_list.SetInteger('immediateClose', 1)
-        param_list.SetInteger('normalAsColor', 0)
-
+        param_list = _get_quicklynoiseless_params(rman_scene)
         dspys_dict['displays']['beauty']['dspyDriverParams'] = param_list
 
 def _add_optix_denoiser_channels(dspys_dict, rman_scene):
@@ -310,7 +321,7 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
     aov_denoise = False
 
     if not display_driver:
-        display_driver = __BLENDER_TO_RMAN_DSPY__.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
+        display_driver = BLENDER_TO_RMAN_DSPY.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
         if display_driver == 'openexr':
             param_list.SetInteger('asrgba', 1)              
 
@@ -352,7 +363,7 @@ def _set_blender_dspy_dict(layer, dspys_dict, dspy_drv, rman_scene, expandTokens
     if display_driver == 'blender':
         if rman_scene.is_viewport_render:
             display_driver = 'null' 
-        elif rm.blender_denoiser == __RFB_DENOISER_AI__:
+        elif rm.blender_denoiser == RFB_DENOISER_AI:
             _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
 
     elif display_driver == "quicklyNoiseless":
@@ -591,11 +602,14 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
                                                     asFilePath=True)
 
         #if aov.name != 'beauty' and (display_driver in ['it', 'blender']): #(display_driver == 'it' or rman_scene.is_viewport_render):
-        if display_driver in ['it', 'blender']: 
+        if display_driver in ['it', 'blender', 'quicklyNoiseless']: 
+            if display_driver == 'quicklyNoiseless':
+                param_list = _get_quicklynoiseless_params(rman_scene)
             # break up display per channel when rendering to it or blender
             if len(aov.dspy_channels) == 1:
                 dspys_dict['displays'][aov.name] = {
                     'driverNode': display_driver,
+                    'originalDriver': aov.displaydriver,
                     'filePath': filePath,
                     'denoise': aov_denoise,
                     'denoise_mode': aov_denoise_mode,
@@ -610,6 +624,7 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
                     new_dspy_params['displayChannels'] = ['Ci', 'a']                    
                     dspys_dict['displays'][aov.name] = {
                         'driverNode': display_driver,
+                        'originalDriver': aov.displaydriver,
                         'filePath': filePath,
                         'denoise': aov_denoise,
                         'denoise_mode': aov_denoise_mode,
@@ -635,6 +650,7 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
 
                     dspys_dict['displays'][dspy_name] = {
                         'driverNode': display_driver,
+                        'originalDriver': aov.displaydriver,
                         'filePath': new_file_path,
                         'denoise': aov_denoise,
                         'denoise_mode': aov_denoise_mode,
@@ -646,6 +662,7 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
         else:
             dspys_dict['displays'][aov.name] = {
                 'driverNode': display_driver,
+                'originalDriver': aov.displaydriver,
                 'filePath': filePath,
                 'denoise': aov_denoise,
                 'denoise_mode': aov_denoise_mode,
@@ -659,7 +676,7 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
         
         if display_driver == "quicklyNoiseless":
             _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene)
-        elif display_driver == "blender" and not rman_scene.is_interactive and rm.blender_denoiser == __RFB_DENOISER_AI__:
+        elif display_driver == "blender" and not rman_scene.is_interactive and rm.blender_denoiser == RFB_DENOISER_AI:
             _add_interactive_denoiser_channels(dspys_dict, dspy_params, rman_scene) 
 
         if aov.name == 'beauty' and rman_scene.is_interactive:
@@ -677,16 +694,21 @@ def _set_rman_dspy_dict(rm_rl, dspys_dict, dspy_drv, rman_scene, expandTokens, d
             dspys_dict['channels']['id'] = d     
             dspy_params['displayChannels'].append('id')
             filePath = 'id_pass'
+
+            param_list = None
+            if display_driver == 'quicklyNoiseless':
+                param_list = _get_quicklynoiseless_params(rman_scene)
             
             dspys_dict['displays']['id_pass'] = {
                 'driverNode': display_driver,
+                'originalDriver': display_driver,
                 'filePath': filePath,
                 'denoise': False,
                 'denoise_mode': 'singleframe',
                 'camera': aov.camera,
                 'bake_mode': None,
                 'params': dspy_params,
-                'dspyDriverParams': None}  
+                'dspyDriverParams': param_list}  
 
     if do_optix_denoise:
         _add_optix_denoiser_channels(dspys_dict, rman_scene)            
@@ -697,7 +719,7 @@ def _set_rman_holdouts_dspy_dict(dspys_dict, dspy_drv, rman_scene, expandTokens,
     display_driver = dspy_drv
 
     if not display_driver:
-        display_driver = __BLENDER_TO_RMAN_DSPY__.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
+        display_driver = BLENDER_TO_RMAN_DSPY.get(rman_scene.bl_scene.render.image_settings.file_format, 'openexr')
         param_list = rman_scene.rman.Types.ParamList()
         if display_driver == 'openexr':
             param_list.SetInteger('asrgba', 1)
@@ -838,9 +860,9 @@ def get_dspy_dict(rman_scene, expandTokens=True, include_holdouts=True):
 
     if rman_scene.is_interactive:
         display_driver = rman_scene.ipr_render_into
-        if rm.blender_ipr_denoiser == __RFB_DENOISER_AI__:
+        if rm.blender_ipr_denoiser == RFB_DENOISER_AI:
             display_driver = 'quicklyNoiseless' 
-        elif rm.blender_ipr_denoiser == __RFB_DENOISER_OPTIX__:
+        elif rm.blender_ipr_denoiser == RFB_DENOISER_OPTIX:
             do_optix_denoise = True
 
     elif (not rman_scene.external_render): 
@@ -849,7 +871,7 @@ def get_dspy_dict(rman_scene, expandTokens=True, include_holdouts=True):
         # render_into is set to
         display_driver = rman_scene.rman_render.rman_render_into
         if display_driver == "blender":
-            if rm.blender_denoiser == __RFB_DENOISER_OPTIX__:
+            if rm.blender_denoiser == RFB_DENOISER_OPTIX:
                 do_optix_denoise = True
             
     if rm_rl:     

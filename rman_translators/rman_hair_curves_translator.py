@@ -30,6 +30,7 @@ class RmanHairCurvesTranslator(RmanTranslator):
 
         sg_node = self.rman_scene.sg_scene.CreateGroup(db_name)
         rman_sg_hair = RmanSgHairCurves(self.rman_scene, sg_node, db_name)
+        rman_sg_hair.is_deforming = True # always assume hair curves are deforming
 
         return rman_sg_hair
 
@@ -70,7 +71,12 @@ class RmanHairCurvesTranslator(RmanTranslator):
         for i, bl_curve in enumerate(curves):
             curves_sg = self.get_child(i, rman_sg_hair)
             curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_cubic, "nonperiodic", "catmull-rom", len(bl_curve.vertsArray), len(bl_curve.points))
-            primvar = curves_sg.GetPrimVars()                  
+            primvar = curves_sg.GetPrimVars()      
+            if rman_sg_hair.is_deforming and rman_sg_hair.deform_motion_steps:
+                super().set_primvar_times(rman_sg_hair.deform_motion_steps, primvar)            
+            else:
+                primvar.SetTimes([])   
+
             primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex")
 
             primvar.SetIntegerDetail(self.rman_scene.rman.Tokens.Rix.k_Ri_nvertices, bl_curve.vertsArray, "uniform")

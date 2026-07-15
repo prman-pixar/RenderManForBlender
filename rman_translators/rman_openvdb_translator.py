@@ -7,6 +7,7 @@ from ..rfb_utils import scenegraph_utils
 from ..rfb_utils import property_utils
 from ..rfb_logger import rfb_log
 import json
+import os
 class RmanOpenVDBTranslator(RmanTranslator):
 
     def __init__(self, rman_scene):
@@ -40,43 +41,34 @@ class RmanOpenVDBTranslator(RmanTranslator):
         db = ob.data
         rm = db.renderman
 
+        bounds = transform_utils.convert_ob_bounds(ob.bound_box)
+        if bounds == (0.0, 0.0, 0.0, 0.0, 0.0, 0.0):
+            rfb_log().debug("Bounds for volume is 0.0")
+            bounds = None
         primvar = rman_sg_openvdb.sg_node.GetPrimVars()
         primvar.Clear()
-        bounds = transform_utils.convert_ob_bounds(ob.bound_box)
         if db.filepath == '':
-            primvar.SetString(self.rman_scene.rman.Tokens.Rix.k_Ri_type, "box")
-            primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, string_utils.convert_val(bounds), 6)
-            rman_sg_openvdb.sg_node.SetPrimVars(primvar)   
             return
 
         grids = db.grids
         if not grids.is_loaded:
             if not grids.load():
-                rfb_log().error("Could not load grids and metadata for volume: %s" % ob.name)
-                primvar.SetString(self.rman_scene.rman.Tokens.Rix.k_Ri_type, "box")
-                primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, string_utils.convert_val(bounds), 6)
-                rman_sg_openvdb.sg_node.SetPrimVars(primvar)   
+                rfb_log().error("Could not load grids and metadata for volume: %s" % ob.name)  
                 return
 
         if len(grids) < 1:
             rfb_log().error("Grids length=0: %s" % ob.name)
-            primvar.SetString(self.rman_scene.rman.Tokens.Rix.k_Ri_type, "box")
-            primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, string_utils.convert_val(bounds), 6)
-            rman_sg_openvdb.sg_node.SetPrimVars(primvar)   
             return    
 
         active_index = grids.active_index
         active_grid = grids[active_index]  
         if active_grid.data_type not in ['FLOAT', 'DOUBLE']:  
-            rfb_log().error("Active grid is not of float type: %s" % ob.name)
-            primvar.SetString(self.rman_scene.rman.Tokens.Rix.k_Ri_type, "box")
-            primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, string_utils.convert_val(bounds), 6)
-            rman_sg_openvdb.sg_node.SetPrimVars(primvar)   
+            rfb_log().error("Active grid is not of float type: %s" % ob.name) 
             return                      
         
-        primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, [-1e30, 1e30, -1e30, 1e30, -1e30, 1e30], 6)
+        if bounds:
+            primvar.SetFloatArray(self.rman_scene.rman.Tokens.Rix.k_Ri_Bound, [-1e30, 1e30, -1e30, 1e30, -1e30, 1e30], 6)
 
-        
         openvdb_file = filepath_utils.get_real_path(db.filepath)
         if db.is_sequence:
             # if we have a sequence, get the current frame filepath from the grids

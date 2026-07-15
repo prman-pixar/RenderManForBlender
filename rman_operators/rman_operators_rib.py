@@ -65,7 +65,28 @@ class PRMAN_OT_Open_Selected_RIB(bpy.types.Operator):
         else:
             rfb_log().error("Nothing selected for RIB export.")
 
-        return {'FINISHED'}         
+        return {'FINISHED'}  
+
+class PRMAN_OT_Open_Dump_RIB(bpy.types.Operator):
+    bl_idname = "renderman.open_dump_rib"
+    bl_label = "View Dump RIB"
+    bl_description = "Open Dump RIB"
+
+    @classmethod
+    def poll(cls, context):
+        if context.engine != "PRMAN_RENDER":
+            return False
+        dump_rib_path = filepath_utils.get_dump_rib_path(context.scene.frame_current) 
+        return os.path.exists(dump_rib_path)
+
+    def execute(self, context):
+        dump_rib_path = filepath_utils.get_dump_rib_path(context.scene.frame_current) 
+        if os.path.exists(dump_rib_path):
+            filepath_utils.view_file(dump_rib_path)
+        else:
+            self.report({"ERROR"}, "Dump RIB does not exists")
+
+        return {'FINISHED'}            
 
 class PRMAN_OT_ExportRIBObject(bpy.types.Operator):
     bl_idname = "export.rman_export_rib_archive"
@@ -120,12 +141,35 @@ class PRMAN_OT_ExportRIBObject(bpy.types.Operator):
         ob = context.object
         self.properties.filename = '%s.<F4>.rib' % ob.name
         context.window_manager.fileselect_add(self)
-        return{'RUNNING_MODAL'}        
+        return{'RUNNING_MODAL'}      
+
+class PRMAN_OT_Set_RIB_Dump_Env(bpy.types.Operator):
+    bl_idname = "renderman.set_rib_dump_env"
+    bl_label = "Set/Unset RFB_DUMP_RIB"
+    bl_description = "Set or Unset the RFB_DUMP_RIB environment variable"
+
+    set_envvar: BoolProperty(name="", default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return (context.engine == "PRMAN_RENDER")
+    
+    def execute(self, context):
+        from ..rfb_utils.envconfig_utils import envconfig
+
+        if self.properties.set_envvar:
+            envconfig().set_dump_rib_env()
+        else:
+            envconfig().unset_dump_rib_env()
+
+        return {'FINISHED'}        
 
 classes = [
     PRMAN_OT_Renderman_open_scene_RIB,
     PRMAN_OT_Open_Selected_RIB,
-    PRMAN_OT_ExportRIBObject
+    PRMAN_OT_ExportRIBObject,
+    PRMAN_OT_Set_RIB_Dump_Env,
+    PRMAN_OT_Open_Dump_RIB
 ]
 
 def register():

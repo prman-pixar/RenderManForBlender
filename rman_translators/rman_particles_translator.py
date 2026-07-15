@@ -20,6 +20,11 @@ class RmanParticlesTranslator(RmanTranslator):
         self.particles_type = psys.settings.type
 
         sg_node = self.rman_scene.sg_scene.CreateGroup(db_name)
+        # explicitly set the camera visibility to 1
+        attrs = sg_node.GetAttributes()
+        attrs.SetInteger("visibility:camera", 1)
+        sg_node.SetAttributes(attrs)
+
         rman_sg_particles = RmanSgParticles(self.rman_scene, sg_node, db_name)
 
         emitter_translator = self.rman_scene.rman_translators['EMITTER']

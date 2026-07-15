@@ -1,4 +1,5 @@
 from ..rfb_logger import rfb_log
+from ..rfb_logger import LOG_LEVELS, RFB_LOG_LEVEL
 from ..rfb_utils import shadergraph_utils
 from ..rfb_utils import string_utils
 from ..rfb_utils import texture_utils
@@ -9,7 +10,7 @@ from ..rfb_utils import scene_utils
 from ..rfb_utils.envconfig_utils import envconfig
 from .. import rman_constants
 from bpy.types import Operator
-from bpy.props import StringProperty, FloatProperty, BoolProperty
+from bpy.props import StringProperty, FloatProperty, BoolProperty, EnumProperty
 import os
 import zipfile
 import bpy
@@ -84,6 +85,11 @@ class PRMAN_OT_Renderman_Package(Operator):
     @classmethod
     def poll(cls, context):
         return context.engine == "PRMAN_RENDER"
+    
+    def is_blender_install_path(self, filepath):
+        blender_binary = bpy.app.binary_path
+        bpath = os.path.normpath(os.path.dirname(blender_binary))
+        return bpy.path.is_subdir(filepath, bpath)
 
     def execute(self, context):
 
@@ -130,9 +136,23 @@ class PRMAN_OT_Renderman_Package(Operator):
                         rfb_log().debug("Cannot remove: %s" % self.filepath)
                         pass
                     return {'FINISHED'}
-                subdir = os.path.dirname(lib.filepath).replace('//', '', 1)
-                dst_path = os.path.join(self.directory, subdir)
-                shutil.copytree(os.path.dirname(real_path), dst_path)
+                if self.is_blender_install_path(real_path):
+                    # we need to do something slightly different
+                    # for library files coming from Blender's install directory
+                    subdir = os.path.join('blender_libs')
+                    lib_file = os.path.basename(real_path)
+                    libpath = os.path.join('//', '.', subdir, lib_file)
+                    lib.filepath = libpath
+                    dst_path = os.path.join(self.directory, subdir)
+                    if not os.path.exists(dst_path):
+                        os.mkdir(dst_path)
+                    if dst_path not in remove_dirs:
+                        remove_dirs.append(dst_path)
+                    shutil.copy(real_path, dst_path)
+                else:
+                    subdir = os.path.dirname(lib.filepath).replace('//', '', 1)
+                    dst_path = os.path.join(self.directory, subdir)
+                    shutil.copytree(os.path.dirname(real_path), dst_path)
 
             # get all directories and files that were copied from the libraries
             for root, dirnames, files in os.walk(self.directory):
@@ -281,14 +301,34 @@ class PRMAN_OT_Renderman_Package(Operator):
 
         # volumes
         for db in bpy.data.volumes:
-            openvdb_file = filepath_utils.get_real_path(db.filepath)
-            bfile = os.path.basename(openvdb_file)
-            diskpath = os.path.join(assets_dir, bfile)
-            shutil.copyfile(openvdb_file, diskpath)      
-            #setattr(db, 'filepath', '//./assets/%s' % bfile)  - agentyRANCH
-            setattr(db, 'filepath', '//assets/%s' % bfile)            
-            z.write(diskpath, arcname=os.path.join('assets', bfile))               
-            remove_files.append(diskpath)
+            filepath = filepath_utils.get_real_path(db.filepath)
+            files = []
+            if db.is_sequence:
+                # this is a sequence
+                # loop through all frames and use depsgraph to get filename(s) used
+                cur_frame = bpy.context.scene.frame_current
+                offset = 1
+                if db.frame_offset != 0:
+                    offset = db.frame_offset+1
+                for i in range(db.frame_start, db.frame_duration+1, offset):
+                    bpy.context.scene.frame_set(i)
+                    depsgraph = context.evaluated_depsgraph_get()
+                    grids = db.evaluated_get(depsgraph).grids
+                    fpath = filepath_utils.get_real_path(grids.frame_filepath)
+                    files.append(fpath)
+                bpy.context.scene.frame_set(cur_frame)
+            else:
+                files.append(filepath)
+
+            for openvdb_file in files:
+                if os.path.exists(openvdb_file):
+                    bfile = os.path.basename(openvdb_file)
+                    diskpath = os.path.join(assets_dir, bfile)
+                    shutil.copyfile(openvdb_file, diskpath)      
+                    #setattr(db, 'filepath', '//./assets/%s' % bfile)  - agentyRANCH
+                    setattr(db, 'filepath', '//assets/%s' % bfile)            
+                    z.write(diskpath, arcname=os.path.join('assets', bfile))               
+                    remove_files.append(diskpath)
             
         # Caches #  - agentyRANCH
         # https://docs.blender.org/manual/fr/dev/animation/constraints/transform/transform_cache.html
@@ -296,12 +336,13 @@ class PRMAN_OT_Renderman_Package(Operator):
             # Change get_real_path with filesystem_path  - agentyRANCH
             # (resolve blender relative path for shutil)
             cache_file = filepath_utils.filesystem_path(cache.filepath)
-            bfile = os.path.basename(cache_file)
-            diskpath = os.path.join(assets_dir, bfile)
-            shutil.copyfile(cache_file, diskpath)      
-            setattr(cache, 'filepath', '//assets/%s' % bfile)            
-            z.write(diskpath, arcname=os.path.join('assets', bfile))               
-            remove_files.append(diskpath)            
+            if os.path.exists(cache_file):
+                bfile = os.path.basename(cache_file)
+                diskpath = os.path.join(assets_dir, bfile)
+                shutil.copyfile(cache_file, diskpath)      
+                setattr(cache, 'filepath', '//assets/%s' % bfile)            
+                z.write(diskpath, arcname=os.path.join('assets', bfile))               
+                remove_files.append(diskpath)            
 
         # archives etc.
         for ob in bpy.data.objects:
@@ -309,30 +350,33 @@ class PRMAN_OT_Renderman_Package(Operator):
             if rman_type == 'DELAYED_LOAD_ARCHIVE':
                 rm = ob.renderman
                 rib_path = string_utils.expand_string(rm.path_archive)
-                bfile = os.path.basename(rib_path)
-                diskpath = os.path.join(assets_dir, bfile)
-                shutil.copyfile(rib_path, diskpath)  
-                setattr(rm, 'path_archive', os.path.join('<blend_dir>', 'assets', bfile))
-                z.write(diskpath, arcname=os.path.join('assets', bfile))
-                remove_files.append(diskpath)    
+                if os.path.exists(rib_path):
+                    bfile = os.path.basename(rib_path)
+                    diskpath = os.path.join(assets_dir, bfile)
+                    shutil.copyfile(rib_path, diskpath)  
+                    setattr(rm, 'path_archive', os.path.join('<blend_dir>', 'assets', bfile))
+                    z.write(diskpath, arcname=os.path.join('assets', bfile))
+                    remove_files.append(diskpath)    
             elif rman_type == 'ALEMBIC':
                 rm = ob.renderman
                 abc_filepath = string_utils.expand_string(rm.abc_filepath)
-                bfile = os.path.basename(abc_filepath)
-                diskpath = os.path.join(assets_dir, bfile)
-                shutil.copyfile(abc_filepath, diskpath)  
-                setattr(rm, 'abc_filepath', os.path.join('<blend_dir>', 'assets', bfile))
-                z.write(diskpath, arcname=os.path.join('assets', bfile))
-                remove_files.append(diskpath)   
+                if os.path.exists(abc_filepath):
+                    bfile = os.path.basename(abc_filepath)
+                    diskpath = os.path.join(assets_dir, bfile)
+                    shutil.copyfile(abc_filepath, diskpath)  
+                    setattr(rm, 'abc_filepath', os.path.join('<blend_dir>', 'assets', bfile))
+                    z.write(diskpath, arcname=os.path.join('assets', bfile))
+                    remove_files.append(diskpath)   
             elif rman_type == 'BRICKMAP':  
                 rm = ob.renderman
                 bkm_filepath = string_utils.expand_string(rm.bkm_filepath)
-                bfile = os.path.basename(bkm_filepath)
-                diskpath = os.path.join(assets_dir, bfile)
-                shutil.copyfile(bkm_filepath, diskpath)  
-                setattr(rm, 'bkm_filepath', os.path.join('<blend_dir>', 'assets', bfile))
-                z.write(diskpath, arcname=os.path.join('assets', bfile))
-                remove_files.append(diskpath)                                
+                if os.path.exists(bkm_filepath):
+                    bfile = os.path.basename(bkm_filepath)
+                    diskpath = os.path.join(assets_dir, bfile)
+                    shutil.copyfile(bkm_filepath, diskpath)  
+                    setattr(rm, 'bkm_filepath', os.path.join('<blend_dir>', 'assets', bfile))
+                    z.write(diskpath, arcname=os.path.join('assets', bfile))
+                    remove_files.append(diskpath)                                
 
         # include disgust trace
         if self.properties.include_disgust:
@@ -354,7 +398,7 @@ class PRMAN_OT_Renderman_Package(Operator):
             context.scene.renderman.rfb_disgust = False
 
             bpy.ops.wm.save_as_mainfile(filepath=bl_filepath, copy=True, compress=False, relative_remap=False)
-            remove_files.append(bl_filepath)
+            # remove_files.append(bl_filepath)
 
             z.write(bl_filepath, arcname=bl_filename)
             context.scene.renderman.rfb_disgust = before
@@ -375,6 +419,10 @@ class PRMAN_OT_Renderman_Package(Operator):
                 continue
 
         bpy.ops.wm.revert_mainfile()
+        try:
+            os.remove(bl_filepath)
+        except:
+            pass
 
         return {'FINISHED'}
 
@@ -589,6 +637,80 @@ class PRMAN_OT_Find_String_And_Replace(Operator):
     def invoke(self, context, event=None):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)     
+    
+class PRMAN_OT_Set_Logging_Level(bpy.types.Operator):
+    bl_idname = "renderman.set_logging_level"
+    bl_label = "Set Logging Level"
+    bl_description = "Set Logging Level"
+    bl_options = {'INTERNAL'}
+
+    def get_levels(self, context):
+        items = []
+        for nm in LOG_LEVELS.keys():
+            items.append((nm, nm, ""))
+        return items
+
+    level: EnumProperty(
+        name="Level",
+        items=get_levels,
+        default=len(LOG_LEVELS)-1
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return (context.engine == "PRMAN_RENDER")
+    
+    def execute(self, context):
+        lvl = LOG_LEVELS[self.level]
+        rfb_log().setLevel(lvl)
+        return {'FINISHED'}        
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+    
+class PRMAN_OT_Load_OCIO_Config(Operator):
+    bl_idname = "renderman.load_ocio_config"
+    bl_label = "Load OCIO Config"
+    bl_description = "Load a new OCIO config. This will start a new Blender session and quit the current one. Note, this does not save the OCIO environment variable for you"
+    bl_options = {'INTERNAL'}
+
+    directory: StringProperty(subtype='FILE_PATH')
+    filepath: StringProperty(
+        subtype="FILE_PATH")    
+    filter_glob: StringProperty(
+        default="*.ocio",
+        options={'HIDDEN'},
+        )        
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.engine == "PRMAN_RENDER")
+        
+    def execute(self, context):
+        import subprocess
+
+        args = []
+        app_path = bpy.app.binary_path
+        args.append(app_path)
+        if bpy.data.filepath != "":
+            args.append(bpy.data.filepath)
+
+        environ = os.environ.copy()
+        environ['OCIO'] = self.filepath
+        if 'ACES' in self.filepath:
+            # if this is an ACES file, for now, force "it" to use RMANTREE's ACES-1.2 config
+            environ['IT_OCIOV1'] = os.path.join(os.environ['RMANTREE'], 'lib', 'ocio', 'ACES-1.2', 'config.ocio')
+        else:
+            environ['IT_OCIOV1'] = self.filepath
+            
+        subprocess.Popen(args, env=environ)
+        bpy.ops.wm.quit_blender()
+        return {'FINISHED'}
+    
+    def invoke(self, context, event=None):        
+        context.window_manager.fileselect_add(self)
+        return{'RUNNING_MODAL'}    
 
 classes = [
    PRMAN_OT_Renderman_Upgrade_Scene,
@@ -596,7 +718,9 @@ classes = [
    PRMAN_OT_Renderman_Start_Debug_Server,
    PRMAN_OT_Renderman_Run_Unit_Tests,
    PRMAN_OT_Renderman_Zip_Addon,
-   PRMAN_OT_Find_String_And_Replace
+   PRMAN_OT_Find_String_And_Replace,
+   PRMAN_OT_Set_Logging_Level,
+   PRMAN_OT_Load_OCIO_Config
 ]
 
 def register():

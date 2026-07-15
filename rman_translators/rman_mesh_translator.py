@@ -28,7 +28,14 @@ def _is_multi_material_(ob, mesh):
     if len(ob.data.materials) < 2 or len(mesh.polygons) == 0:
         return False
 
-    first_mat = mesh.polygons[0].material_index
+    # use 0 as the first material index not the material
+    # index of the first polygon
+    # all the faces could be set to a different material
+    first_mat = 0 #mesh.polygons[0].material_index
+    has_geo_nodes = len([m for m in ob.original.modifiers if m.type == 'NODES']) > 0
+    if has_geo_nodes:
+        # if this object has geometry nodes, the material used is the last one
+        first_mat = len(ob.material_slots)-1
     for p in mesh.polygons:
         if p.material_index != first_mat:
             return True
@@ -200,8 +207,7 @@ def _export_reference_pose(ob, rman_sg_mesh, rm, rixparams):
         elif int(len(rman__WNref) /3 ) == uniform_detail:
             rixparams.SetNormalDetail('__WNref', rman__WNref.data, 'uniform')            
         else:
-            rfb_log().error("Number of WNref primvars do not match. Please re-freeze the reference position.")
-            print("%d vs %d vs %d" % (len(rman__Nref), vertex_detail, facevarying_detail))
+            rfb_log().error("Number of WNref primvars do not match. Please re-freeze the reference position.")  
 
 def export_tangents(ob, geo, rixparams, uvmap="", name=""):
     # also export the tangent and bitangent vectors
@@ -367,10 +373,10 @@ class RmanMeshTranslator(RmanTranslator):
     def export(self, ob, db_name):
         sg_node = self.rman_scene.sg_scene.CreateGroup('')
         rman_sg_mesh = RmanSgMesh(self.rman_scene, sg_node, db_name)
+        rman_sg_mesh.sg_mesh = self.rman_scene.sg_scene.CreateMesh(db_name)
+        rman_sg_mesh.sg_node.AddChild(rman_sg_mesh.sg_mesh)        
         if ob.type == 'MESH' and len(ob.data.polygons) < 1:
             return rman_sg_mesh
-        rman_sg_mesh.sg_mesh = self.rman_scene.sg_scene.CreateMesh(db_name)
-        rman_sg_mesh.sg_node.AddChild(rman_sg_mesh.sg_mesh)
 
         if self.rman_scene.do_motion_blur:
             rman_sg_mesh.is_transforming = object_utils.is_transforming(ob)

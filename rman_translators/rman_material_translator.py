@@ -27,6 +27,13 @@ def get_root_node(node, type='bxdf'):
     rman_type = getattr(node, 'renderman_node_type', node.bl_idname)
     if rman_type == type:
         return node
+    elif rman_type == 'NodeReroute':
+        if not node.inputs[0].is_linked:
+            return None
+        link = node.inputs[0].links[0]
+        rerouted_node = link.from_node
+        return get_root_node(rerouted_node, type=type)    
+
     elif rman_type =='ShaderNodeGroup':
         ng = node.node_tree
         out = next((n for n in ng.nodes if n.bl_idname == 'NodeGroupOutput'),

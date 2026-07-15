@@ -18,6 +18,7 @@ class BlHair:
         self.mcols = []
         self.nverts = 0
         self.hair_width = []
+        self.strand_indices = []
 
     @property
     def constant_width(self):
@@ -43,22 +44,18 @@ class RmanHairTranslator(RmanTranslator):
                 rman_sg_hair.sg_curves_list.clear()   
 
     def export_deform_sample(self, rman_sg_hair, ob, psys, time_sample):
-        return
 
-        '''
-        # Keep this code below, in case we want to give users the option
-        # to do non-velocity based motion blur
+        if not rman_sg_hair.strand_topology:
+            return
 
-        curves = self._get_strands_(ob, psys)
-        for i, bl_curve in enumerate(curves):
+        for i, topo_batch in enumerate(rman_sg_hair.strand_topology):
             curves_sg = rman_sg_hair.sg_curves_list[i]
             if not curves_sg:
                 continue
+            points = self._get_strands_deform_(ob, psys, topo_batch)
             primvar = curves_sg.GetPrimVars()
-
-            primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex", time_sample)  
+            primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, points, "vertex", time_sample)
             curves_sg.SetPrimVars(primvar)
-        '''
 
     def get_child(self, i, rman_sg_hair):
         if i < rman_sg_hair.sg_node.GetNumChildren():
@@ -86,14 +83,15 @@ class RmanHairTranslator(RmanTranslator):
             curves_sg.SetTransform(ob_inv_mtx) # puts points in object space
             curves_sg.Define(self.rman_scene.rman.Tokens.Rix.k_cubic, "nonperiodic", "catmull-rom", len(bl_curve.vertsArray), len(bl_curve.points))
             primvar = curves_sg.GetPrimVars()            
-            if rman_sg_hair.motion_steps and psys.settings.renderman.do_velocity_blur:
+            if rman_sg_hair.motion_steps:
                 super().set_primvar_times(rman_sg_hair.motion_steps, primvar)            
             else:
                 primvar.SetTimes([])
 
-            if self.rman_scene.do_motion_blur and psys.settings.renderman.do_velocity_blur:
+            if self.rman_scene.do_motion_blur:
                 primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex", 0)
-                primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.next_points, "vertex", 1)
+                if psys.settings.renderman.do_velocity_blur:
+                    primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.next_points, "vertex", 1)
             else:
                 primvar.SetPointDetail(self.rman_scene.rman.Tokens.Rix.k_P, bl_curve.points, "vertex")
 
@@ -121,6 +119,8 @@ class RmanHairTranslator(RmanTranslator):
                 rman_sg_hair.sg_node.RemoveChild(c)
                 self.rman_scene.sg_scene.DeleteDagNode(c)     
                 rman_sg_hair.sg_curves_list.remove(c)    
+
+        rman_sg_hair.strand_topology = [bl_curve.strand_indices for bl_curve in curves]
 
         # Attach material
         mat_idx = psys.settings.material - 1
@@ -223,10 +223,19 @@ class RmanHairTranslator(RmanTranslator):
             if vertsInStrand < 4:
                 continue
 
-            if self.rman_scene.do_motion_blur:
-                # calculate the points for the next frame using velocity
-                vel = Vector(particle.velocity / particle.lifetime )
-                next_strand_points = [p + vel for p in strand_points]
+            # for motion blur
+            if self.rman_scene.do_motion_blur: 
+                if psys.settings.renderman.do_velocity_blur:
+                    # calculate the points for the next frame using velocity
+                    #vel = Vector(particle.velocity / particle.lifetime ) * rm.scale_velocity_blur
+                    
+                    ## Note, don't scale by the particle lifetime. This seems to match
+                    ## better with cycles
+                    vel = Vector(particle.velocity) * rm.scale_velocity_blur
+                    
+                    next_strand_points = [p + vel for p in strand_points]
+                else:
+                    bl_curve.strand_indices.append((pindex, vertsInStrand))
 
             # for varying width make the width array
             if not conwidth:
@@ -238,7 +247,7 @@ class RmanHairTranslator(RmanTranslator):
             bl_curve.points.extend(strand_points)
             bl_curve.next_points.extend(next_strand_points)
             bl_curve.vertsArray.append(vertsInStrand)
-            bl_curve.nverts += vertsInStrand
+            bl_curve.nverts += vertsInStrand                
                
             # get the scalp ST
             if export_st:
@@ -263,3 +272,39 @@ class RmanHairTranslator(RmanTranslator):
 
         return curve_sets              
             
+    def _get_strands_deform_(self, ob, psys, topo_batch):
+        steps = (2 ** psys.settings.render_step) + 1
+        points = []
+
+        for pindex, expected_nverts in topo_batch:
+            strand_points = []
+            last_valid_pt = None
+
+            for step in range(0, steps):
+                pt = psys.co_hair(ob, particle_no=pindex, step=step)
+                if pt.length_squared == 0:
+                    # Hold last valid point instead of breaking
+                    if last_valid_pt is not None:
+                        strand_points.append(last_valid_pt)
+                else:
+                    last_valid_pt = pt
+                    strand_points.append(pt)
+
+            # Double first and last, same as _get_strands_
+            if len(strand_points) >= 2:
+                strand_points = strand_points[:1] + strand_points + strand_points[-1:]
+            elif len(strand_points) == 1:
+                strand_points = strand_points * expected_nverts
+            else:
+                # No valid points — hold at origin
+                strand_points = [Vector((0.0, 0.0, 0.0))] * expected_nverts
+
+            # Force exactly expected_nverts points
+            if len(strand_points) > expected_nverts:
+                strand_points = strand_points[:expected_nverts]
+            elif len(strand_points) < expected_nverts:
+                strand_points.extend([strand_points[-1]] * (expected_nverts - len(strand_points)))
+
+            points.extend(strand_points)
+
+        return points

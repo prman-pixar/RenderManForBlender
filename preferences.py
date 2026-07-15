@@ -198,7 +198,7 @@ class RendermanPreferences(AddonPreferences):
 
                 found = False
                 for device in self.rman_xpu_gpu_devices:
-                    rfb_logger.rfb_log().info("\tCheck %s" % device.name)
+                    rfb_logger.rfb_log().debug("\tCheck %s" % device.name)
                     if device.name == device_name and device.version_major == desc.major and device.version_minor == desc.minor:
                         found = True
                         break
@@ -371,7 +371,7 @@ class RendermanPreferences(AddonPreferences):
     )    
 
     def update_rman_logging_level(self, context):
-        level = rfb_logger.__LOG_LEVELS__[self.rman_logging_level]
+        level = rfb_logger.LOG_LEVELS[self.rman_logging_level]
         rfb_logger.set_logger_level(level)
 
     rman_logging_level: EnumProperty(

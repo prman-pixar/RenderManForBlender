@@ -6,6 +6,7 @@ from ..rfb_utils.prefs_utils import get_pref
 from ..rman_constants import RMAN_BL_NODE_DESCRIPTIONS
 from ..rfb_utils.shadergraph_utils import find_node, find_selected_pattern_node, is_socket_same_type, find_material_from_nodetree
 from ..rfb_utils.shadergraph_utils import set_solo_node
+from ..rfb_utils import shadergraph_utils
 import bpy
 import os
 
@@ -550,6 +551,24 @@ class NODE_OT_rman_preset_set_param(bpy.types.Operator):
                     setattr(node, self.prop_name, val)
 
         return {'FINISHED'}
+    
+class NODE_OT_rman_node_reset_solo(bpy.types.Operator):
+    bl_idname = "node.rman_reset_node_solo"
+    bl_label = "Reset Node Solo"
+    bl_description = "Reset the solo node for a material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.space_data.type == 'NODE_EDITOR' and context.space_data.tree_type == 'ShaderNodeTree'
+
+    def invoke(self, context, event):
+        mat = context.material
+        output_node = shadergraph_utils.is_renderman_nodetree(mat)
+        if output_node is None:
+            self.report({'ERROR'}, "Could not find RenderMan Material output node")
+            return {'FINISHED'}
+        set_solo_node(output_node, None, mat, refresh_solo=True)
+        return {'FINISHED'}                 
 
 class NODE_OT_rman_node_set_solo(bpy.types.Operator):
     bl_idname = "node.rman_set_node_solo"
@@ -558,17 +577,41 @@ class NODE_OT_rman_node_set_solo(bpy.types.Operator):
 
     refresh_solo: BoolProperty(default=False)
 
-    def invoke(self, context, event):
-        nt = context.nodetree
-        mat = context.material
-        output_node = context.node
-        selected_node = getattr(context, "selected_node", None)
+    @classmethod
+    def poll(cls, context):
+        return context.space_data.type == 'NODE_EDITOR' and context.space_data.tree_type == 'ShaderNodeTree'
 
-        if self.refresh_solo:
-            set_solo_node(output_node, None, mat, refresh_solo=True)
-            return {'FINISHED'}           
-            
-        set_solo_node(output_node, selected_node, mat, refresh_solo=False)   
+    def invoke(self, context, event):
+        if hasattr(context, 'nodetree'):
+            nt = context.nodetree
+            output_node = context.node
+            mat = context.material
+            selected_node = getattr(context, "selected_node", None)
+            solo_node, solo_nodetree = shadergraph_utils.find_solo_node(nt)
+            if solo_node and solo_node == selected_node:
+                self.refresh_solo = True            
+            if self.refresh_solo:
+                set_solo_node(output_node, None, mat, refresh_solo=True)
+                return {'FINISHED'}           
+                
+            set_solo_node(output_node, selected_node, mat, refresh_solo=False)               
+        else:
+            nt = context.space_data.node_tree
+            mat = context.material
+            output_node = shadergraph_utils.is_renderman_nodetree(mat)
+            if output_node is None:
+                self.report({'ERROR'}, "Could not find RenderMan Material output node")
+                return {'FINISHED'}
+            selected_node = shadergraph_utils.find_soloable_node(nt)
+            solo_node, solo_nodetree = shadergraph_utils.find_solo_node(nt)
+            if solo_node and solo_node == selected_node:
+                self.refresh_solo = True
+
+            if self.refresh_solo:
+                set_solo_node(output_node, None, mat, refresh_solo=True)
+                return {'FINISHED'}           
+                
+            set_solo_node(output_node, selected_node, mat, refresh_solo=False)   
 
         return {'FINISHED'}        
 
@@ -680,6 +723,7 @@ classes = [
     NODE_OT_rman_node_create,
     NODE_OT_rman_node_connect_existing,
     NODE_OT_rman_preset_set_param,
+    NODE_OT_rman_node_reset_solo,
     NODE_OT_rman_node_set_solo,
     NODE_OT_rman_node_set_solo_output,
     NODE_OT_rman_node_change_output,

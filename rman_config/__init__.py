@@ -61,6 +61,7 @@ class RmanBasePropertyGroup:
 
         prop_names = []
         prop_meta = {}
+        riattr_meta = {}
         page_names = []
 
         def addpage(ndp):
@@ -115,11 +116,14 @@ class RmanBasePropertyGroup:
                 cls.__annotations__[ndp._name] = prop
                 prop_names.append(ndp.name)
                 prop_meta[ndp.name] = meta
+                if 'riattr' in meta:
+                    riattr_meta[ndp.name] = meta
 
             addpage(ndp)
 
         setattr(cls, 'prop_names', prop_names)
         setattr(cls, 'prop_meta', prop_meta)
+        setattr(cls, 'riattr_meta', riattr_meta)
 
 class RmanConfig:
     """A class to reprsent a json config file.
