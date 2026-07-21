@@ -107,7 +107,6 @@ class BlAttribute:
                 rman_attr.values = values.tolist()                
             else:
                 rman_attr.values = values            
-            rman_attr.values = values
 
         elif attr.data_type == 'FLOAT':
             rman_attr = BlAttribute()
@@ -170,7 +169,15 @@ class BlAttribute:
 
         if rman_attr:
             rman_attr.rman_name = string_utils.sanitize_node_name(rman_attr.rman_name)    
-            detail = detail_map.get(len(attr.data), detail_default)                
+            detail = detail_map.get(len(attr.data), detail_default)   
+            if rman_attr.rman_type in ['integer', 'integer2d'] and detail == 'vertex':
+                # int primvars have to be uniform or constant
+                # so try to remap values to be uniform
+                for k,v in detail_map.items():
+                    if v == 'uniform':
+                        detail = v
+                        rman_attr.values = rman_attr.values[:k]
+
             rman_attr.rman_detail = detail            
 
         return rman_attr
