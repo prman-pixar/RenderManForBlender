@@ -420,11 +420,19 @@
             "group": "Data AOVs"
         },
         "id": {
-            "description": "Returns the integer assigned via the 'identifier' attribute as the pixel value",
+            "description": "Returns the integer assigned via the 'identifier:id' attribute as the pixel value",
             "channelType": "integer",
             "channelSource": "id",
+            "filter": "zmin",
             "group": "Data AOVs"
         },
+        "id2": {
+            "description": "Returns the integer assigned via the 'identifier:id2' attribute as the pixel value",
+            "channelType": "integer",
+            "channelSource": "id2",
+            "filter": "zmin",
+            "group": "Data AOVs"
+        },        
         "z_depth": {
             "description": "Depth from the camera in world space",
             "channelType": "float",
@@ -827,16 +835,25 @@
                 "normal",
                 "normal_mse"
             ]
-        },        
+        },      
+        "Cryptomatte":{
+            "displayName": "rman_cryptomatte",
+            "description": "Default channels needed for the Crypomatte display driver",
+            "display": {
+                "displayType": "cryptomatte"
+            },
+            "channels": [
+                "a",
+                "id",
+                "id2"
+            ]
+
+        },  
         "Mattes": {
             "displayName": "rman_mattes",
             "description": "All MatteID channels in an OpenEXR file.",
             "display": {
                 "displayType": "openexr"
-            },
-            "driver": {
-                "storage": "planar",
-                "compression": "dwaa"
             },
             "channels": [
                 "MatteID0",

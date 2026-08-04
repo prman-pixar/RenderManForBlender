@@ -641,6 +641,9 @@ class PRMAN_OT_RenderMan_Add_Dspy_Template(bpy.types.Operator):
         aov_setting = rm_rl.custom_aovs.add()
         dspy_name = tmplt.get('displayName', self.dspy_template)
         aov_setting.name = dspy_name
+        if "display" in tmplt:
+            dspy_drv = tmplt['display'].get('displayType', 'openexr')
+            aov_setting.displaydriver = dspy_drv
 
         for chan in tmplt['channels']:
             channel = None
@@ -659,7 +662,9 @@ class PRMAN_OT_RenderMan_Add_Dspy_Template(bpy.types.Operator):
                 channel.channel_source = settings['channelSource']
                 channel.channel_type = settings['channelType']
                 stats_type = settings.get('statistics', 'none')
-                channel.stats_type = stats_type                
+                channel.stats_type = stats_type   
+                if 'filter' in settings:
+                    channel.chan_pixelfilter = settings['filter']             
 
             chan_ptr = aov_setting.dspy_channels.add()                                   
             chan_ptr.name = chan
