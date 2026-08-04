@@ -42,6 +42,15 @@ class RmanCameraTranslator(RmanTranslator):
         if not region_data:
             return
         mtx = region_data.view_matrix.inverted()
+
+        # For orthographic views, push the camera back along its local Z axis,
+        # to ensure no scene geometry ends up behind it.
+        if region_data.view_perspective == 'ORTHO':
+            offset = self.rman_scene.context.space_data.clip_end
+            mtx[0][3] += mtx[0][2] * offset
+            mtx[1][3] += mtx[1][2] * offset
+            mtx[2][3] += mtx[2][2] * offset
+
         v = transform_utils.convert_matrix(mtx)
         if rman_sg_camera.cam_matrix == v:
             return 
@@ -340,8 +349,14 @@ class RmanCameraTranslator(RmanTranslator):
                 yaspect = yaspect * ortho_scale / (aspectratio * 2.0)
                 aspectratio = ortho_scale / 2.0  
 
-                clip_start = self.rman_scene.context.space_data.clip_start
-                clip_end = self.rman_scene.context.space_data.clip_end                
+                # copy what Cycles does by setting clip_start = - clip_end
+                # to compensate for objects in the scene that extend past 
+                # the camera position toward the viewer, otherwise these objects
+                # will clip. 
+                # we also double the far clipping plane to compensate for pushing camera back
+                # along the local Z axis in _update_viewport_transform
+                clip_start = -self.rman_scene.context.space_data.clip_end
+                clip_end = 2.0 * self.rman_scene.context.space_data.clip_end                
                       
                 # shift and offset   
                 shift_x = 0.0
