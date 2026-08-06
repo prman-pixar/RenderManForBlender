@@ -919,34 +919,34 @@ def make_dspy_info(scene, is_interactive=False):
     if integrator:
         integrator_nm = integrator.bl_label
 
-    dspy_notes = "Render start:\t%s\r\r" % ts
-    dspy_notes += "Integrator:\t%s\r\r" % integrator_nm
+    dspy_notes = "Render start:\t%s\n\n" % ts
+    dspy_notes += "Integrator:\t%s\n\n" % integrator_nm
     if is_interactive:
-        dspy_notes += "Samples:\t%d - %d\r" % (rm.ipr_hider_minSamples, rm.ipr_hider_maxSamples)
-        dspy_notes += "Pixel Variance:\t%f\r\r" % rm.ipr_ri_pixelVariance
+        dspy_notes += "Samples:\t%d - %d\n" % (rm.ipr_hider_minSamples, rm.ipr_hider_maxSamples)
+        dspy_notes += "Pixel Variance:\t%f\n\n" % rm.ipr_ri_pixelVariance
     else:
-        dspy_notes += "Samples:\t%d - %d\r" % (rm.hider_minSamples, rm.hider_maxSamples)        
-        dspy_notes += "Pixel Variance:\t%f\r\r" % rm.ri_pixelVariance
+        dspy_notes += "Samples:\t%d - %d\n" % (rm.hider_minSamples, rm.hider_maxSamples)        
+        dspy_notes += "Pixel Variance:\t%f\n\n" % rm.ri_pixelVariance
 
     # moved this in front of integrator check. Was called redundant in
     # both cases
     if integrator:    
         if integrator.bl_label == 'PxrPathTracer':
-            dspy_notes += "Mode:\t%s\r" % integrator.sampleMode
-            dspy_notes += "Light:\t%d\r" % integrator.numLightSamples
-            dspy_notes += "Bxdf:\t%d\r" % integrator.numBxdfSamples
+            dspy_notes += "Mode:\t%s\n" % integrator.sampleMode
+            dspy_notes += "Light:\t%d\n" % integrator.numLightSamples
+            dspy_notes += "Bxdf:\t%d\n" % integrator.numBxdfSamples
 
             if integrator.sampleMode == 'bxdf':
-                dspy_notes += "Indirect:\t%d\r\r" % integrator.numIndirectSamples
+                dspy_notes += "Indirect:\t%d\n\n" % integrator.numIndirectSamples
             else:
-                dspy_notes += "Diffuse:\t%d\r" % integrator.numDiffuseSamples
-                dspy_notes += "Specular:\t%d\r" % integrator.numSpecularSamples
-                dspy_notes += "Subsurface:\t%d\r" % integrator.numSubsurfaceSamples
-                dspy_notes += "Refraction:\t%d\r" % integrator.numRefractionSamples
+                dspy_notes += "Diffuse:\t%d\n" % integrator.numDiffuseSamples
+                dspy_notes += "Specular:\t%d\n" % integrator.numSpecularSamples
+                dspy_notes += "Subsurface:\t%d\n" % integrator.numSubsurfaceSamples
+                dspy_notes += "Refraction:\t%d\n" % integrator.numRefractionSamples
 
         elif integrator.bl_label == "PxrVCM":
-            dspy_notes += "Light:\t%d\r" % integrator.numLightSamples
-            dspy_notes += "Bxdf:\t%d\r\r" % integrator.numBxdfSamples
+            dspy_notes += "Light:\t%d\n" % integrator.numLightSamples
+            dspy_notes += "Bxdf:\t%d\n\n" % integrator.numBxdfSamples
 
     return dspy_notes
 
