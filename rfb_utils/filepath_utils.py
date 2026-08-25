@@ -110,9 +110,83 @@ def get_real_path(path):
     # There's too many places that get_real_path is called, so just leave this as is
     return filesystem_path(path)
 
+# A python double-quoted string literal, honouring backslash escapes. Anything simpler goes wrong on
+# real traces: [^"\s]* silently skips any path containing a space, and [^"]* runs a value like
+# "say \"hi\"" together with whatever follows it, because it stops at the escaped quote.
+DISGUST_STRING_PAT = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+# What Disgust escapes when it writes a string, so these are what have to be undone to get a path
+# back, and redone when one is written. Backslash is first in each direction, which is what keeps the
+# escapes from being applied to each other's output.
+_DISGUST_ESCAPES = (('\\', '\\\\'), ('"', '\\"'), ('\n', '\\n'), ('\r', '\\r'), ('\t', '\\t'))
+
+
+def unescape_disgust_string(s):
+    """Turn the text inside a trace's string literal back into the value it stands for.
+
+    A windows path arrives here as C:\\\\tex\\\\wood.tex -- doubled backslashes -- so testing it
+    against the filesystem or copying it needs the real C:\\tex\\wood.tex.
+    """
+    out = []
+    i = 0
+    unescape = {'\\': '\\', '"': '"', 'n': '\n', 'r': '\r', 't': '\t'}
+    while i < len(s):
+        if s[i] == '\\' and i + 1 < len(s):
+            out.append(unescape.get(s[i + 1], s[i + 1]))
+            i += 2
+        else:
+            out.append(s[i])
+            i += 1
+    return ''.join(out)
+
+
+def escape_disgust_string(s):
+    """Escape a value the way Disgust would, for writing back into a trace."""
+    for plain, escaped in _DISGUST_ESCAPES:
+        s = s.replace(plain, escaped)
+    return s
+
+
+def trace_path(*parts):
+    """Join path components for writing into a trace or a zip, always with forward slashes.
+
+    os.path.join gives backslashes on windows, and neither destination wants them. A trace is meant
+    to be portable -- localizing an asset to assets\\wood.tex packages a scene that only replays on
+    windows, which defeats the point -- and the zip format requires "/" as its separator, so a
+    backslash entry reads as a filename containing a backslash rather than as a directory.
+
+    This matches what the rest of this module already does: filesystem_path() and
+    get_token_blender_file_path() both end by replacing backslashes with forward slashes.
+    """
+    return '/'.join(p for p in parts if p).replace('\\', '/')
+
+
+def trace_basename(p):
+    """The last component of a path, whichever separator it uses.
+
+    os.path.basename only understands the host's separator, so on posix it returns a whole
+    C:\\tex\\wood.tex unchanged. A trace can carry a path from either convention.
+    """
+    return p.replace('\\', '/').rstrip('/').rpartition('/')[2]
+
+
 def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z):
     """Try to localize all paths in the disgust_trace
-    by searching for all instances of UString
+    by searching for all double-quoted string literals
+
+    Traces used to spell every string UString("..."), and this looked for exactly that. They now
+    carry plain python literals, so a bare "..." is what has to be matched -- with the old pattern
+    this function silently became a no-op and packaged traces kept their absolute, machine-local
+    paths.
+
+    Only double quotes are searched. That is what distinguishes a value from the rest of a
+    parameter tuple: a trace writes ('String', 'filename', ["/path/to.tex"]), with the type and
+    parameter name single-quoted and only the value double-quoted.
+
+    The text inside a literal is escaped, so it is unescaped before being tested against the
+    filesystem and re-escaped on the way back in. Paths containing spaces are handled; paths
+    containing a double quote are not, and neither is anything else that would be unusual enough in
+    a filename to be worth guessing about.
 
     Args:
     - disgust_trace (str): path to the python disgust trace
@@ -123,7 +197,7 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
 
     """
 
-    pat = re.compile(r"UString\((\"\S*\")\)")
+    pat = DISGUST_STRING_PAT
     f = open(out_file, "w")
     out_path = os.path.dirname(out_file)
     asset_path = os.path.join(out_path, 'assets')
@@ -131,18 +205,22 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
     with open(disgust_trace) as df:
         lines = df.readlines()
         for line in lines:
-            matches = re.findall(pat, line)
+            # finditer, not findall: both the escaped text inside the literal and the literal
+            # including its quotes are needed -- the first to substitute a path, the second to
+            # replace the whole thing with an os.path.join(...) expression.
+            matches = list(re.finditer(pat, line))
             if matches:
                 write_line = line # make a copy of the line
-                for m in matches:     
-                    match_str = m[1:-1] # remove quotes         
+                for match in matches:
+                    escaped_str = match.group(1)  # as it appears in the trace, still escaped
+                    match_str = unescape_disgust_string(escaped_str)  # the value it stands for
                     if 'rl.CreateDisplay' in write_line and '/' in match_str:
                         # for display lines, change the path to just the basename
 
-                        if os.path.exists(match_str):
+                        if os.path.isfile(match_str):
                             # copy rendered images, but add the substring 
                             # .original to them
-                            asset_file = os.path.basename(match_str)
+                            asset_file = trace_basename(match_str)
                             tokens = os.path.splitext(asset_file)
                             asset_file = '%s.original%s' % (tokens[0], tokens[-1])
                             diskpath = os.path.join(out_path, asset_file)
@@ -151,16 +229,23 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
                             z.write(diskpath, arcname=arcname)    
                             remove_files.append(diskpath)                        
                         
-                        write_line = write_line.replace(match_str, os.path.basename(match_str) )
-                    elif os.path.exists(match_str):
+                        write_line = write_line.replace(
+                            escaped_str, escape_disgust_string(trace_basename(match_str)))
+                    # isfile, not exists: now that every double-quoted value is inspected, a
+                    # directory-valued parameter such as searchpath:texture reaches here, and
+                    # shutil.copyfile on a directory raises.
+                    elif os.path.isfile(match_str):
                         if envconfig().rmantree in match_str:
                             # if RMANTREE is line, just substitue with:
                             # os.path.join(os.environ['RMANTREE], ...
                             path = match_str.replace(envconfig().rmantree, "")
-                            if path[0] == '/':
-                                path = path[1:]
-                            path = 'os.path.join(os.environ["RMANTREE"], "' + path + '")'
-                            write_line = write_line.replace(m, path)
+                            # Either separator: on windows what is left begins with a backslash, and
+                            # leaving it there makes the join below drop RMANTREE altogether --
+                            # ntpath.join("C:/rmantree", "\\lib\\x.oso") is "C:\\lib\\x.oso".
+                            path = path.lstrip('/\\')
+                            path = ('os.path.join(os.environ["RMANTREE"], "'
+                                    + escape_disgust_string(trace_path(path)) + '")')
+                            write_line = write_line.replace(match.group(0), path)
                             continue
 
                         # check if this asset already exists in our asset_dirs
@@ -172,18 +257,23 @@ def localize_disugst_trace(disgust_trace, out_file, asset_dirs, remove_files, z)
                                 # path exists in our assets dir.
                                 # make sure to use a relative path
                                 exists = True
-                                paths = diskpath.split('/')
-                                relpath = os.path.join(paths[-2], paths[-1])
-                                write_line = write_line.replace(match_str, relpath)
+                                # From the directory's own name, not from splitting diskpath on "/":
+                                # os.path.join gives backslashes on windows, so that split returned a
+                                # single element and indexing [-2] raised -- and where the path did
+                                # happen to contain a "/" it picked the grandparent instead.
+                                relpath = trace_path(trace_basename(asset_dir), asset_file)
+                                write_line = write_line.replace(
+                                    escaped_str, escape_disgust_string(relpath))
                                 break         
                         if not exists:
                             # file doesn't exist in our asset_dirs
                             # copy to the "assets" sub dir, and modify the line
                             diskpath = os.path.join(asset_path, asset_file)
-                            arcname = os.path.join('assets', asset_file)
+                            arcname = trace_path('assets', asset_file)
                             shutil.copyfile(match_str, diskpath)
                             z.write(diskpath, arcname=arcname)
-                            write_line = write_line.replace(match_str, arcname)
+                            write_line = write_line.replace(
+                                escaped_str, escape_disgust_string(arcname))
                             remove_files.append(diskpath)
                 f.write(write_line)
             else:
