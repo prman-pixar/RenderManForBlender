@@ -113,9 +113,10 @@ def generate_colorspace_menu(node, param_name):
         items.extend(colorspace_names_list())
         return items
 
-    ui_label = "%s_colorspace" % param_name
-    attr_name = "%s_sticky" % sanitize_attr_name(param_name)
-    node.__annotations__[attr_name] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))    
+    ui_label = "%s_colorspace" % sanitize_attr_name(param_name)
+    node.__annotations__[ui_label] = EnumProperty(name=ui_label, items=colorspace_names,update=lambda s,c: update_colorspace_name(s,c, param_name))        
+    #attr_name = "%s_colorspace_sticky" % sanitize_attr_name(param_name)
+    #node.__annotations__[attr_name] = BoolProperty(name=ui_label, default=False)
 
 def generate_uistruct_property(node, name, prop_names, prop_meta):
     prop_meta[name] = {'renderman_type': '', 
