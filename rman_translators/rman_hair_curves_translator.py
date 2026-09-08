@@ -93,8 +93,9 @@ class RmanHairCurvesTranslator(RmanTranslator):
         if len(curves) < rman_sg_hair.sg_node.GetNumChildren():
             for c in [rman_sg_hair.sg_node.GetChild(i) for i in (len(curves), rman_sg_hair.sg_node.GetNumChildren())]:
                 rman_sg_hair.sg_node.RemoveChild(c)
-                self.rman_scene.sg_scene.DeleteDagNode(c)     
-                rman_sg_hair.sg_curves_list.remove(c)                   
+                self.rman_scene.sg_scene.DeleteDagNode(c)
+                if c in rman_sg_hair.sg_curves_list:     
+                    rman_sg_hair.sg_curves_list.remove(c)                   
         
     def get_attributes(self, ob, bl_hair_attributes):
         detail_map = { len(ob.data.points): 'vertex', len(ob.data.curves): 'uniform'}
