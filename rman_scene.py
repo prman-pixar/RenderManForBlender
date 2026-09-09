@@ -577,7 +577,6 @@ class RmanScene(object):
             attrs.Remove(self.rman.Tokens.Rix.k_lighting_subset)
             attrs.Remove(self.rman.Tokens.Rix.k_lightfilter_subset)
             exclude_lights = []
-            include_lights = []
             lightfilter_subset = []
 
             # loop through all the lights
@@ -590,7 +589,11 @@ class RmanScene(object):
                 if ob.light_linking.receiver_collection:                    
                     if light_props.renderman_light_role == 'RMAN_LIGHT':
                         if ob.renderman.bl_invert_ll:
-                            include_lights.append(light_nm)
+                            # if the light link is set to invert
+                            # we don't need to explicitly set an include subset
+                            # rman_translator.py should handle the specific lights that
+                            # need to be excluded
+                            pass
                         else:
                             exclude_lights.append(light_nm)
                     else:
@@ -601,8 +604,6 @@ class RmanScene(object):
 
             if exclude_lights:
                 attrs.SetString(self.rman.Tokens.Rix.k_lighting_excludesubset, ','. join(exclude_lights) )
-            if include_lights:
-                attrs.SetString(self.rman.Tokens.Rix.k_lighting_subset, ','. join(include_lights) )            
             if lightfilter_subset:
                 attrs.SetString(self.rman.Tokens.Rix.k_lightfilter_subset, ',' . join(lightfilter_subset))    
 

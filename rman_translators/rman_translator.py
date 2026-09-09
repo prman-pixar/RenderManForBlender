@@ -191,7 +191,6 @@ class RmanTranslator(object):
             all_lights = self.rman_scene.all_lights
 
             exclude_subset = []
-            include_subset = []
             lightfilter_subset = []
             shadow_subset = []
             shadow_exclude = []
@@ -206,7 +205,7 @@ class RmanTranslator(object):
                                 if light.light_linking.receiver_collection.collection_objects[i].light_linking.link_state == 'EXCLUDE':
                                     exclude_subset.append(string_utils.sanitize_node_name(light.name) )
                                 else:
-                                    include_subset.append(string_utils.sanitize_node_name(light.name) )
+                                    exclude_subset.append("-%s" % string_utils.sanitize_node_name(light.name) )
                             else:
                                 if light.light_linking.receiver_collection.collection_objects[i].light_linking.link_state == 'INCLUDE':
                                     lightfilter_subset.append(string_utils.sanitize_node_name(light.name) )
@@ -237,11 +236,6 @@ class RmanTranslator(object):
                 attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset, ','. join(exclude_subset) )
             else:
                 attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset)
-            if include_subset:
-                attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lighting_subset, ','. join(include_subset) )            
-                attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lighting_excludesubset, "null")
-            else:
-                attrs.Remove(self.rman_scene.rman.Tokens.Rix.k_lighting_subset)
             if lightfilter_subset:
                 attrs.SetString(self.rman_scene.rman.Tokens.Rix.k_lightfilter_subset, ',' . join(lightfilter_subset))
             else:

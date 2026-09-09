@@ -28,6 +28,7 @@ class RmanUpdate:
         updated_prop_name (str) - The name of the Blender property that was changed, for either 
                                     is_updated_attributes or is_updated_geometry case
         do_clear_instances (bool) - Whether we should clear/delete all instances of the prototype
+        update_root_light_linking (bool) - whether we need to call RmanScene.set_root_lightlinks()
 
     '''    
     def __init__(self):
@@ -37,6 +38,7 @@ class RmanUpdate:
         self.is_updated_attributes = False
         self.updated_prop_name = None
         self.do_clear_instances = True  
+        self.update_root_light_linking = False
 
 class RmanSceneSync(object):
     '''
@@ -772,7 +774,8 @@ class RmanSceneSync(object):
 
             elif isinstance(dps_update.id, bpy.types.Collection):
                 rfb_log().debug("Collection updated: %s" % dps_update.id.name)
-                #self.update_collection(dps_update.id)           
+                #self.update_collection(dps_update.id)   
+                self.update_root_light_linking = True  # for now, assume root light linking needs updating      
             elif isinstance(dps_update.id, bpy.types.GeometryNodeTree):
                 # create an empty RmanUpdate
                 # self.create_rman_update(dps_update.id.original, clear_instances=False)
@@ -844,6 +847,8 @@ class RmanSceneSync(object):
         We want to bail on each instance as soon as possible if it was never edited
         '''
         with self.rman_scene.rman.SGManager.ScopedEdit(self.rman_scene.sg_scene): 
+            if self.update_root_light_linking:
+                self.rman_scene.set_root_lightlinks()
             for instance in self.rman_scene.depsgraph.object_instances:
                 if instance.object.type in ('CAMERA'):
                     continue
@@ -926,7 +931,7 @@ class RmanSceneSync(object):
 
                     rfb_log().debug("\tNew Object added: %s (%s)" % (proto_key, rman_type))
 
-                    if rman_type in ['LIGHT', 'LIGHTFILTER']:
+                    if rman_type in ['LIGHT', 'LIGHTFILTER'] and not self.update_root_light_linking:
                         self.rman_scene.set_root_lightlinks() # update lightlinking on the root node
 
                     if rman_type == 'LIGHTFILTER':
