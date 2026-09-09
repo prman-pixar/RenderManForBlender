@@ -28,7 +28,6 @@ class RmanUpdate:
         updated_prop_name (str) - The name of the Blender property that was changed, for either 
                                     is_updated_attributes or is_updated_geometry case
         do_clear_instances (bool) - Whether we should clear/delete all instances of the prototype
-        update_root_light_linking (bool) - whether we need to call RmanScene.set_root_lightlinks()
 
     '''    
     def __init__(self):
@@ -38,7 +37,6 @@ class RmanUpdate:
         self.is_updated_attributes = False
         self.updated_prop_name = None
         self.do_clear_instances = True  
-        self.update_root_light_linking = False
 
 class RmanSceneSync(object):
     '''
@@ -50,6 +48,7 @@ class RmanSceneSync(object):
         rman () - rman python module
         rman_scene (RmanScene) - pointer to the current RmanScene object
         sg_scene (RixSGSCene) - the RenderMan scene graph object
+        update_root_light_linking (bool) - whether we need to call RmanScene.set_root_lightlinks()
 
     '''
 
@@ -58,6 +57,7 @@ class RmanSceneSync(object):
         self.rman = rman_render.rman
         self.rman_scene = rman_scene
         self.sg_scene = sg_scene        
+        self.update_root_light_linking = False
         self.num_instances_changed = False # if the number of instances has changed since the last update
         self.frame_number_changed = False
         self.check_all_instances = False # force checking all instances
