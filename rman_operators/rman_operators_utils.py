@@ -269,7 +269,9 @@ class PRMAN_OT_Renderman_Package(Operator):
                                 texpath = txfile.get_output_texture()
                                 texpath = string_utils.expand_string(texpath, asFilePath=None) 
                                 texfile = os.path.basename(texpath)
-                                node[prop_name] = os.path.join('<blend_dir>', 'textures', texfile)
+                                texfile_full = os.path.join('<blend_dir>', 'textures', texfile)
+                                node[prop_name] = texfile_full
+                                setattr(node, prop_name, texfile_full)
                                 
                                 # double check the tex file has been copied. 
                                 diskpath = os.path.join(texture_dir, texfile)
@@ -280,7 +282,10 @@ class PRMAN_OT_Renderman_Package(Operator):
 
                                 continue
 
-                        node[prop_name] = os.path.join('<blend_dir>', 'textures', prop)
+                        texfile_full = os.path.join('<blend_dir>', 'textures', prop)
+                        node[prop_name] = texfile_full
+                        setattr(node, prop_name, texfile_full)
+
                         if colorspace:
                             # we need to set the colorspace again, since we've changed the path to the texture
                             setattr(node, colorspace_nm, colorspace)                        
