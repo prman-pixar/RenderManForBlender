@@ -131,14 +131,15 @@ class RmanHairCurvesTranslator(RmanTranslator):
             bl_curve.bl_hair_attributes[attr.name] = hair_curve_attr
 
     def _copy_uv_map(self, ob, bl_hair_attributes, bl_curve):
-        # make a copy of the uv_map to scalpST         
-        uv_map = ob.original.data.surface_uv_map
-        hair_attr = bl_hair_attributes.get(uv_map, None)
-        hair_curve_attr = bl_curve.bl_hair_attributes.get(uv_map, None)
-        if hair_attr and hair_curve_attr and hair_attr.rman_type == 'float2':
-            attr_copy = deepcopy(hair_curve_attr)
-            attr_copy.rman_name = 'scalpST'
-            bl_curve.bl_hair_attributes['scalpST'] = attr_copy
+        # make a copy of the uv_map to scalpST
+        uv_map = 'surface_uv_coordinate'   
+        if uv_map in bl_hair_attributes:             
+            hair_attr = bl_hair_attributes.get(uv_map, None)
+            hair_curve_attr = bl_curve.bl_hair_attributes.get(uv_map, None)
+            if hair_attr and hair_curve_attr and hair_attr.rman_type == 'float2':
+                attr_copy = deepcopy(hair_curve_attr)
+                attr_copy.rman_name = 'scalpST'
+                bl_curve.bl_hair_attributes['scalpST'] = attr_copy
 
     @time_this
     def _get_strands_(self, ob):
